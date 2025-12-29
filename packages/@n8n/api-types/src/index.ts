@@ -52,7 +52,6 @@ export {
 	type AgentIconOrEmoji,
 	agentIconOrEmojiSchema,
 	type MessageChunk,
-	type ChatHubAgentTool,
 	UpdateChatSettingsRequest,
 	type ChatProviderSettingsDto,
 	type ChatSendMessageResponse,
