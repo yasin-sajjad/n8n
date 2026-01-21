@@ -39,6 +39,7 @@ export class AiWorkflowBuilderService {
 		private readonly onCreditsUpdated?: OnCreditsUpdated,
 		private readonly onTelemetryEvent?: OnTelemetryEvent,
 		private readonly resourceLocatorCallbackFactory?: ResourceLocatorCallbackFactory,
+		private readonly generatedTypesDir?: string,
 	) {
 		this.nodeTypes = this.filterNodeTypes(parsedNodeTypes);
 		this.sessionManager = new SessionManagerService(this.nodeTypes, logger);
@@ -205,6 +206,7 @@ export class AiWorkflowBuilderService {
 			},
 			onGenerationSuccess: async () => await this.onGenerationSuccess(user, authHeaders),
 			resourceLocatorCallback,
+			generatedTypesDir: this.generatedTypesDir,
 		});
 
 		return { agent };

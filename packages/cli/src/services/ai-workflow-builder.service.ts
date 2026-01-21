@@ -155,6 +155,7 @@ export class WorkflowBuilderService {
 			onCreditsUpdated,
 			onTelemetryEvent,
 			resourceLocatorCallbackFactory,
+			this.instanceSettings.generatedTypesDir,
 		);
 
 		return this.service;

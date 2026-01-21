@@ -67,6 +67,11 @@ export interface WorkflowBuilderAgentConfig {
 	onGenerationSuccess?: () => Promise<void>;
 	/** Callback for fetching resource locator options */
 	resourceLocatorCallback?: ResourceLocatorCallback;
+	/**
+	 * Path to the generated types directory (from InstanceSettings.generatedTypesDir).
+	 * If not provided, falls back to workflow-sdk static types.
+	 */
+	generatedTypesDir?: string;
 }
 
 export interface ExpressionValue {
@@ -105,6 +110,7 @@ export class WorkflowBuilderAgent {
 	private runMetadata?: Record<string, unknown>;
 	private onGenerationSuccess?: () => Promise<void>;
 	private resourceLocatorCallback?: ResourceLocatorCallback;
+	private generatedTypesDir?: string;
 
 	constructor(config: WorkflowBuilderAgentConfig) {
 		this.parsedNodeTypes = config.parsedNodeTypes;
@@ -116,6 +122,7 @@ export class WorkflowBuilderAgent {
 		this.runMetadata = config.runMetadata;
 		this.onGenerationSuccess = config.onGenerationSuccess;
 		this.resourceLocatorCallback = config.resourceLocatorCallback;
+		this.generatedTypesDir = config.generatedTypesDir;
 	}
 
 	/**
@@ -171,6 +178,7 @@ export class WorkflowBuilderAgent {
 				llm: this.stageLLMs.builder,
 				nodeTypes: this.parsedNodeTypes,
 				logger: this.logger,
+				generatedTypesDir: this.generatedTypesDir,
 			});
 
 			yield* oneShotAgent.chat(payload, userId ?? 'unknown', abortSignal);
