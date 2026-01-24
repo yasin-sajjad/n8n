@@ -31,7 +31,8 @@ import AISettingsButton from '@/features/ai/assistant/components/Chat/AISettings
 import { useAssistantStore } from '@/features/ai/assistant/assistant.store';
 import { useSettingsStore } from '@/app/stores/settings.store';
 
-import { N8nAskAssistantChat, N8nText } from '@n8n/design-system';
+import { N8nAskAssistantChat, N8nText, N8nSelect } from '@n8n/design-system';
+import type { ChatRequest } from '../../assistant.types';
 
 const emit = defineEmits<{
 	close: [];
@@ -146,6 +147,24 @@ const workflowSuggestions = computed<WorkflowSuggestion[] | undefined>(() => {
 	// we don't show the suggestions if there are already messages
 	return builderStore.hasMessages ? undefined : shuffle(WORKFLOW_SUGGESTIONS);
 });
+
+const promptVersionOptions = computed(() => [
+	{ value: 'v1-sonnet', label: i18n.baseText('aiAssistant.builder.promptVersion.v1Sonnet') },
+	{ value: 'v2-opus', label: i18n.baseText('aiAssistant.builder.promptVersion.v2Opus') },
+]);
+
+const modelOptions = computed(() => [
+	{ value: 'claude-sonnet-4.5', label: 'Claude Sonnet 4.5' },
+	{ value: 'claude-opus-4.5', label: 'Claude Opus 4.5' },
+]);
+
+function onPromptVersionChange(version: ChatRequest.PromptVersionId) {
+	builderStore.setPromptVersion(version);
+}
+
+function onModelChange(modelId: ChatRequest.BuilderModelId) {
+	builderStore.setModelId(modelId);
+}
 
 const isAutosaving = computed(() => {
 	return (
@@ -432,6 +451,20 @@ defineExpose({
 						:disabled="builderStore.streaming"
 					/>
 				</div>
+				<div :class="$style.builderSettings">
+					<N8nSelect
+						:model-value="builderStore.selectedPromptVersion"
+						:options="promptVersionOptions"
+						size="small"
+						@update:model-value="onPromptVersionChange"
+					/>
+					<N8nSelect
+						:model-value="builderStore.selectedModelId"
+						:options="modelOptions"
+						size="small"
+						@update:model-value="onModelChange"
+					/>
+				</div>
 			</template>
 			<template #inputHeader>
 				<Transition name="slide">
@@ -477,6 +510,13 @@ defineExpose({
 	&.with-slot {
 		justify-content: space-between;
 	}
+}
+
+.builderSettings {
+	display: flex;
+	gap: var(--spacing--2xs);
+	padding: var(--spacing--2xs) var(--spacing--xs);
+	border-bottom: 1px solid var(--color--foreground);
 }
 
 .topText {
