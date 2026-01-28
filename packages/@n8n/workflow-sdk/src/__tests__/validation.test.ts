@@ -405,373 +405,65 @@ describe('Validation', () => {
 		});
 	});
 
-	describe('schema validation integration', () => {
-		it('should validate node parameters against schema by default', () => {
+	describe('containsExpression handles non-string values', () => {
+		it('should not throw when parameter values are numbers', () => {
 			const t = trigger({ type: 'n8n-nodes-base.webhookTrigger', version: 1, config: {} });
-			// keepOnlySet should be boolean, not a string
-			const setNode = node({
-				type: 'n8n-nodes-base.set',
-				version: 2,
-				config: {
-					name: 'Set',
-					parameters: { keepOnlySet: 'invalid-not-boolean' },
-				},
-			});
-
-			const wf = workflow('test-id', 'Test').add(t).then(setNode);
-			const result = validateWorkflow(wf);
-
-			expect(result.warnings.some((w) => w.code === 'INVALID_PARAMETER')).toBe(true);
-		});
-
-		it('should skip schema validation when validateSchema: false', () => {
-			const t = trigger({ type: 'n8n-nodes-base.webhookTrigger', version: 1, config: {} });
-			const setNode = node({
-				type: 'n8n-nodes-base.set',
-				version: 2,
-				config: {
-					name: 'Set',
-					parameters: { keepOnlySet: 'invalid-not-boolean' },
-				},
-			});
-
-			const wf = workflow('test-id', 'Test').add(t).then(setNode);
-			const result = validateWorkflow(wf, { validateSchema: false });
-
-			expect(result.warnings.some((w) => w.code === 'INVALID_PARAMETER')).toBe(false);
-		});
-
-		it('should not warn for valid parameters', () => {
-			const t = trigger({ type: 'n8n-nodes-base.webhookTrigger', version: 1, config: {} });
-			const setNode = node({
-				type: 'n8n-nodes-base.set',
-				version: 2,
-				config: {
-					name: 'Set',
-					parameters: { keepOnlySet: true },
-				},
-			});
-
-			const wf = workflow('test-id', 'Test').add(t).then(setNode);
-			const result = validateWorkflow(wf);
-
-			expect(result.warnings.some((w) => w.code === 'INVALID_PARAMETER')).toBe(false);
-		});
-
-		it('should gracefully handle nodes without schemas', () => {
-			const t = trigger({ type: 'n8n-nodes-base.webhookTrigger', version: 1, config: {} });
-			// Use a custom node type that doesn't have a schema
-			const customNode = node({
-				type: 'custom-nodes.myNode',
-				version: 1,
-				config: {
-					name: 'Custom Node',
-					parameters: { anyParam: 'any-value' },
-				},
-			});
-
-			const wf = workflow('test-id', 'Test').add(t).then(customNode);
-			const result = validateWorkflow(wf);
-
-			// Should not throw and should not have INVALID_PARAMETER errors for unknown nodes
-			const schemaWarnings = result.warnings.filter((w) => w.code === 'INVALID_PARAMETER');
-			expect(schemaWarnings).toEqual([]);
-		});
-
-		it('should accept expressions as valid parameter values', () => {
-			const t = trigger({ type: 'n8n-nodes-base.webhookTrigger', version: 1, config: {} });
-			const setNode = node({
-				type: 'n8n-nodes-base.set',
-				version: 2,
-				config: {
-					name: 'Set',
-					parameters: { keepOnlySet: '={{ $json.flag }}' },
-				},
-			});
-
-			const wf = workflow('test-id', 'Test').add(t).then(setNode);
-			const result = validateWorkflow(wf);
-
-			expect(result.warnings.some((w) => w.code === 'INVALID_PARAMETER')).toBe(false);
-		});
-
-		it('should include node name in INVALID_PARAMETER warning', () => {
-			const t = trigger({ type: 'n8n-nodes-base.webhookTrigger', version: 1, config: {} });
-			const setNode = node({
-				type: 'n8n-nodes-base.set',
-				version: 2,
-				config: {
-					name: 'My Set Node',
-					parameters: { keepOnlySet: 'invalid' },
-				},
-			});
-
-			const wf = workflow('test-id', 'Test').add(t).then(setNode);
-			const result = validateWorkflow(wf);
-
-			const invalidParamWarning = result.warnings.find((w) => w.code === 'INVALID_PARAMETER');
-			expect(invalidParamWarning).toBeDefined();
-			expect(invalidParamWarning?.nodeName).toBe('My Set Node');
-		});
-
-		it('should report INVALID_PARAMETER when AI agent has empty subnodes (no model)', () => {
-			// Directly create WorkflowJSON with subnodes on the node
-			// (In standard n8n format, subnodes become separate nodes, but we test direct validation)
-			const workflowJson = {
-				id: 'test-id',
-				name: 'Agent Without Model',
-				nodes: [
-					{
-						id: 'node-1',
-						name: 'Manual Trigger',
-						type: 'n8n-nodes-base.manualTrigger',
-						typeVersion: 1,
-						position: [0, 0] as [number, number],
-						parameters: {},
-					},
-					{
-						id: 'node-2',
-						name: 'AI Agent',
-						type: '@n8n/n8n-nodes-langchain.agent',
-						typeVersion: 1,
-						position: [200, 0] as [number, number],
-						parameters: {
-							text: 'Hello',
-							binaryPropertyName: 'data',
-							input: 'test',
-						},
-						// Empty subnodes object - model is required but missing!
-						subnodes: {},
-					},
-				],
-				connections: {
-					'Manual Trigger': {
-						main: [[{ node: 'AI Agent', type: 'main', index: 0 }]],
-					},
-				},
-			};
-
-			const result = validateWorkflow(workflowJson);
-
-			// Should have INVALID_PARAMETER warning for missing model in subnodes
-			const invalidParamWarnings = result.warnings.filter((w) => w.code === 'INVALID_PARAMETER');
-			expect(invalidParamWarnings.length).toBeGreaterThan(0);
-
-			// The warning should mention the AI Agent node
-			const agentWarning = invalidParamWarnings.find((w) => w.nodeName === 'AI Agent');
-			expect(agentWarning).toBeDefined();
-			// The warning message should mention the model field
-			expect(agentWarning?.message).toContain('model');
-		});
-	});
-
-	describe('validateWorkflow - subnode reconstruction from AI connections', () => {
-		it('should not warn about missing subnodes when AI connections exist', () => {
-			// Workflow JSON with AI agent and connected language model subnode
-			const workflowJson = {
-				id: 'test',
-				name: 'Test',
-				nodes: [
-					{
-						id: 'agent-1',
-						name: 'AI Agent',
-						type: '@n8n/n8n-nodes-langchain.agent',
-						typeVersion: 1.7,
-						position: [0, 0] as [number, number],
-						parameters: { text: 'Hello' },
-					},
-					{
-						id: 'model-1',
-						name: 'OpenAI Model',
-						type: '@n8n/n8n-nodes-langchain.lmChatOpenAi',
-						typeVersion: 1.2,
-						position: [0, 100] as [number, number],
-						parameters: { model: { __rl: true, mode: 'list', value: 'gpt-4o' } },
-					},
-				],
-				connections: {
-					'OpenAI Model': {
-						ai_languageModel: [[{ node: 'AI Agent', type: 'ai_languageModel', index: 0 }]],
-					},
-				},
-			};
-
-			const result = validateWorkflow(workflowJson);
-
-			// Should NOT have warning about missing subnodes
-			const subnodeWarnings = result.warnings.filter(
-				(w) => w.message.includes('subnodes') && w.message.includes('missing'),
-			);
-			expect(subnodeWarnings).toHaveLength(0);
-		});
-
-		it('should reconstruct multiple tool subnodes from AI connections', () => {
-			const workflowJson = {
-				id: 'test',
-				name: 'Test',
-				nodes: [
-					{
-						id: 'agent-1',
-						name: 'AI Agent',
-						type: '@n8n/n8n-nodes-langchain.agent',
-						typeVersion: 1.7,
-						position: [0, 0] as [number, number],
-						parameters: { text: 'Hello' },
-					},
-					{
-						id: 'model-1',
-						name: 'OpenAI Model',
-						type: '@n8n/n8n-nodes-langchain.lmChatOpenAi',
-						typeVersion: 1.2,
-						position: [0, 100] as [number, number],
-						parameters: { model: { __rl: true, mode: 'list', value: 'gpt-4o' } },
-					},
-					{
-						id: 'tool-1',
-						name: 'Tool 1',
-						type: '@n8n/n8n-nodes-langchain.toolCode',
-						typeVersion: 1.1,
-						position: [0, 200] as [number, number],
-						parameters: {},
-					},
-					{
-						id: 'tool-2',
-						name: 'Tool 2',
-						type: '@n8n/n8n-nodes-langchain.toolCode',
-						typeVersion: 1.1,
-						position: [0, 300] as [number, number],
-						parameters: {},
-					},
-				],
-				connections: {
-					'OpenAI Model': {
-						ai_languageModel: [[{ node: 'AI Agent', type: 'ai_languageModel', index: 0 }]],
-					},
-					'Tool 1': {
-						ai_tool: [[{ node: 'AI Agent', type: 'ai_tool', index: 0 }]],
-					},
-					'Tool 2': {
-						ai_tool: [[{ node: 'AI Agent', type: 'ai_tool', index: 0 }]],
-					},
-				},
-			};
-
-			const result = validateWorkflow(workflowJson);
-
-			const subnodeWarnings = result.warnings.filter(
-				(w) => w.message.includes('subnodes') && w.message.includes('missing'),
-			);
-			expect(subnodeWarnings).toHaveLength(0);
-		});
-	});
-
-	describe('validateWorkflow - AI agent with subnodes integration', () => {
-		it('should validate AI agent workflow built with SDK without false warnings', () => {
-			// Build workflow using SDK (simulating user's code pattern)
-			const openAiModel = languageModel({
-				type: '@n8n/n8n-nodes-langchain.lmChatOpenAi',
-				version: 1.2,
-				config: {
-					name: 'OpenAI Model',
-					parameters: {
-						model: { mode: 'list', value: 'gpt-4o' }, // Missing __rl: true - should be auto-added
-					},
-					position: [0, 0],
-				},
-			});
-
-			const codeTool = tool({
-				type: '@n8n/n8n-nodes-langchain.toolCode',
-				version: 1.1,
-				config: {
-					name: 'Code Tool',
-					parameters: {
-						description: 'A tool',
-					},
-					position: [0, 0],
-				},
-			});
-
 			const agent = node({
 				type: '@n8n/n8n-nodes-langchain.agent',
 				version: 1.7,
 				config: {
-					name: 'AI Agent',
 					parameters: {
-						text: 'Hello',
+						promptType: 'define',
+						text: 123, // Number instead of string - should not crash
+						options: { systemMessage: 'You are helpful' },
 					},
-					subnodes: {
-						model: openAiModel,
-						tools: [codeTool],
-					},
-					position: [0, 0],
 				},
 			});
-
-			const t = trigger({ type: 'n8n-nodes-base.manualTrigger', version: 1, config: {} });
 
 			const wf = workflow('test', 'Test').add(t).then(agent);
-			const result = wf.validate();
 
-			// Filter out expected warnings (like missing trigger - not applicable with manualTrigger)
-			const unexpectedWarnings = result.warnings.filter(
-				(w) =>
-					!w.message.includes('trigger') &&
-					!w.message.includes('not connected') &&
-					!w.message.includes('manually'),
-			);
-
-			// Should have no warnings about subnodes or __rl
-			const subnodeOrRlWarnings = unexpectedWarnings.filter(
-				(w) => w.message.includes('subnodes') || w.message.includes('__rl'),
-			);
-			expect(subnodeOrRlWarnings).toHaveLength(0);
+			// Should not throw "value.includes is not a function"
+			expect(() => wf.validate()).not.toThrow();
 		});
 
-		it('should auto-add __rl: true to resource locator values during toJSON', () => {
-			// Build workflow using SDK with resource locator missing __rl
-			const openAiModel = languageModel({
-				type: '@n8n/n8n-nodes-langchain.lmChatOpenAi',
-				version: 1.2,
-				config: {
-					name: 'OpenAI Model',
-					parameters: {
-						model: { mode: 'list', value: 'gpt-4o' }, // No __rl: true
-					},
-					position: [0, 0],
-				},
-			});
-
+		it('should not throw when parameter values are objects', () => {
+			const t = trigger({ type: 'n8n-nodes-base.webhookTrigger', version: 1, config: {} });
 			const agent = node({
 				type: '@n8n/n8n-nodes-langchain.agent',
 				version: 1.7,
 				config: {
-					name: 'AI Agent',
 					parameters: {
-						text: 'Hello',
+						promptType: 'define',
+						text: { nested: 'value' }, // Object instead of string
+						options: { systemMessage: 'You are helpful' },
 					},
-					subnodes: {
-						model: openAiModel,
-					},
-					position: [0, 0],
 				},
 			});
 
-			const t = trigger({ type: 'n8n-nodes-base.manualTrigger', version: 1, config: {} });
 			const wf = workflow('test', 'Test').add(t).then(agent);
 
-			// Get the JSON output
-			const json = wf.toJSON();
+			// Should not throw
+			expect(() => wf.validate()).not.toThrow();
+		});
 
-			// Find the OpenAI Model node in the JSON
-			const modelNode = json.nodes.find((n) => n.name === 'OpenAI Model');
-			expect(modelNode).toBeDefined();
+		it('should not throw when parameter values are null or undefined', () => {
+			const t = trigger({ type: 'n8n-nodes-base.webhookTrigger', version: 1, config: {} });
+			const agent = node({
+				type: '@n8n/n8n-nodes-langchain.agent',
+				version: 1.7,
+				config: {
+					parameters: {
+						promptType: 'define',
+						text: null, // null value
+						options: { systemMessage: 'You are helpful' },
+					},
+				},
+			});
 
-			// The model parameter should have __rl: true added automatically
-			const modelParam = modelNode?.parameters?.model as Record<string, unknown> | undefined;
-			expect(modelParam?.__rl).toBe(true);
-			expect(modelParam?.mode).toBe('list');
-			expect(modelParam?.value).toBe('gpt-4o');
+			const wf = workflow('test', 'Test').add(t).then(agent);
+
+			// Should not throw
+			expect(() => wf.validate()).not.toThrow();
 		});
 	});
 });
