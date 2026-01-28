@@ -145,7 +145,7 @@ export function createExecuteScriptTool(
 				const validatedInput = executeScriptSchema.parse(input);
 				const { script, description, validateStructure: shouldValidate } = validatedInput;
 
-				// Report tool start
+				// Report tool startL:
 				reporter.start({ description: description ?? 'Executing script' });
 
 				// Validate script syntax before execution
@@ -293,34 +293,47 @@ export function createExecuteScriptTool(
 		},
 		{
 			name: builderToolBase.toolName,
-			description: `Execute a TypeScript script to perform multiple workflow operations at once.
+			description: `Execute a script to perform workflow operations. Call MULTIPLE TIMES for iterative building.
+
+BUILD ITERATIVELY: Call this tool multiple times, each adding 1-3 related nodes:
+1. First call: Create trigger node
+2. Next calls: Add related nodes, connect to previous nodes BY NAME, configure them
+3. Repeat until workflow is complete
+
+AWAIT RULES:
+- SYNC (no await): add(), addNode(), conn(), connectNodes(), set()
+- ASYNC (requires await): updateAll(), updateNodeParameters()
 
 SHORT-FORM SYNTAX:
-- Node: {t:'nodeType',n:'Name',p:{params}} - only t is required
+- Node: {t:'nodeType',n:'Name',p:{params}}
 - Connection: {s:source,d:dest,so:outputIndex,di:inputIndex}
+- Reference previous nodes by name: {s:'Previous Node Name',d:newNode}
 
-AVAILABLE IN SCRIPT:
-- tools.add({nodes:[...]}) - Add nodes
-- tools.conn({connections:[...]}) - Connect nodes
-- tools.updateAll({updates:[...]}) - REQUIRED: Configure all nodes (describe in natural language)
-- tools.updateNodeParameters({nodeId,changes}) - Configure single node
-- tools.set({nodeId,params}) - Only for simple params (AI Agent systemMessage)
-
-EXAMPLE - Create nodes, connect them, then configure ALL with updateAll:
+EXAMPLE - Script 1 (trigger):
 \`\`\`javascript
-const r = await tools.add({nodes:[
-  {t:'n8n-nodes-base.webhook',n:'Webhook',p:{httpMethod:'POST',path:'data'}},
-  {t:'n8n-nodes-base.set',n:'Process'},
-  {t:'n8n-nodes-base.slack',n:'Notify'}
+const wh = tools.addNode({t:'n8n-nodes-base.webhook',n:'Webhook',p:{httpMethod:'POST',path:'data'}});
+await tools.updateNodeParameters({nodeId:wh.nodeId,changes:["Set response mode to lastNode"]});
+\`\`\`
+
+EXAMPLE - Script 2 (processing, references trigger by name):
+\`\`\`javascript
+const proc = tools.addNode({t:'n8n-nodes-base.set',n:'Process'});
+tools.connectNodes({s:'Webhook',d:proc});  // Reference by name!
+await tools.updateNodeParameters({nodeId:proc.nodeId,changes:["Add field 'status' with value 'received'"]});
+\`\`\`
+
+EXAMPLE - Script 3 (AI Agent group - related nodes together):
+\`\`\`javascript
+const r = tools.add({nodes:[
+  {t:'@n8n/n8n-nodes-langchain.agent',n:'Agent'},
+  {t:'@n8n/n8n-nodes-langchain.lmChatOpenAi',n:'Model'}
 ]});
-const [wh,proc,slack] = r.results;
-await tools.conn({connections:[{s:wh,d:proc},{s:proc,d:slack}]});
-// CRITICAL: Configure ALL nodes - describe what each should do
-await tools.updateAll({updates:[
-  {nodeId:proc.nodeId,changes:["Add field 'status' with value 'received'","Add field 'timestamp' with {{$now}}"]},
-  {nodeId:slack.nodeId,changes:["Set message showing status and timestamp","Configure to send to notifications channel"]}
-]});
-\`\`\``,
+const [agent,model] = r.results;
+tools.conn({connections:[{s:'Process',d:agent},{s:model,d:agent}]});
+tools.set({nodeId:agent,params:{systemMessage:'You are helpful.',prompt:'={{$json.input}}'}});
+\`\`\`
+
+NODE GROUPS (create together): AI Agent + Model, Vector Store + Embeddings, Switch + branches`,
 			schema: executeScriptSchema,
 		},
 	);

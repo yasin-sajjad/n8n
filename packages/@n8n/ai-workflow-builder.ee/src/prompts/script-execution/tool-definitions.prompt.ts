@@ -13,16 +13,26 @@ import { TOOL_INTERFACE_DEFINITIONS } from '../../tools/script-execution/tool-in
  */
 export const SCRIPT_EXECUTION_WHEN_TO_USE = `## When to Use execute_script
 
-Use execute_script when:
-- Creating 3+ nodes AND their connections in one operation
-- Building common patterns (AI Agent + Chat Model, Vector Store + Embeddings)
-- Performing operations that depend on results of previous operations
-- You need conditional logic (create node B only if node A succeeded)
+ALWAYS use execute_script for building workflows. Call it multiple times, building incrementally.
 
-Use individual tools when:
-- Adding or removing a single node
-- Making one connection
-- Simple operations that don't benefit from scripting`;
+### Iterative Building (RECOMMENDED)
+Build workflows incrementally by calling execute_script multiple times:
+1. Each call adds a small group of related nodes (1-3 nodes)
+2. Connect them to previously created nodes (reference by name)
+3. Configure them immediately
+4. Repeat for the next group
+
+Benefits:
+- Faster generation per step (smaller scripts are simpler)
+- User sees progress incrementally
+- Better error recovery (previous nodes already exist)
+
+### Node Groups (create related nodes together)
+Some nodes are semantically related and should be created in ONE script:
+- **AI Agent group**: AI Agent + Chat Model (+ optional Memory, Tools)
+- **Vector Store group**: Vector Store + Embeddings (+ optional Document Loader)
+- **Approval group**: Slack/Email sendAndWait + related Set nodes
+- **Switch/If group**: Switch/If node + its immediate downstream branches`;
 
 /**
  * Script execution best practices
@@ -142,118 +152,106 @@ REMEMBER: When in doubt, use updateNodeParameters/updateAll. Unconfigured nodes 
 `;
 
 /**
- * Common script patterns for workflow building
+ * Iterative building patterns - call execute_script multiple times
  * IMPORTANT: add() and conn() are SYNCHRONOUS (no await). Only updateAll() needs await.
  */
-export const SCRIPT_EXECUTION_PATTERNS = `## Common Script Patterns (with FULL Configuration via updateAll)
+export const SCRIPT_EXECUTION_PATTERNS = `## Iterative Building Patterns (RECOMMENDED)
 
-### Pattern 1: Simple AI Agent Setup
+Build workflows incrementally by calling execute_script multiple times. Each call adds a small group of related nodes.
+
+### Iteration 1: Trigger Node
+First script - create the trigger and configure it:
 \`\`\`javascript
-// add() and conn() are synchronous - no await needed
+const webhook = tools.addNode({{t:'n8n-nodes-base.webhook',n:'Purchase Request',p:{{httpMethod:'POST',path:'purchase-request'}}}});
+await tools.updateNodeParameters({{nodeId:webhook.nodeId,changes:[
+  "Set path to 'purchase-request'",
+  "Set HTTP method to POST",
+  "Set response mode to lastNode"
+]}});
+\`\`\`
+
+### Iteration 2: Config/Set Node
+Second script - add config node, connect to trigger (by name), configure:
+\`\`\`javascript
+const config = tools.addNode({{t:'n8n-nodes-base.set',n:'Workflow Configuration'}});
+tools.connectNodes({{s:'Purchase Request',d:config}});  // Reference trigger by name
+await tools.updateNodeParameters({{nodeId:config.nodeId,changes:[
+  "Add field 'requester' from {{$json.body.requester}}",
+  "Add field 'amount' as number from {{$json.body.amount}}",
+  "Add field 'description' from {{$json.body.description}}"
+]}});
+\`\`\`
+
+### Iteration 3: AI Agent Group (related nodes together)
+Create related nodes in one script - AI Agent needs its Chat Model:
+\`\`\`javascript
 const r = tools.add({{nodes:[
-  {{t:'n8n-nodes-base.manualTrigger',n:'Trigger'}},
   {{t:'@n8n/n8n-nodes-langchain.agent',n:'Agent',p:{{hasOutputParser:false}}}},
   {{t:'@n8n/n8n-nodes-langchain.lmChatOpenAi',n:'Model'}}
 ]}});
-const [t,a,m] = r.results;
-tools.conn({{connections:[{{s:t,d:a}},{{s:m,d:a}}]}});
-// set() is also synchronous - no await needed for simple params
-tools.set({{nodeId:a,params:{{
-  systemMessage:'You are a helpful assistant that provides clear, concise answers.',
-  prompt:'={{$json.chatInput}}'
+const [agent,model] = r.results;
+tools.conn({{connections:[
+  {{s:'Workflow Configuration',d:agent}},  // Connect to previous node by name
+  {{s:model,d:agent}}                        // Connect model to agent
+]}});
+tools.set({{nodeId:agent,params:{{
+  systemMessage:'You are a helpful assistant.',
+  prompt:'={{$json.input}}'
 }}}});
 \`\`\`
 
-### Pattern 2: Switch Node with Multiple Outputs
-Switch nodes route to different paths. Use so: for output index.
+### Iteration 4: Switch Group (router + branches)
+Create switch and its immediate branches together:
 \`\`\`javascript
 const r = tools.add({{nodes:[
-  {{t:'n8n-nodes-base.webhook',n:'Webhook',p:{{httpMethod:'POST',path:'route-data'}}}},
-  {{t:'n8n-nodes-base.switch',n:'Router'}},
+  {{t:'n8n-nodes-base.switch',n:'Route by Amount'}},
   {{t:'n8n-nodes-base.set',n:'Handle Low'}},
-  {{t:'n8n-nodes-base.set',n:'Handle Medium'}},
   {{t:'n8n-nodes-base.set',n:'Handle High'}}
 ]}});
-const [wh,sw,low,med,high] = r.results;
+const [sw,low,high] = r.results;
 tools.conn({{connections:[
-  {{s:wh,d:sw}},
-  {{s:sw,d:low,so:0}},
-  {{s:sw,d:med,so:1}},
-  {{s:sw,d:high,so:2}}
+  {{s:'Workflow Configuration',d:sw}},  // Connect to previous node
+  {{s:sw,d:low,so:0}},                   // First output
+  {{s:sw,d:high,so:1}}                   // Second output
 ]}});
-// updateAll() uses LLM so it needs await - describe what each node should do
 await tools.updateAll({{updates:[
-  {{nodeId:sw.nodeId,changes:[
-    "Add 3 routing rules based on {{$json.priority}} field",
-    "First rule: when priority equals 'low', output to 'Low Priority'",
-    "Second rule: when priority equals 'medium', output to 'Medium Priority'",
-    "Third rule: when priority equals 'high', output to 'High Priority'"
-  ]}},
-  {{nodeId:low.nodeId,changes:["Add field 'handler' with value 'standard-queue'"]}},
-  {{nodeId:med.nodeId,changes:["Add field 'handler' with value 'priority-queue'"]}},
-  {{nodeId:high.nodeId,changes:["Add field 'handler' with value 'urgent-queue'", "Add boolean field 'escalate' set to true"]}}
+  {{nodeId:sw.nodeId,changes:["Add 2 rules based on {{$json.amount}}: under 100 → first output, 100 or more → second output"]}},
+  {{nodeId:low.nodeId,changes:["Add field 'tier' with value 'standard'"]}},
+  {{nodeId:high.nodeId,changes:["Add field 'tier' with value 'priority'"]}}
 ]}});
 \`\`\`
 
-### Pattern 3: Merge Node with Multiple Inputs
-Merge nodes combine data from multiple paths. Use di: for input index.
+### Iteration 5: Final nodes (converging paths)
+Add merge and final processing:
 \`\`\`javascript
 const r = tools.add({{nodes:[
-  {{t:'n8n-nodes-base.set',n:'Source A'}},
-  {{t:'n8n-nodes-base.set',n:'Source B'}},
-  {{t:'n8n-nodes-base.merge',n:'Combine',p:{{mode:'combine'}}}},
-  {{t:'n8n-nodes-base.set',n:'Output'}}
+  {{t:'n8n-nodes-base.merge',n:'Merge Results',p:{{mode:'append',numberInputs:2}}}},
+  {{t:'n8n-nodes-base.emailSend',n:'Send Notification'}}
 ]}});
-const [a,b,m,out] = r.results;
+const [merge,email] = r.results;
 tools.conn({{connections:[
-  {{s:a,d:m,di:0}},
-  {{s:b,d:m,di:1}},
-  {{s:m,d:out}}
+  {{s:'Handle Low',d:merge,di:0}},   // Connect branches to merge
+  {{s:'Handle High',d:merge,di:1}},
+  {{s:merge,d:email}}
 ]}});
-// updateAll() needs await
-await tools.updateAll({{updates:[
-  {{nodeId:a.nodeId,changes:["Add field 'sourceA_data' from {{$json.fieldA}}"]}},
-  {{nodeId:b.nodeId,changes:["Add field 'sourceB_data' from {{$json.fieldB}}"]}},
-  {{nodeId:out.nodeId,changes:[
-    "Add field 'combined' concatenating sourceA_data and sourceB_data",
-    "Add field 'processedAt' with current timestamp {{$now}}"
-  ]}}
+await tools.updateNodeParameters({{nodeId:email.nodeId,changes:[
+  "Set toEmail to {{$json.requesterEmail}}",
+  "Set subject to 'Request Processed'",
+  "Set HTML body with processing details"
 ]}});
 \`\`\`
 
-### Pattern 4: Approval Workflow with Slack and Email
-\`\`\`javascript
-const r = tools.add({{nodes:[
-  {{t:'n8n-nodes-base.webhook',n:'Request Webhook',p:{{httpMethod:'POST',path:'approval-request'}}}},
-  {{t:'n8n-nodes-base.set',n:'Extract Data'}},
-  {{t:'n8n-nodes-base.slack',n:'Send Approval'}},
-  {{t:'n8n-nodes-base.emailSend',n:'Send Confirmation'}}
-]}});
-const [wh,extract,slack,email] = r.results;
-tools.conn({{connections:[{{s:wh,d:extract}},{{s:extract,d:slack}},{{s:slack,d:email}}]}});
+## Node Group Reference
 
-// updateAll() needs await - configure ALL nodes
-await tools.updateAll({{updates:[
-  {{nodeId:extract.nodeId,changes:[
-    "Add field 'requester' from {{$json.body.requester}}",
-    "Add field 'amount' as number from {{$json.body.amount}}",
-    "Add field 'description' from {{$json.body.description}}",
-    "Add field 'requesterEmail' from {{$json.body.email}}"
-  ]}},
-  {{nodeId:slack.nodeId,changes:[
-    "Set operation to sendAndWait for approval workflow",
-    "Set message showing: Approval Request with requester name {{$json.requester}}, amount \${{$json.amount}}, and description {{$json.description}}",
-    "Configure approval buttons with Approve and Reject options",
-    "Format message nicely with line breaks and emphasis"
-  ]}},
-  {{nodeId:email.nodeId,changes:[
-    "Set fromEmail to approvals@company.com",
-    "Set toEmail to {{$json.requesterEmail}}",
-    "Set subject to 'Approval Decision - \${{$json.amount}}'",
-    "Set HTML body with formatted decision details including amount, description, and whether approved or rejected"
-  ]}}
-]}});
-\`\`\``;
+Create these related nodes TOGETHER in one script:
+
+| Group | Nodes to create together |
+|-------|-------------------------|
+| AI Agent | Agent + Chat Model (+ Memory, Tools if needed) |
+| Vector Store | Vector Store + Embeddings (+ Document Loader) |
+| Switch/If | Switch/If + immediate branch nodes |
+| Approval | Slack/Email sendAndWait + response handling Set nodes |
+| RAG Query | Q&A Chain + Retriever + Chat Model |`;
 
 /**
  * TypeScript interface definitions for the script context
@@ -277,78 +275,69 @@ export function buildScriptExecutionGuidance(): string {
 /**
  * Condensed guidance for space-constrained prompts
  */
-export const SCRIPT_EXECUTION_CONDENSED = `## CRITICAL: Script-Based Workflow Building (OVERRIDES PREVIOUS INSTRUCTIONS)
+export const SCRIPT_EXECUTION_CONDENSED = `## CRITICAL: Iterative Script-Based Workflow Building
 
-IGNORE the "mandatory_execution_sequence" section above. Use THIS sequence instead:
+You MUST call the execute_script tool to build workflows. Build ITERATIVELY by calling it multiple times.
 
-You MUST call the execute_script tool to build workflows. This is the ONLY tool available for building.
+### ITERATIVE BUILDING (RECOMMENDED)
+Call execute_script multiple times, each adding a small group of related nodes:
+1. **First call**: Create trigger node, configure it
+2. **Next calls**: Add 1-3 related nodes, connect to previous nodes BY NAME, configure them
+3. **Repeat** until workflow is complete
 
-MANDATORY EXECUTION SEQUENCE:
-1. Call execute_script tool ONCE with a script that:
-   a) Creates ALL nodes needed using tools.add()
-   b) Creates ALL connections using tools.conn()
-   c) CONFIGURES ALL NODES using tools.updateAll() - describe what each node should do in natural language
-2. Respond to user with summary (validation happens automatically)
+Benefits: Faster generation, incremental progress, better error recovery.
 
-SHORT-FORM SYNTAX:
-- Node: {{t:'nodeType',n:'Name',p:{{param:value}}}}
-- Connection: {{s:sourceNode,d:destNode,so:outputIndex,di:inputIndex}}
+### NODE GROUPS (create related nodes together)
+- **AI Agent**: Agent + Chat Model (+ Memory/Tools if needed)
+- **Vector Store**: Vector Store + Embeddings (+ Document Loader)
+- **Switch/If**: Router + its immediate branch nodes
+- **Approval**: sendAndWait node + response handling
 
-AWAIT RULES - IMPORTANT:
-- tools.add(), tools.conn(), tools.set(), tools.setAll() are SYNCHRONOUS - no await needed
-- tools.updateAll(), tools.updateNodeParameters() are ASYNC - require await (they use LLM)
+### EXAMPLE - Iterative Building (3 script calls)
 
-COMPLETE EXAMPLE (nodes + connections + CONFIGURATION via updateAll):
+**Script 1: Trigger**
 \`\`\`javascript
-// SYNCHRONOUS: add() and conn() don't need await
-const r = tools.add({{nodes:[
-  {{t:'n8n-nodes-base.webhook',n:'Webhook',p:{{httpMethod:'POST',path:'request'}}}},
-  {{t:'n8n-nodes-base.set',n:'Extract Data'}},
-  {{t:'n8n-nodes-base.slack',n:'Send Approval'}},
-  {{t:'n8n-nodes-base.emailSend',n:'Send Confirmation'}}
-]}});
-const [wh,extract,slack,email] = r.results;
-tools.conn({{connections:[{{s:wh,d:extract}},{{s:extract,d:slack}},{{s:slack,d:email}}]}});
+const wh = tools.addNode({{t:'n8n-nodes-base.webhook',n:'Webhook',p:{{httpMethod:'POST',path:'request'}}}});
+await tools.updateNodeParameters({{nodeId:wh.nodeId,changes:["Set response mode to lastNode"]}});
+\`\`\`
 
-// ASYNC: updateAll() uses LLM so it needs await - describe what each node should do
-await tools.updateAll({{updates:[
-  {{nodeId:extract.nodeId,changes:[
-    "Add field 'requester' from {{$json.body.requester}}",
-    "Add field 'amount' as number from {{$json.body.amount}}",
-    "Add field 'description' from {{$json.body.description}}"
-  ]}},
-  {{nodeId:slack.nodeId,changes:[
-    "Set operation to sendAndWait for approval",
-    "Set message showing requester {{$json.requester}}, amount \${{$json.amount}}, description",
-    "Configure Approve and Reject buttons"
-  ]}},
-  {{nodeId:email.nodeId,changes:[
-    "Set fromEmail to notifications@company.com",
-    "Set toEmail to {{$json.requesterEmail}}",
-    "Set subject to 'Decision - \${{$json.amount}}'",
-    "Set HTML body with decision details"
-  ]}}
+**Script 2: Processing (references trigger by name)**
+\`\`\`javascript
+const extract = tools.addNode({{t:'n8n-nodes-base.set',n:'Extract Data'}});
+tools.connectNodes({{s:'Webhook',d:extract}});  // Reference by name!
+await tools.updateNodeParameters({{nodeId:extract.nodeId,changes:[
+  "Add field 'requester' from {{$json.body.requester}}",
+  "Add field 'amount' from {{$json.body.amount}}"
 ]}});
 \`\`\`
 
-Functions available INSIDE your script:
-- tools.add({{nodes:[...]}}) - Add multiple nodes (SYNC - no await)
-- tools.conn({{connections:[...]}}) - Connect multiple pairs (SYNC - no await)
-- tools.set({{nodeId,params}}) - Simple params you're certain about (SYNC - no await)
-- tools.updateAll({{updates:[...]}}) - Configure all nodes via LLM (ASYNC - requires await)
-- tools.updateNodeParameters({{nodeId,changes}}) - Configure single node via LLM (ASYNC - requires await)
+**Script 3: AI Agent Group (related nodes together)**
+\`\`\`javascript
+const r = tools.add({{nodes:[
+  {{t:'@n8n/n8n-nodes-langchain.agent',n:'Agent'}},
+  {{t:'@n8n/n8n-nodes-langchain.lmChatOpenAi',n:'Model'}}
+]}});
+const [agent,model] = r.results;
+tools.conn({{connections:[{{s:'Extract Data',d:agent}},{{s:model,d:agent}}]}});
+tools.set({{nodeId:agent,params:{{systemMessage:'You are helpful.',prompt:'={{$json.input}}'}}}});
+\`\`\`
 
-Short-form aliases:
-- t = nodeType, v = nodeVersion, n = name, p = initialParameters
-- s = sourceNodeId, d = targetNodeId, so = sourceOutputIndex, di = targetInputIndex
+### AWAIT RULES
+- **SYNC (no await)**: tools.add(), tools.addNode(), tools.conn(), tools.connectNodes(), tools.set(), tools.setAll()
+- **ASYNC (requires await)**: tools.updateAll(), tools.updateNodeParameters()
 
-CRITICAL for multi-output/multi-input nodes:
-- Switch nodes: use 'so' for output index: {{s:switchNode,d:target,so:1}}
-- Merge nodes: use 'di' for input index: {{s:source,d:mergeNode,di:1}}
+### SHORT-FORM SYNTAX
+- Node: {{t:'nodeType',n:'Name',p:{{params}}}}
+- Connection: {{s:source,d:dest,so:outputIndex,di:inputIndex}}
+- Reference previous nodes BY NAME: {{s:'Node Name',d:newNode}}
 
-Key rules:
-1. Call execute_script ONCE with complete script
-2. ALWAYS use tools.updateAll() to configure nodes after creating them (with await)
-3. Describe configuration in natural language - the system figures out exact params
-4. NEVER leave nodes unconfigured - every node must have its behavior defined
-5. Only await updateAll() and updateNodeParameters() - other tools are synchronous`;
+### MULTI-OUTPUT/INPUT NODES
+- Switch: use 'so' for output index: {{s:switchNode,d:target,so:1}}
+- Merge: use 'di' for input index: {{s:source,d:mergeNode,di:1}}
+
+### KEY RULES
+1. Build ITERATIVELY - multiple small scripts, not one giant script
+2. Group related nodes together (AI Agent + Model, Switch + branches)
+3. Reference previous nodes BY NAME in connections
+4. ALWAYS configure nodes with updateNodeParameters() or set()
+5. Only await updateAll()/updateNodeParameters() - other tools are sync`;

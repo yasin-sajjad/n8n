@@ -113,7 +113,7 @@ describe('Tool Wrappers', () => {
 
 	describe('addNode', () => {
 		it('should add a node and return success with nodeId', async () => {
-			const result = await tools.addNode({
+			const result = tools.addNode({
 				nodeType: 'n8n-nodes-base.manualTrigger',
 				nodeVersion: 1,
 				name: 'My Trigger',
@@ -134,7 +134,7 @@ describe('Tool Wrappers', () => {
 		});
 
 		it('should return error for unknown node type', async () => {
-			const result = await tools.addNode({
+			const result = tools.addNode({
 				nodeType: 'unknown.node',
 				nodeVersion: 1,
 				name: 'Unknown',
@@ -148,7 +148,7 @@ describe('Tool Wrappers', () => {
 
 		it('should generate unique name when duplicate exists', async () => {
 			// Add first node
-			const result1 = await tools.addNode({
+			const result1 = tools.addNode({
 				nodeType: 'n8n-nodes-base.httpRequest',
 				nodeVersion: 1,
 				name: 'HTTP Request',
@@ -157,7 +157,7 @@ describe('Tool Wrappers', () => {
 			});
 
 			// Add second node with same name
-			const result2 = await tools.addNode({
+			const result2 = tools.addNode({
 				nodeType: 'n8n-nodes-base.httpRequest',
 				nodeVersion: 1,
 				name: 'HTTP Request',
@@ -175,7 +175,7 @@ describe('Tool Wrappers', () => {
 	describe('connectNodes', () => {
 		it('should connect two nodes using string nodeIds', async () => {
 			// First add the nodes
-			const trigger = await tools.addNode({
+			const trigger = tools.addNode({
 				nodeType: 'n8n-nodes-base.manualTrigger',
 				nodeVersion: 1,
 				name: 'Trigger',
@@ -183,7 +183,7 @@ describe('Tool Wrappers', () => {
 				initialParameters: {},
 			});
 
-			const httpRequest = await tools.addNode({
+			const httpRequest = tools.addNode({
 				nodeType: 'n8n-nodes-base.httpRequest',
 				nodeVersion: 1,
 				name: 'HTTP',
@@ -192,7 +192,7 @@ describe('Tool Wrappers', () => {
 			});
 
 			// Connect them using string nodeIds (original pattern)
-			const result = await tools.connectNodes({
+			const result = tools.connectNodes({
 				sourceNodeId: trigger.nodeId!,
 				targetNodeId: httpRequest.nodeId!,
 			});
@@ -208,7 +208,7 @@ describe('Tool Wrappers', () => {
 
 		it('should connect two nodes using AddNodeResult objects directly', async () => {
 			// First add the nodes
-			const trigger = await tools.addNode({
+			const trigger = tools.addNode({
 				nodeType: 'n8n-nodes-base.manualTrigger',
 				nodeVersion: 1,
 				name: 'Trigger',
@@ -216,7 +216,7 @@ describe('Tool Wrappers', () => {
 				initialParameters: {},
 			});
 
-			const httpRequest = await tools.addNode({
+			const httpRequest = tools.addNode({
 				nodeType: 'n8n-nodes-base.httpRequest',
 				nodeVersion: 1,
 				name: 'HTTP',
@@ -225,7 +225,7 @@ describe('Tool Wrappers', () => {
 			});
 
 			// Connect them using result objects directly (ergonomic pattern)
-			const result = await tools.connectNodes({
+			const result = tools.connectNodes({
 				sourceNodeId: trigger,
 				targetNodeId: httpRequest,
 			});
@@ -240,7 +240,7 @@ describe('Tool Wrappers', () => {
 		});
 
 		it('should return error for non-existent node', async () => {
-			const result = await tools.connectNodes({
+			const result = tools.connectNodes({
 				sourceNodeId: 'non-existent',
 				targetNodeId: 'also-non-existent',
 			});
@@ -250,7 +250,7 @@ describe('Tool Wrappers', () => {
 		});
 
 		it('should return error for invalid source node reference', async () => {
-			const result = await tools.connectNodes({
+			const result = tools.connectNodes({
 				sourceNodeId: { nodeId: undefined },
 				targetNodeId: 'some-id',
 			});
@@ -260,7 +260,7 @@ describe('Tool Wrappers', () => {
 		});
 
 		it('should return error for invalid target node reference', async () => {
-			const trigger = await tools.addNode({
+			const trigger = tools.addNode({
 				nodeType: 'n8n-nodes-base.manualTrigger',
 				nodeVersion: 1,
 				name: 'Trigger',
@@ -268,7 +268,7 @@ describe('Tool Wrappers', () => {
 				initialParameters: {},
 			});
 
-			const result = await tools.connectNodes({
+			const result = tools.connectNodes({
 				sourceNodeId: trigger,
 				targetNodeId: { nodeId: undefined },
 			});
@@ -281,7 +281,7 @@ describe('Tool Wrappers', () => {
 	describe('removeNode', () => {
 		it('should remove an existing node', async () => {
 			// Add a node first
-			const added = await tools.addNode({
+			const added = tools.addNode({
 				nodeType: 'n8n-nodes-base.httpRequest',
 				nodeVersion: 1,
 				name: 'To Remove',
@@ -290,7 +290,7 @@ describe('Tool Wrappers', () => {
 			});
 
 			// Remove it
-			const result = await tools.removeNode({
+			const result = tools.removeNode({
 				nodeId: added.nodeId!,
 			});
 
@@ -300,7 +300,7 @@ describe('Tool Wrappers', () => {
 		});
 
 		it('should return error for non-existent node', async () => {
-			const result = await tools.removeNode({
+			const result = tools.removeNode({
 				nodeId: 'non-existent',
 			});
 
@@ -312,7 +312,7 @@ describe('Tool Wrappers', () => {
 	describe('renameNode', () => {
 		it('should rename a node', async () => {
 			// Add a node
-			const added = await tools.addNode({
+			const added = tools.addNode({
 				nodeType: 'n8n-nodes-base.httpRequest',
 				nodeVersion: 1,
 				name: 'Old Name',
@@ -321,7 +321,7 @@ describe('Tool Wrappers', () => {
 			});
 
 			// Rename it
-			const result = await tools.renameNode({
+			const result = tools.renameNode({
 				nodeId: added.nodeId!,
 				newName: 'New Name',
 			});
@@ -333,7 +333,7 @@ describe('Tool Wrappers', () => {
 
 		it('should return error for duplicate name', async () => {
 			// Add two nodes
-			await tools.addNode({
+			tools.addNode({
 				nodeType: 'n8n-nodes-base.httpRequest',
 				nodeVersion: 1,
 				name: 'Node A',
@@ -341,7 +341,7 @@ describe('Tool Wrappers', () => {
 				initialParameters: {},
 			});
 
-			const nodeB = await tools.addNode({
+			const nodeB = tools.addNode({
 				nodeType: 'n8n-nodes-base.httpRequest',
 				nodeVersion: 1,
 				name: 'Node B',
@@ -350,7 +350,7 @@ describe('Tool Wrappers', () => {
 			});
 
 			// Try to rename Node B to Node A
-			const result = await tools.renameNode({
+			const result = tools.renameNode({
 				nodeId: nodeB.nodeId!,
 				newName: 'Node A',
 			});
@@ -376,7 +376,7 @@ describe('Tool Wrappers', () => {
 			});
 
 			// Rename the existing node
-			const result = await existingWorkflowTools.renameNode({
+			const result = existingWorkflowTools.renameNode({
 				nodeId: 'existing-agent-id',
 				newName: 'Renamed Agent',
 			});
@@ -418,7 +418,7 @@ describe('Tool Wrappers', () => {
 			});
 
 			// 1. Add output parser
-			const parser = await toolsWithExisting.addNode({
+			const parser = toolsWithExisting.addNode({
 				nodeType: '@n8n/n8n-nodes-langchain.outputParserStructured',
 				nodeVersion: 1, // Using version 1 to match the mock node type
 				name: 'Extract Email and Temperature',
@@ -428,7 +428,7 @@ describe('Tool Wrappers', () => {
 			expect(parser.success).toBe(true);
 
 			// 2. Connect parser to AI Agent by UUID (this was failing)
-			const connectResult = await toolsWithExisting.connectNodes({
+			const connectResult = toolsWithExisting.connectNodes({
 				sourceNodeId: parser,
 				targetNodeId: 'agent-uuid-12345', // Using UUID, not name
 			});
@@ -476,7 +476,7 @@ describe('Tool Wrappers', () => {
 			});
 
 			// Add output parser
-			const parser = await toolsWithExisting.addNode({
+			const parser = toolsWithExisting.addNode({
 				nodeType: '@n8n/n8n-nodes-langchain.outputParserStructured',
 				nodeVersion: 1,
 				name: 'Output Parser',
@@ -486,7 +486,7 @@ describe('Tool Wrappers', () => {
 			expect(parser.success).toBe(true);
 
 			// Try to connect parser to AI Agent - should FAIL because hasOutputParser is not true
-			const connectResult = await toolsWithExisting.connectNodes({
+			const connectResult = toolsWithExisting.connectNodes({
 				sourceNodeId: parser,
 				targetNodeId: 'agent-uuid-no-parser',
 			});
@@ -518,7 +518,7 @@ describe('Tool Wrappers', () => {
 			});
 
 			// 1. Add a new node
-			const parser = await toolsWithExisting.addNode({
+			const parser = toolsWithExisting.addNode({
 				nodeType: 'n8n-nodes-base.httpRequest',
 				nodeVersion: 1,
 				name: 'Output Parser',
@@ -528,7 +528,7 @@ describe('Tool Wrappers', () => {
 			expect(parser.success).toBe(true);
 
 			// 2. Rename the existing AI Agent
-			const renameResult = await toolsWithExisting.renameNode({
+			const renameResult = toolsWithExisting.renameNode({
 				nodeId: 'agent-uuid',
 				newName: 'Renamed Agent',
 			});
@@ -536,7 +536,7 @@ describe('Tool Wrappers', () => {
 			expect(renameResult.oldName).toBe('AI Agent');
 
 			// 3. Connect new node to the existing (now renamed) AI Agent by UUID
-			const connectResult = await toolsWithExisting.connectNodes({
+			const connectResult = toolsWithExisting.connectNodes({
 				sourceNodeId: parser.nodeId!,
 				targetNodeId: 'agent-uuid', // Using UUID, not name
 			});
@@ -570,7 +570,7 @@ describe('Tool Wrappers', () => {
 	describe('removeConnection', () => {
 		it('should remove a connection', async () => {
 			// Add nodes
-			const nodeA = await tools.addNode({
+			const nodeA = tools.addNode({
 				nodeType: 'n8n-nodes-base.manualTrigger',
 				nodeVersion: 1,
 				name: 'Trigger',
@@ -578,7 +578,7 @@ describe('Tool Wrappers', () => {
 				initialParameters: {},
 			});
 
-			const nodeB = await tools.addNode({
+			const nodeB = tools.addNode({
 				nodeType: 'n8n-nodes-base.httpRequest',
 				nodeVersion: 1,
 				name: 'HTTP',
@@ -587,13 +587,13 @@ describe('Tool Wrappers', () => {
 			});
 
 			// Connect
-			await tools.connectNodes({
+			tools.connectNodes({
 				sourceNodeId: nodeA.nodeId!,
 				targetNodeId: nodeB.nodeId!,
 			});
 
 			// Remove connection (can use node names or IDs)
-			const result = await tools.removeConnection({
+			const result = tools.removeConnection({
 				sourceNodeId: 'Trigger',
 				targetNodeId: 'HTTP',
 				connectionType: 'main',
@@ -605,7 +605,7 @@ describe('Tool Wrappers', () => {
 
 	describe('validateStructure', () => {
 		it('should validate workflow structure', async () => {
-			const result = await tools.validateStructure();
+			const result = tools.validateStructure();
 
 			expect(result.success).toBe(true);
 			expect(result.isValid).toBe(true);
@@ -615,7 +615,7 @@ describe('Tool Wrappers', () => {
 	describe('getNodeParameter', () => {
 		it('should get a parameter value from a node', async () => {
 			// Add a node with parameters
-			const added = await tools.addNode({
+			const added = tools.addNode({
 				nodeType: 'n8n-nodes-base.httpRequest',
 				nodeVersion: 1,
 				name: 'HTTP Request',
@@ -624,7 +624,7 @@ describe('Tool Wrappers', () => {
 			});
 
 			// Get a parameter value
-			const result = await tools.getNodeParameter({
+			const result = tools.getNodeParameter({
 				nodeId: added.nodeId!,
 				path: 'url',
 			});
@@ -634,7 +634,7 @@ describe('Tool Wrappers', () => {
 		});
 
 		it('should get nested parameter values', async () => {
-			const added = await tools.addNode({
+			const added = tools.addNode({
 				nodeType: 'n8n-nodes-base.httpRequest',
 				nodeVersion: 1,
 				name: 'HTTP Request',
@@ -647,7 +647,7 @@ describe('Tool Wrappers', () => {
 				},
 			});
 
-			const result = await tools.getNodeParameter({
+			const result = tools.getNodeParameter({
 				nodeId: added.nodeId!,
 				path: 'options.timeout',
 			});
@@ -657,7 +657,7 @@ describe('Tool Wrappers', () => {
 		});
 
 		it('should return undefined for non-existent path', async () => {
-			const added = await tools.addNode({
+			const added = tools.addNode({
 				nodeType: 'n8n-nodes-base.httpRequest',
 				nodeVersion: 1,
 				name: 'HTTP Request',
@@ -665,7 +665,7 @@ describe('Tool Wrappers', () => {
 				initialParameters: {},
 			});
 
-			const result = await tools.getNodeParameter({
+			const result = tools.getNodeParameter({
 				nodeId: added.nodeId!,
 				path: 'nonExistent.path',
 			});
@@ -675,7 +675,7 @@ describe('Tool Wrappers', () => {
 		});
 
 		it('should return error for non-existent node', async () => {
-			const result = await tools.getNodeParameter({
+			const result = tools.getNodeParameter({
 				nodeId: 'non-existent-id',
 				path: 'url',
 			});
@@ -687,7 +687,7 @@ describe('Tool Wrappers', () => {
 
 	describe('validateConfiguration', () => {
 		it('should validate configuration when no issues', async () => {
-			const result = await tools.validateConfiguration();
+			const result = tools.validateConfiguration();
 
 			expect(result.success).toBe(true);
 			expect(result.isValid).toBe(true);
@@ -697,7 +697,7 @@ describe('Tool Wrappers', () => {
 	describe('updateNodeParameters', () => {
 		it('should throw error when LLM is not configured', async () => {
 			// Add a node first
-			const added = await tools.addNode({
+			const added = tools.addNode({
 				nodeType: 'n8n-nodes-base.httpRequest',
 				nodeVersion: 1,
 				name: 'HTTP Request',
@@ -727,7 +727,7 @@ describe('Tool Wrappers', () => {
 
 	describe('addNodes (batch)', () => {
 		it('should add multiple nodes in a single operation', async () => {
-			const result = await tools.addNodes({
+			const result = tools.addNodes({
 				nodes: [
 					{
 						nodeType: 'n8n-nodes-base.manualTrigger',
@@ -763,7 +763,7 @@ describe('Tool Wrappers', () => {
 		});
 
 		it('should generate unique names when batch has duplicates', async () => {
-			const result = await tools.addNodes({
+			const result = tools.addNodes({
 				nodes: [
 					{
 						nodeType: 'n8n-nodes-base.httpRequest',
@@ -788,7 +788,7 @@ describe('Tool Wrappers', () => {
 		});
 
 		it('should handle partial failures gracefully', async () => {
-			const result = await tools.addNodes({
+			const result = tools.addNodes({
 				nodes: [
 					{
 						nodeType: 'n8n-nodes-base.manualTrigger',
@@ -822,7 +822,7 @@ describe('Tool Wrappers', () => {
 		});
 
 		it('should return empty results for empty input', async () => {
-			const result = await tools.addNodes({ nodes: [] });
+			const result = tools.addNodes({ nodes: [] });
 
 			expect(result.success).toBe(true);
 			expect(result.results).toHaveLength(0);
@@ -831,7 +831,7 @@ describe('Tool Wrappers', () => {
 
 	describe('add() alias', () => {
 		it('should work as alias for addNodes', async () => {
-			const result = await tools.add({
+			const result = tools.add({
 				nodes: [
 					{
 						nodeType: 'n8n-nodes-base.manualTrigger',
@@ -852,7 +852,7 @@ describe('Tool Wrappers', () => {
 	describe('connectMultiple (batch)', () => {
 		it('should connect multiple node pairs in a single operation', async () => {
 			// First add nodes
-			const nodesResult = await tools.addNodes({
+			const nodesResult = tools.addNodes({
 				nodes: [
 					{
 						nodeType: 'n8n-nodes-base.manualTrigger',
@@ -881,7 +881,7 @@ describe('Tool Wrappers', () => {
 			const [trigger, http1, http2] = nodesResult.results;
 
 			// Connect Trigger -> HTTP1 and Trigger -> HTTP2
-			const connectResult = await tools.connectMultiple({
+			const connectResult = tools.connectMultiple({
 				connections: [
 					{ sourceNodeId: trigger, targetNodeId: http1 },
 					{ sourceNodeId: trigger, targetNodeId: http2 },
@@ -900,7 +900,7 @@ describe('Tool Wrappers', () => {
 		});
 
 		it('should handle partial connection failures', async () => {
-			const trigger = await tools.addNode({
+			const trigger = tools.addNode({
 				nodeType: 'n8n-nodes-base.manualTrigger',
 				nodeVersion: 1,
 				name: 'Trigger',
@@ -908,7 +908,7 @@ describe('Tool Wrappers', () => {
 				initialParameters: {},
 			});
 
-			const connectResult = await tools.connectMultiple({
+			const connectResult = tools.connectMultiple({
 				connections: [
 					{ sourceNodeId: trigger, targetNodeId: 'non-existent' },
 					{ sourceNodeId: trigger, targetNodeId: { nodeId: undefined } },
@@ -924,7 +924,7 @@ describe('Tool Wrappers', () => {
 		});
 
 		it('should return empty results for empty input', async () => {
-			const result = await tools.connectMultiple({ connections: [] });
+			const result = tools.connectMultiple({ connections: [] });
 
 			expect(result.success).toBe(true);
 			expect(result.results).toHaveLength(0);
@@ -932,7 +932,7 @@ describe('Tool Wrappers', () => {
 
 		it('should work with AI connections in batch', async () => {
 			// Add AI Agent with hasOutputParser enabled
-			const agent = await tools.addNode({
+			const agent = tools.addNode({
 				nodeType: '@n8n/n8n-nodes-langchain.agent',
 				nodeVersion: 1,
 				name: 'AI Agent',
@@ -940,7 +940,7 @@ describe('Tool Wrappers', () => {
 				initialParameters: { hasOutputParser: true },
 			});
 
-			const chatModel = await tools.addNode({
+			const chatModel = tools.addNode({
 				nodeType: '@n8n/n8n-nodes-langchain.lmChatOpenAi',
 				nodeVersion: 1,
 				name: 'Chat Model',
@@ -948,7 +948,7 @@ describe('Tool Wrappers', () => {
 				initialParameters: {},
 			});
 
-			const outputParser = await tools.addNode({
+			const outputParser = tools.addNode({
 				nodeType: '@n8n/n8n-nodes-langchain.outputParserStructured',
 				nodeVersion: 1,
 				name: 'Output Parser',
@@ -957,7 +957,7 @@ describe('Tool Wrappers', () => {
 			});
 
 			// Connect both AI sub-nodes to agent in one batch
-			const connectResult = await tools.connectMultiple({
+			const connectResult = tools.connectMultiple({
 				connections: [
 					{ sourceNodeId: chatModel, targetNodeId: agent },
 					{ sourceNodeId: outputParser, targetNodeId: agent },
@@ -975,7 +975,7 @@ describe('Tool Wrappers', () => {
 
 	describe('conn() alias', () => {
 		it('should work as alias for connectMultiple', async () => {
-			const nodesResult = await tools.add({
+			const nodesResult = tools.add({
 				nodes: [
 					{
 						nodeType: 'n8n-nodes-base.manualTrigger',
@@ -996,7 +996,7 @@ describe('Tool Wrappers', () => {
 
 			const [trigger, http] = nodesResult.results;
 
-			const connectResult = await tools.conn({
+			const connectResult = tools.conn({
 				connections: [{ sourceNodeId: trigger, targetNodeId: http }],
 			});
 
@@ -1009,7 +1009,7 @@ describe('Tool Wrappers', () => {
 	describe('Multi-output/multi-input connections', () => {
 		it('should connect Switch node outputs to different targets using so (sourceOutputIndex)', async () => {
 			// Create Switch node with multiple outputs + target nodes
-			const nodesResult = await tools.add({
+			const nodesResult = tools.add({
 				nodes: [
 					{ t: 'n8n-nodes-base.manualTrigger', n: 'Trigger' },
 					{ t: 'n8n-nodes-base.switch', n: 'Router' },
@@ -1022,7 +1022,7 @@ describe('Tool Wrappers', () => {
 			const [trigger, switchNode, pathA, pathB, pathC] = nodesResult.results;
 
 			// Connect with different source output indices
-			const connectResult = await tools.conn({
+			const connectResult = tools.conn({
 				connections: [
 					{ s: trigger, d: switchNode },
 					{ s: switchNode, d: pathA, so: 0 }, // Switch output 0 -> Path A
@@ -1055,7 +1055,7 @@ describe('Tool Wrappers', () => {
 
 		it('should connect multiple sources to Merge node inputs using di (targetInputIndex)', async () => {
 			// Create nodes that feed into a Merge
-			const nodesResult = await tools.add({
+			const nodesResult = tools.add({
 				nodes: [
 					{ t: 'n8n-nodes-base.set', n: 'Source A' },
 					{ t: 'n8n-nodes-base.set', n: 'Source B' },
@@ -1067,7 +1067,7 @@ describe('Tool Wrappers', () => {
 			const [sourceA, sourceB, merge, output] = nodesResult.results;
 
 			// Connect with different target input indices
-			const connectResult = await tools.conn({
+			const connectResult = tools.conn({
 				connections: [
 					{ s: sourceA, d: merge, di: 0 }, // Source A -> Merge input 0
 					{ s: sourceB, d: merge, di: 1 }, // Source B -> Merge input 1
@@ -1097,7 +1097,7 @@ describe('Tool Wrappers', () => {
 
 		it('should handle combined Switch outputs and Merge inputs', async () => {
 			// Complex scenario: Switch -> multiple paths -> Merge
-			const nodesResult = await tools.add({
+			const nodesResult = tools.add({
 				nodes: [
 					{ t: 'n8n-nodes-base.manualTrigger', n: 'Trigger' },
 					{ t: 'n8n-nodes-base.switch', n: 'Router' },
@@ -1111,7 +1111,7 @@ describe('Tool Wrappers', () => {
 			const [trigger, switchNode, branch1, branch2, merge, final] = nodesResult.results;
 
 			// Connect the full workflow
-			const connectResult = await tools.conn({
+			const connectResult = tools.conn({
 				connections: [
 					{ s: trigger, d: switchNode },
 					{ s: switchNode, d: branch1, so: 0 }, // Switch output 0 -> Branch 1
@@ -1128,7 +1128,7 @@ describe('Tool Wrappers', () => {
 		});
 
 		it('should default to output 0 and input 0 when indices not specified', async () => {
-			const nodesResult = await tools.add({
+			const nodesResult = tools.add({
 				nodes: [
 					{ t: 'n8n-nodes-base.switch', n: 'Switch' },
 					{ t: 'n8n-nodes-base.set', n: 'Target' },
@@ -1138,7 +1138,7 @@ describe('Tool Wrappers', () => {
 			const [switchNode, target] = nodesResult.results;
 
 			// Connect without specifying indices - should use 0, 0
-			const connectResult = await tools.conn({
+			const connectResult = tools.conn({
 				connections: [{ s: switchNode, d: target }],
 			});
 
@@ -1159,7 +1159,7 @@ describe('Tool Wrappers', () => {
 	describe('Short-form input support', () => {
 		describe('addNode with short-form', () => {
 			it('should accept short-form input (t, n, p)', async () => {
-				const result = await tools.addNode({
+				const result = tools.addNode({
 					t: 'n8n-nodes-base.manualTrigger',
 					n: 'MyTrigger',
 				});
@@ -1170,7 +1170,7 @@ describe('Tool Wrappers', () => {
 			});
 
 			it('should default version to latest when not specified', async () => {
-				const result = await tools.addNode({
+				const result = tools.addNode({
 					t: 'n8n-nodes-base.httpRequest',
 					n: 'HTTP',
 				});
@@ -1180,7 +1180,7 @@ describe('Tool Wrappers', () => {
 			});
 
 			it('should default initialParameters to empty object', async () => {
-				const result = await tools.addNode({
+				const result = tools.addNode({
 					t: 'n8n-nodes-base.manualTrigger',
 				});
 
@@ -1188,7 +1188,7 @@ describe('Tool Wrappers', () => {
 			});
 
 			it('should accept parameters with p shorthand', async () => {
-				const result = await tools.addNode({
+				const result = tools.addNode({
 					t: '@n8n/n8n-nodes-langchain.agent',
 					n: 'Agent',
 					p: { hasOutputParser: true },
@@ -1200,7 +1200,7 @@ describe('Tool Wrappers', () => {
 
 		describe('addNodes (batch) with short-form', () => {
 			it('should accept short-form inputs in batch', async () => {
-				const result = await tools.add({
+				const result = tools.add({
 					nodes: [
 						{ t: 'n8n-nodes-base.manualTrigger', n: 'Trigger' },
 						{ t: 'n8n-nodes-base.httpRequest', n: 'HTTP' },
@@ -1216,7 +1216,7 @@ describe('Tool Wrappers', () => {
 
 		describe('connectNodes with short-form', () => {
 			it('should accept short-form input (s, d)', async () => {
-				const nodesResult = await tools.add({
+				const nodesResult = tools.add({
 					nodes: [
 						{ t: 'n8n-nodes-base.manualTrigger', n: 'Trigger' },
 						{ t: 'n8n-nodes-base.httpRequest', n: 'HTTP' },
@@ -1225,7 +1225,7 @@ describe('Tool Wrappers', () => {
 
 				const [trigger, http] = nodesResult.results;
 
-				const result = await tools.connectNodes({
+				const result = tools.connectNodes({
 					s: trigger,
 					d: http,
 				});
@@ -1236,7 +1236,7 @@ describe('Tool Wrappers', () => {
 
 		describe('connectMultiple (batch) with short-form', () => {
 			it('should accept short-form inputs in batch', async () => {
-				const nodesResult = await tools.add({
+				const nodesResult = tools.add({
 					nodes: [
 						{ t: 'n8n-nodes-base.manualTrigger', n: 'Trigger' },
 						{ t: 'n8n-nodes-base.httpRequest', n: 'HTTP1' },
@@ -1246,7 +1246,7 @@ describe('Tool Wrappers', () => {
 
 				const [trigger, http1, http2] = nodesResult.results;
 
-				const result = await tools.conn({
+				const result = tools.conn({
 					connections: [
 						{ s: trigger, d: http1 },
 						{ s: trigger, d: http2 },
@@ -1263,12 +1263,12 @@ describe('Tool Wrappers', () => {
 
 	describe('setParameters (direct parameter setting)', () => {
 		it('should set parameters directly without LLM', async () => {
-			const node = await tools.addNode({
+			const node = tools.addNode({
 				t: 'n8n-nodes-base.httpRequest',
 				n: 'HTTP',
 			});
 
-			const result = await tools.setParameters({
+			const result = tools.setParameters({
 				nodeId: node,
 				params: { url: 'https://example.com', method: 'POST' },
 			});
@@ -1278,13 +1278,13 @@ describe('Tool Wrappers', () => {
 		});
 
 		it('should merge with existing parameters by default', async () => {
-			const node = await tools.addNode({
+			const node = tools.addNode({
 				t: 'n8n-nodes-base.httpRequest',
 				n: 'HTTP',
 				p: { url: 'https://old.com' },
 			});
 
-			const result = await tools.setParameters({
+			const result = tools.setParameters({
 				nodeId: node,
 				params: { method: 'POST' },
 			});
@@ -1294,13 +1294,13 @@ describe('Tool Wrappers', () => {
 		});
 
 		it('should replace all parameters when replace=true', async () => {
-			const node = await tools.addNode({
+			const node = tools.addNode({
 				t: 'n8n-nodes-base.httpRequest',
 				n: 'HTTP',
 				p: { url: 'https://old.com', method: 'GET' },
 			});
 
-			const result = await tools.setParameters({
+			const result = tools.setParameters({
 				nodeId: node,
 				params: { url: 'https://new.com' },
 				replace: true,
@@ -1311,7 +1311,7 @@ describe('Tool Wrappers', () => {
 		});
 
 		it('should return error for non-existent node', async () => {
-			const result = await tools.setParameters({
+			const result = tools.setParameters({
 				nodeId: 'non-existent',
 				params: { url: 'https://example.com' },
 			});
@@ -1321,12 +1321,12 @@ describe('Tool Wrappers', () => {
 		});
 
 		it('should handle nested objects correctly', async () => {
-			const node = await tools.addNode({
+			const node = tools.addNode({
 				t: 'n8n-nodes-base.httpRequest',
 				n: 'HTTP',
 			});
 
-			const result = await tools.setParameters({
+			const result = tools.setParameters({
 				nodeId: node,
 				params: {
 					url: 'https://example.com',
@@ -1345,12 +1345,12 @@ describe('Tool Wrappers', () => {
 		});
 
 		it('should handle arrays correctly', async () => {
-			const node = await tools.addNode({
+			const node = tools.addNode({
 				t: 'n8n-nodes-base.httpRequest',
 				n: 'HTTP',
 			});
 
-			const result = await tools.setParameters({
+			const result = tools.setParameters({
 				nodeId: node,
 				params: {
 					url: 'https://example.com',
@@ -1370,12 +1370,12 @@ describe('Tool Wrappers', () => {
 
 		describe('set() alias', () => {
 			it('should work as alias for setParameters', async () => {
-				const node = await tools.addNode({
+				const node = tools.addNode({
 					t: 'n8n-nodes-base.httpRequest',
 					n: 'HTTP',
 				});
 
-				const result = await tools.set({
+				const result = tools.set({
 					nodeId: node,
 					params: { url: 'https://example.com' },
 				});
@@ -1387,7 +1387,7 @@ describe('Tool Wrappers', () => {
 
 	describe('setAll (batch direct parameter setting)', () => {
 		it('should set parameters on multiple nodes', async () => {
-			const nodesResult = await tools.add({
+			const nodesResult = tools.add({
 				nodes: [
 					{ t: 'n8n-nodes-base.httpRequest', n: 'HTTP1' },
 					{ t: 'n8n-nodes-base.httpRequest', n: 'HTTP2' },
@@ -1396,7 +1396,7 @@ describe('Tool Wrappers', () => {
 
 			const [http1, http2] = nodesResult.results;
 
-			const result = await tools.setAll({
+			const result = tools.setAll({
 				updates: [
 					{ nodeId: http1, params: { url: 'https://example1.com' } },
 					{ nodeId: http2, params: { url: 'https://example2.com' } },
@@ -1412,12 +1412,12 @@ describe('Tool Wrappers', () => {
 		});
 
 		it('should handle partial failures', async () => {
-			const node = await tools.addNode({
+			const node = tools.addNode({
 				t: 'n8n-nodes-base.httpRequest',
 				n: 'HTTP',
 			});
 
-			const result = await tools.setAll({
+			const result = tools.setAll({
 				updates: [
 					{ nodeId: node, params: { url: 'https://example.com' } },
 					{ nodeId: 'non-existent', params: { url: 'https://fail.com' } },
@@ -1431,7 +1431,7 @@ describe('Tool Wrappers', () => {
 		});
 
 		it('should return empty results for empty input', async () => {
-			const result = await tools.setAll({ updates: [] });
+			const result = tools.setAll({ updates: [] });
 
 			expect(result.success).toBe(true);
 			expect(result.results).toHaveLength(0);
@@ -1447,7 +1447,7 @@ describe('Tool Wrappers', () => {
 		});
 
 		it('should throw error when LLM not configured', async () => {
-			const node = await tools.addNode({
+			const node = tools.addNode({
 				t: 'n8n-nodes-base.httpRequest',
 				n: 'HTTP',
 			});
@@ -1579,7 +1579,7 @@ describe('Default Parameter Extraction', () => {
 		});
 
 		// Create the node - this should apply defaults from properties
-		const result = await tools.addNode({
+		const result = tools.addNode({
 			t: '@n8n/n8n-nodes-langchain.lmChatOpenAi',
 			n: 'Test Model',
 		});
@@ -1639,7 +1639,7 @@ describe('Default Parameter Extraction', () => {
 			operationsCollector,
 		});
 
-		const result = await tools.addNode({
+		const result = tools.addNode({
 			t: '@n8n/n8n-nodes-langchain.lmChatOpenAi',
 			n: 'Test Model',
 		});

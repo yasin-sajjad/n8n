@@ -151,7 +151,7 @@ describe('ExecuteScriptTool', () => {
 		});
 
 		it('should have descriptive description', () => {
-			expect(executeScriptTool.description).toContain('Execute a TypeScript script');
+			expect(executeScriptTool.description).toContain('Execute a script');
 			expect(executeScriptTool.description).toContain('tools.add');
 			expect(executeScriptTool.description).toContain('tools.conn');
 			expect(executeScriptTool.description).toContain('tools.set');
