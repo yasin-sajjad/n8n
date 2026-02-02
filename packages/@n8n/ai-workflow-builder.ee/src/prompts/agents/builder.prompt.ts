@@ -48,13 +48,7 @@ const EXAMPLE_WORKFLOW_STANDARD = `Example "Webhook → Set → IF → Slack / E
   Round 4: configure(Slack, Email)
   Round 5: connect(IF→Slack, IF→Email), validate_structure, validate_configuration`;
 
-const EXAMPLE_WORKFLOW_WITH_INTROSPECTION = `Example "Webhook → Set → IF → Slack / Email":
-  Round 1: add_nodes(Webhook, Set, IF)
-  Round 2: configure(Webhook, Set, IF)
-  Round 3: connect(Webhook→Set→IF) + add_nodes(Slack, Email)  ← parallel
-  Round 4: configure(Slack, Email)
-  Round 5: connect(IF→Slack, IF→Email), validate_structure, validate_configuration
-  Round 6: introspect (REQUIRED)`;
+const EXAMPLE_WORKFLOW_INTROSPECTION_STEP = 'Round 6: introspect (REQUIRED)';
 
 const VALIDATION_STANDARD =
 	'Validation: Call validate_structure and validate_configuration once at the end. Once both pass, output your summary and stop—the workflow is complete.';
@@ -81,12 +75,11 @@ function buildExecutionSequence(includeExamples: boolean, enableIntrospection: b
 		.section('interleaving', INTERLEAVING_AND_BATCH_SIZE)
 		.section(
 			'example_workflow',
-			enableIntrospection ? EXAMPLE_WORKFLOW_WITH_INTROSPECTION : EXAMPLE_WORKFLOW_STANDARD,
+			EXAMPLE_WORKFLOW_STANDARD +
+				(enableIntrospection ? `\n${EXAMPLE_WORKFLOW_INTROSPECTION_STEP}` : ''),
 		)
-		.section(
-			'validation',
-			enableIntrospection ? VALIDATION_WITH_INTROSPECTION : VALIDATION_STANDARD,
-		)
+		.sectionIf(enableIntrospection, 'validation', VALIDATION_WITH_INTROSPECTION)
+		.sectionIf(!enableIntrospection, 'validation', VALIDATION_STANDARD)
 		.section('planning', PLANNING_REMINDER)
 		.build();
 }
