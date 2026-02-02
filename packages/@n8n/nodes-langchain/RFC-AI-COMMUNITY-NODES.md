@@ -1,0 +1,1088 @@
+# Community Nodes for n8n
+
+## Design Principles
+
+### 1. Stable Interfaces, Hidden Implementation
+
+Community nodes code against n8n-defined interfaces. Implementation details (LangChain, future alternatives) are encapsulated.
+
+```typescript
+// ✅ Community node imports
+import { createChatModel, N8nChatModelOptions } from '@n8n/ai-node-sdk';
+
+// ❌ Community node NEVER imports
+import { ChatOpenAI } from '@langchain/openai';  // Forbidden
+```
+
+### 2. Peer Dependency with Runtime Injection
+
+The new `@n8n/ai-node-sdk` package is declared as a **peer dependency** in community nodes. This follows the same proven pattern n8n already uses for `n8n-workflow`.
+
+```json
+{
+  "peerDependencies": {
+    "n8n-workflow": "*",
+    "@n8n/ai-node-sdk": "*"
+  }
+}
+```
+
+#### How n8n's Peer Dependency Mechanism Works
+
+This is a critical architectural detail. When n8n installs a community package, it **strips peer dependencies** before running `npm install`:
+
+```typescript
+// From packages/cli/src/modules/community-packages/community-packages.service.ts
+
+// Strip dev, optional, and peer dependencies before running `npm install`
+const {
+  devDependencies,
+  peerDependencies,      // ← REMOVED from package.json
+  optionalDependencies,
+  ...packageJson
+} = JSON.parse(packageJsonContent);
+
+await writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2), 'utf-8');
+await executeNpmCommand(['install', ...this.getNpmInstallArgs()], { cwd: packageDirectory });
+```
+
+#### The Development → Runtime Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│  DEVELOPMENT TIME (on community developer's machine)                               │
+│                                                                                     │
+│  $ npm install                                                                      │
+│                                                                                     │
+│  package.json:                           node_modules/                              │
+│  ┌─────────────────────────────┐         ┌─────────────────────────────┐            │
+│  │ "peerDependencies": {       │  ───►   │ @n8n/ai-node-sdk/           │            │
+│  │   "@n8n/ai-node-sdk": "*"   │         │   ├── index.d.ts  ← Types  │            │
+│  │ }                           │         │   └── index.js    ← Impl   │            │
+│  └─────────────────────────────┘         └─────────────────────────────┘            │
+│                                                                                     │
+│  Developer gets: ✅ TypeScript types, ✅ IDE autocomplete, ✅ Type checking        │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+                                          │
+                                          │  npm publish
+                                          ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│  INSTALLATION TIME (on user's n8n instance)                                         │
+│                                                                                     │
+│  n8n downloads tarball, then:                                                       │
+│                                                                                     │
+│  Original package.json:                  Modified package.json:                     │
+│  ┌─────────────────────────────┐         ┌─────────────────────────────┐            │
+│  │ "peerDependencies": {       │  ───►   │ // peerDependencies         │            │
+│  │   "@n8n/ai-node-sdk": "*"   │ STRIP   │ // REMOVED by n8n           │            │
+│  │ }                           │         │                             │            │
+│  └─────────────────────────────┘         └─────────────────────────────┘            │
+│                                                                                     │
+│  npm install runs with NO peer deps → no duplicate packages installed              │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+                                          │
+                                          ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│  RUNTIME (when workflow executes)                                                   │
+│                                                                                     │
+│  Community node imports:                 Node.js resolves to n8n's bundled copy:   │
+│  ┌─────────────────────────────┐         ┌─────────────────────────────┐            │
+│  │ import { createMemory }     │  ───►   │ n8n/node_modules/           │            │
+│  │   from '@n8n/ai-node-sdk';  │         │   @n8n/ai-node-sdk/         │            │
+│  └─────────────────────────────┘         │     └── (n8n's version)     │            │
+│                                          └─────────────────────────────┘            │
+│                                                                                     │
+│  Result: ✅ Always uses n8n's bundled version                                       │
+│          ✅ No version mismatch possible                                            │
+│          ✅ LangChain version controlled by n8n                                     │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Why This Pattern Works
+
+| Concern | Solution |
+|---------|----------|
+| **Type safety during development** | npm installs SDK for types/autocomplete |
+| **No duplicate packages at runtime** | n8n strips peer deps before install |
+| **Version alignment guaranteed** | Runtime always uses n8n's bundled SDK |
+| **LangChain hidden from community** | SDK's LangChain adapters use n8n's LC version |
+
+#### Package Must Be Published to npm
+
+`@n8n/ai-node-sdk` **must be published to npm** so that:
+
+1. Community developers can `npm install` it during development
+2. TypeScript can resolve types for `import { ... } from '@n8n/ai-node-sdk'`
+3. IDE features (autocomplete, go-to-definition) work properly
+
+However, the **published version is only used for development**. At runtime, n8n's bundled version is always used, ensuring perfect version alignment
+
+### 3. Minimal Surface Area
+
+Inspired by Vercel AI SDK's approach: expose few, powerful primitives rather than many specific options.
+
+| Component | Factory Function |
+|-----------|------------------|
+| Chat Models | `createChatModel()` |
+| Memory | `createMemory()` |
+| Embeddings | `createEmbeddings()` |
+| Vector Stores | `createVectorStore()` |
+| Tools | `createTool()` |
+
+### 4. Composition Over Configuration
+
+Use composable building blocks instead of monolithic configuration objects:
+
+```typescript
+// ✅ Composable
+const memory = createMemory({
+  type: 'bufferWindow',
+  chatHistory: new MyChatHistory({ connectionString }),
+  k: 10,
+});
+
+// ❌ Monolithic
+const memory = createMemory({
+  type: 'postgres',
+  host: '...',
+  port: 5432,
+  database: '...',
+  // 20 more connection options
+});
+```
+
+### 5. Progressive Disclosure
+
+Simple cases are simple. Complex cases are possible.
+
+```typescript
+// Simple: OpenAI-compatible model
+const model = createChatModel({
+  type: 'openaiCompatible',
+  apiKey: credentials.apiKey,
+  baseUrl: 'https://api.example.com/v1',
+  model: 'my-model',
+});
+
+// Complex: Fully custom model
+const model = createChatModel({
+  type: 'custom',
+  invoke: async (messages, options) => { /* ... */ },
+  stream: async function* (messages, options) { /* ... */ },
+});
+```
+
+---
+
+## Proposed Architecture
+
+### High-Level Design
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                               COMMUNITY NODE                                        │
+│  ┌─────────────────────────────────────────────────────────────────────────────┐    │
+│  │  import { createMemory, N8nChatHistory } from '@n8n/ai-node-sdk';           │    │
+│  │                                                                             │    │
+│  │  class MyMemory extends N8nChatHistory { /* provider-specific logic */ }    │    │
+│  │                                                                             │    │
+│  │  supplyData() {                                                             │    │
+│  │    return { response: createMemory({ chatHistory: new MyMemory() }) };      │    │
+│  │  }                                                                          │    │
+│  └─────────────────────────────────────────────────────────────────────────────┘    │
+└───────────────────────────────────────┬─────────────────────────────────────────────┘
+                                        │
+                                        │ Uses as peer dependency
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                            @n8n/ai-node-sdk (NEW)                                   │
+│  ┌──────────────────────────────────────────────────────────────────────────────┐   │
+│  │ EXPORTS (Public API - Stable Contract)                                       │   │
+│  │                                                                              │   │
+│  │ // Factory Functions                                                         │   │
+│  │ export { createChatModel } from './factories/chatModel';                     │   │
+│  │ export { createMemory } from './factories/memory';                           │   │
+│  │ export { createEmbeddings } from './factories/embeddings';                   │   │
+│  │ export { createVectorStore } from './factories/vectorStore';                 │   │
+│  │ export { createTool } from './factories/tool';                               │   │
+│  │                                                                              │   │
+│  │ // Base Classes for Extension                                                │   │
+│  │ export { N8nChatHistory } from './bases/chatHistory';                        │   │
+│  │ export { N8nEmbeddingsProvider } from './bases/embeddings';                  │   │
+│  │ export { N8nVectorStoreProvider } from './bases/vectorStore';                │   │
+│  │ export { N8nToolProvider } from './bases/tool';                              │   │
+│  │                                                                              │   │
+│  │ // Types                                                                     │   │
+│  │ export type { N8nMessage, N8nChatModelOptions, ... } from './types';         │   │
+│  └──────────────────────────────────────────────────────────────────────────────┘   │
+│                                        │                                            │
+│                                        │ Internal Implementation                    │
+│                                        ▼                                            │
+│  ┌──────────────────────────────────────────────────────────────────────────────┐   │
+│  │ ADAPTERS (Internal - Hidden from Community)                                  │   │
+│  │                                                                              │   │
+│  │ // Bridges n8n types ↔ LangChain types                                       │   │
+│  │ class N8nChatHistoryAdapter extends BaseChatMessageHistory { }               │   │
+│  │ class N8nEmbeddingsAdapter extends Embeddings { }                            │   │
+│  │ class N8nVectorStoreAdapter extends VectorStore { }                          │   │
+│  └──────────────────────────────────────────────────────────────────────────────┘   │
+└───────────────────────────────────────┬─────────────────────────────────────────────┘
+                                        │
+                                        │ Returns LangChain objects
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                               AI AGENT (Existing)                                   │
+│  ┌──────────────────────────────────────────────────────────────────────────────┐   │
+│  │  const memory = await getInputConnectionData(AiMemory);  // Gets LC object   │   │
+│  │  const model = await getInputConnectionData(AiLanguageModel);                │   │
+│  │                                                                              │   │
+│  │  // Works exactly as before - no changes needed                              │   │
+│  │  const agent = createToolsAgent({ model, memory, tools });                   │   │
+│  └──────────────────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Package Structure
+
+```
+packages/
+├── @n8n/ai-node-sdk/              # NEW: Published to npm
+│   ├── src/
+│   │   ├── index.ts               # Public exports only
+│   │   ├── types/
+│   │   │   ├── messages.ts        # N8nMessage, N8nMessageRole
+│   │   │   ├── chatModel.ts       # N8nChatModelOptions, etc.
+│   │   │   ├── memory.ts          # N8nMemoryOptions
+│   │   │   ├── embeddings.ts      # N8nEmbeddingsOptions
+│   │   │   ├── vectorStore.ts     # N8nVectorStoreOptions
+│   │   │   └── tool.ts            # N8nToolOptions
+│   │   ├── bases/                 # Abstract classes for extension
+│   │   │   ├── chatHistory.ts     # N8nChatHistory
+│   │   │   ├── embeddings.ts      # N8nEmbeddingsProvider
+│   │   │   ├── vectorStore.ts     # N8nVectorStoreProvider
+│   │   │   └── tool.ts            # N8nToolProvider
+│   │   ├── factories/             # Factory functions
+│   │   │   ├── chatModel.ts       # createChatModel()
+│   │   │   ├── memory.ts          # createMemory()
+│   │   │   ├── embeddings.ts      # createEmbeddings()
+│   │   │   ├── vectorStore.ts     # createVectorStore()
+│   │   │   └── tool.ts            # createTool()
+│   │   └── adapters/              # Internal LangChain adapters
+│   │       ├── chatHistoryAdapter.ts
+│   │       ├── embeddingsAdapter.ts
+│   │       └── vectorStoreAdapter.ts
+│   ├── package.json
+│   └── tsconfig.json
+│
+└── @n8n/nodes-langchain/          # EXISTING: Internal use
+    └── ...                        # Unchanged
+```
+
+---
+
+## API Design
+
+### Core Types
+
+#### Messages (LangChain-Agnostic)
+
+```typescript
+// types/messages.ts
+
+export type N8nMessageRole = 'human' | 'ai' | 'system' | 'function' | 'tool';
+
+export interface N8nMessage {
+  role: N8nMessageRole;
+  content: string;
+  name?: string;
+  toolCallId?: string;
+  additionalKwargs?: Record<string, unknown>;
+}
+
+export interface N8nToolCall {
+  id: string;
+  name: string;
+  args: Record<string, unknown>;
+}
+
+export interface N8nAiMessage extends N8nMessage {
+  role: 'ai';
+  toolCalls?: N8nToolCall[];
+}
+```
+
+#### Chat Model Options
+
+```typescript
+// types/chatModel.ts
+
+export type N8nChatModelOptions =
+  | N8nOpenAICompatibleModelOptions
+  | N8nCustomChatModelOptions;
+
+/**
+ * For models implementing the OpenAI API spec.
+ * Covers: OpenAI, Azure OpenAI, Ollama, LM Studio, vLLM, Together AI, etc.
+ */
+export interface N8nOpenAICompatibleModelOptions {
+  type: 'openaiCompatible';
+  
+  // Required
+  apiKey: string;
+  model: string;
+  
+  // Optional - defaults to OpenAI
+  baseUrl?: string;
+  
+  // Common parameters
+  temperature?: number;
+  maxTokens?: number;
+  topP?: number;
+  frequencyPenalty?: number;
+  presencePenalty?: number;
+  
+  // Advanced
+  timeout?: number;
+  maxRetries?: number;
+  headers?: Record<string, string>;
+}
+
+/**
+ * For models with non-OpenAI APIs.
+ * Community must implement the invoke/stream methods.
+ */
+export interface N8nCustomChatModelOptions {
+  type: 'custom';
+  
+  // Model identifier
+  name: string;
+  
+  // Required: implement model logic
+  invoke: (
+    messages: N8nMessage[],
+    options?: N8nInvokeOptions
+  ) => Promise<N8nAiMessage>;
+  
+  // Optional: streaming support
+  stream?: (
+    messages: N8nMessage[],
+    options?: N8nInvokeOptions
+  ) => AsyncGenerator<N8nStreamChunk>;
+  
+  // Optional: bind tools for function calling
+  bindTools?: (tools: N8nToolDefinition[]) => N8nCustomChatModelOptions;
+}
+
+export interface N8nInvokeOptions {
+  stop?: string[];
+  signal?: AbortSignal;
+}
+
+export interface N8nStreamChunk {
+  content?: string;
+  toolCalls?: Partial<N8nToolCall>[];
+  finishReason?: 'stop' | 'tool_calls' | 'length';
+}
+```
+
+#### Memory Options
+
+```typescript
+// types/memory.ts
+
+export type N8nMemoryOptions =
+  | N8nBufferMemoryOptions
+  | N8nBufferWindowMemoryOptions
+  | N8nTokenBufferMemoryOptions;
+
+interface N8nBaseMemoryOptions {
+  chatHistory: N8nChatHistory;
+  memoryKey?: string;       // Default: 'chat_history'
+  inputKey?: string;        // Default: 'input'
+  outputKey?: string;       // Default: 'output'
+  returnMessages?: boolean; // Default: true
+  humanPrefix?: string;     // Default: 'Human'
+  aiPrefix?: string;        // Default: 'AI'
+}
+
+export interface N8nBufferMemoryOptions extends N8nBaseMemoryOptions {
+  type: 'buffer';
+}
+
+export interface N8nBufferWindowMemoryOptions extends N8nBaseMemoryOptions {
+  type: 'bufferWindow';
+  k: number; // Number of recent messages to keep
+}
+
+export interface N8nTokenBufferMemoryOptions extends N8nBaseMemoryOptions {
+  type: 'tokenBuffer';
+  maxTokenLimit: number;
+  model: ReturnType<typeof createChatModel>; // For token counting
+}
+```
+
+#### Base Classes for Extension
+
+```typescript
+// bases/chatHistory.ts
+
+/**
+ * Base class for custom chat message storage.
+ * Community nodes extend this to implement storage backends.
+ */
+export abstract class N8nChatHistory {
+  /**
+   * Unique namespace for this history implementation.
+   * Used for serialization/deserialization.
+   */
+  abstract readonly namespace: string[];
+
+  /**
+   * Retrieve all messages from storage.
+   */
+  abstract getMessages(): Promise<N8nMessage[]>;
+
+  /**
+   * Add a single message to storage.
+   */
+  abstract addMessage(message: N8nMessage): Promise<void>;
+
+  /**
+   * Add multiple messages to storage.
+   * Default implementation calls addMessage in sequence.
+   */
+  async addMessages(messages: N8nMessage[]): Promise<void> {
+    for (const message of messages) {
+      await this.addMessage(message);
+    }
+  }
+
+  /**
+   * Clear all messages from storage.
+   */
+  abstract clear(): Promise<void>;
+}
+```
+
+```typescript
+// bases/embeddings.ts
+
+/**
+ * Base class for custom embeddings providers.
+ */
+export abstract class N8nEmbeddingsProvider {
+  abstract readonly name: string;
+  abstract readonly dimensions: number;
+
+  /**
+   * Generate embeddings for a batch of texts.
+   */
+  abstract embedDocuments(texts: string[]): Promise<number[][]>;
+
+  /**
+   * Generate embedding for a single query.
+   * Default: calls embedDocuments with single item.
+   */
+  async embedQuery(text: string): Promise<number[]> {
+    const [embedding] = await this.embedDocuments([text]);
+    return embedding;
+  }
+}
+```
+
+```typescript
+// bases/vectorStore.ts
+
+/**
+ * Base class for custom vector store providers.
+ */
+export abstract class N8nVectorStoreProvider {
+  abstract readonly name: string;
+
+  /**
+   * Add documents with their embeddings to the store.
+   */
+  abstract addVectors(
+    vectors: number[][],
+    documents: N8nDocument[],
+    options?: { ids?: string[] }
+  ): Promise<string[]>;
+
+  /**
+   * Similarity search by vector.
+   */
+  abstract similaritySearchVectorWithScore(
+    query: number[],
+    k: number,
+    filter?: Record<string, unknown>
+  ): Promise<Array<[N8nDocument, number]>>;
+
+  /**
+   * Delete documents by ID.
+   */
+  abstract delete(params: { ids: string[] }): Promise<void>;
+}
+
+export interface N8nDocument {
+  pageContent: string;
+  metadata: Record<string, unknown>;
+}
+```
+
+---
+
+## Code Examples
+
+### Example 1: Custom Memory Node (Redis)
+
+This example shows how a community developer would create a Redis-backed memory node.
+
+```typescript
+// nodes/MemoryRedis/MemoryRedis.node.ts
+
+import {
+  NodeConnectionTypes,
+  type INodeType,
+  type INodeTypeDescription,
+  type ISupplyDataFunctions,
+  type SupplyData,
+} from 'n8n-workflow';
+import {
+  createMemory,
+  N8nChatHistory,
+  type N8nMessage,
+} from '@n8n/ai-node-sdk';
+import Redis from 'ioredis';
+
+// Step 1: Implement N8nChatHistory for Redis
+class RedisChatHistory extends N8nChatHistory {
+  readonly namespace = ['n8n', 'memory', 'redis'];
+  
+  private client: Redis;
+  private sessionId: string;
+  private ttl: number;
+
+  constructor(options: { client: Redis; sessionId: string; ttl?: number }) {
+    super();
+    this.client = options.client;
+    this.sessionId = options.sessionId;
+    this.ttl = options.ttl ?? 3600; // 1 hour default
+  }
+
+  private get key(): string {
+    return `n8n:chat:${this.sessionId}`;
+  }
+
+  async getMessages(): Promise<N8nMessage[]> {
+    const data = await this.client.lrange(this.key, 0, -1);
+    return data.map((item) => JSON.parse(item));
+  }
+
+  async addMessage(message: N8nMessage): Promise<void> {
+    await this.client.rpush(this.key, JSON.stringify(message));
+    await this.client.expire(this.key, this.ttl);
+  }
+
+  async clear(): Promise<void> {
+    await this.client.del(this.key);
+  }
+}
+
+// Step 2: Implement the n8n node
+export class MemoryRedis implements INodeType {
+  description: INodeTypeDescription = {
+    displayName: 'Redis Memory',
+    name: 'memoryRedis',
+    group: ['transform'],
+    version: 1,
+    description: 'Store chat history in Redis',
+    defaults: { name: 'Redis Memory' },
+    codex: {
+      categories: ['AI'],
+      subcategories: { AI: ['Memory'] },
+    },
+    inputs: [],
+    outputs: [NodeConnectionTypes.AiMemory],
+    outputNames: ['Memory'],
+    credentials: [{ name: 'redis', required: true }],
+    properties: [
+      {
+        displayName: 'Session ID',
+        name: 'sessionId',
+        type: 'string',
+        default: '={{ $json.sessionId }}',
+        required: true,
+      },
+      {
+        displayName: 'Context Window',
+        name: 'contextWindow',
+        type: 'number',
+        default: 10,
+        description: 'Number of messages to keep in context',
+      },
+      {
+        displayName: 'TTL (seconds)',
+        name: 'ttl',
+        type: 'number',
+        default: 3600,
+        description: 'Time-to-live for chat history',
+      },
+    ],
+  };
+
+  async supplyData(
+    this: ISupplyDataFunctions,
+    itemIndex: number
+  ): Promise<SupplyData> {
+    const credentials = await this.getCredentials('redis');
+    const sessionId = this.getNodeParameter('sessionId', itemIndex) as string;
+    const contextWindow = this.getNodeParameter('contextWindow', itemIndex) as number;
+    const ttl = this.getNodeParameter('ttl', itemIndex) as number;
+
+    // Create Redis client
+    const client = new Redis({
+      host: credentials.host as string,
+      port: credentials.port as number,
+      password: credentials.password as string,
+    });
+
+    // Create n8n chat history
+    const chatHistory = new RedisChatHistory({ client, sessionId, ttl });
+
+    // Use factory to create LangChain-compatible memory
+    const memory = createMemory({
+      type: 'bufferWindow',
+      chatHistory,
+      k: contextWindow,
+      returnMessages: true,
+    });
+
+    return {
+      response: memory,
+      closeFunction: async () => {
+        await client.quit();
+      },
+    };
+  }
+}
+```
+
+### Example 2: Custom Chat Model (Anthropic-like API)
+
+This example shows creating a chat model for a custom API endpoint.
+
+```typescript
+// nodes/LmChatCustomProvider/LmChatCustomProvider.node.ts
+
+import {
+  NodeConnectionTypes,
+  type INodeType,
+  type INodeTypeDescription,
+  type ISupplyDataFunctions,
+  type SupplyData,
+} from 'n8n-workflow';
+import {
+  createChatModel,
+  type N8nMessage,
+  type N8nAiMessage,
+  type N8nStreamChunk,
+} from '@n8n/ai-node-sdk';
+
+export class LmChatCustomProvider implements INodeType {
+  description: INodeTypeDescription = {
+    displayName: 'Custom Provider Chat Model',
+    name: 'lmChatCustomProvider',
+    group: ['transform'],
+    version: 1,
+    description: 'Use custom AI provider',
+    defaults: { name: 'Custom Provider' },
+    codex: {
+      categories: ['AI'],
+      subcategories: { AI: ['Language Models'] },
+    },
+    inputs: [],
+    outputs: [NodeConnectionTypes.AiLanguageModel],
+    outputNames: ['Model'],
+    credentials: [{ name: 'customProviderApi', required: true }],
+    properties: [
+      {
+        displayName: 'Model',
+        name: 'model',
+        type: 'string',
+        default: 'custom-model-v1',
+        required: true,
+      },
+      {
+        displayName: 'Temperature',
+        name: 'temperature',
+        type: 'number',
+        default: 0.7,
+        typeOptions: { minValue: 0, maxValue: 2 },
+      },
+    ],
+  };
+
+  async supplyData(
+    this: ISupplyDataFunctions,
+    itemIndex: number
+  ): Promise<SupplyData> {
+    const credentials = await this.getCredentials('customProviderApi');
+    const modelName = this.getNodeParameter('model', itemIndex) as string;
+    const temperature = this.getNodeParameter('temperature', itemIndex) as number;
+
+    const baseUrl = credentials.baseUrl as string;
+    const apiKey = credentials.apiKey as string;
+
+    // Option A: If OpenAI-compatible, use simple config
+    if (credentials.isOpenAICompatible) {
+      const model = createChatModel({
+        type: 'openaiCompatible',
+        apiKey,
+        baseUrl,
+        model: modelName,
+        temperature,
+      });
+      return { response: model };
+    }
+
+    // Option B: Custom API - implement invoke/stream
+    const model = createChatModel({
+      type: 'custom',
+      name: modelName,
+
+      invoke: async (messages: N8nMessage[]): Promise<N8nAiMessage> => {
+        const response = await fetch(`${baseUrl}/v1/chat`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: modelName,
+            messages: messages.map((m) => ({
+              role: m.role,
+              content: m.content,
+            })),
+            temperature,
+          }),
+        });
+
+        const data = await response.json();
+        
+        return {
+          role: 'ai',
+          content: data.choices[0].message.content,
+          toolCalls: data.choices[0].message.tool_calls?.map((tc: any) => ({
+            id: tc.id,
+            name: tc.function.name,
+            args: JSON.parse(tc.function.arguments),
+          })),
+        };
+      },
+
+      stream: async function* (messages: N8nMessage[]): AsyncGenerator<N8nStreamChunk> {
+        const response = await fetch(`${baseUrl}/v1/chat`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: modelName,
+            messages: messages.map((m) => ({
+              role: m.role,
+              content: m.content,
+            })),
+            temperature,
+            stream: true,
+          }),
+        });
+
+        const reader = response.body!.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n').filter((l) => l.startsWith('data: '));
+
+          for (const line of lines) {
+            const data = JSON.parse(line.slice(6));
+            if (data.choices?.[0]?.delta?.content) {
+              yield { content: data.choices[0].delta.content };
+            }
+          }
+        }
+      },
+    });
+
+    return { response: model };
+  }
+}
+```
+
+### Example 3: Custom Embeddings Provider
+
+```typescript
+// nodes/EmbeddingsCustom/EmbeddingsCustom.node.ts
+
+import {
+  NodeConnectionTypes,
+  type INodeType,
+  type INodeTypeDescription,
+  type ISupplyDataFunctions,
+  type SupplyData,
+} from 'n8n-workflow';
+import { createEmbeddings, N8nEmbeddingsProvider } from '@n8n/ai-node-sdk';
+
+class CustomEmbeddingsProvider extends N8nEmbeddingsProvider {
+  readonly name = 'custom-embeddings';
+  readonly dimensions = 1536;
+
+  private apiKey: string;
+  private baseUrl: string;
+
+  constructor(options: { apiKey: string; baseUrl: string }) {
+    super();
+    this.apiKey = options.apiKey;
+    this.baseUrl = options.baseUrl;
+  }
+
+  async embedDocuments(texts: string[]): Promise<number[][]> {
+    const response = await fetch(`${this.baseUrl}/embeddings`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ texts }),
+    });
+
+    const data = await response.json();
+    return data.embeddings;
+  }
+}
+
+export class EmbeddingsCustom implements INodeType {
+  description: INodeTypeDescription = {
+    displayName: 'Custom Embeddings',
+    name: 'embeddingsCustom',
+    group: ['transform'],
+    version: 1,
+    description: 'Generate embeddings with custom provider',
+    inputs: [],
+    outputs: [NodeConnectionTypes.AiEmbedding],
+    outputNames: ['Embeddings'],
+    credentials: [{ name: 'customEmbeddingsApi', required: true }],
+    properties: [],
+  };
+
+  async supplyData(this: ISupplyDataFunctions): Promise<SupplyData> {
+    const credentials = await this.getCredentials('customEmbeddingsApi');
+
+    const provider = new CustomEmbeddingsProvider({
+      apiKey: credentials.apiKey as string,
+      baseUrl: credentials.baseUrl as string,
+    });
+
+    // Factory creates LangChain-compatible embeddings
+    const embeddings = createEmbeddings({ provider });
+
+    return { response: embeddings };
+  }
+}
+```
+
+### Example 4: Custom Vector Store
+
+```typescript
+// nodes/VectorStoreCustom/VectorStoreCustom.node.ts
+
+import {
+  NodeConnectionTypes,
+  type INodeType,
+  type INodeTypeDescription,
+  type ISupplyDataFunctions,
+  type SupplyData,
+} from 'n8n-workflow';
+import {
+  createVectorStore,
+  N8nVectorStoreProvider,
+  type N8nDocument,
+} from '@n8n/ai-node-sdk';
+
+class CustomVectorStoreProvider extends N8nVectorStoreProvider {
+  readonly name = 'custom-vectorstore';
+
+  private client: any;
+  private collection: string;
+
+  constructor(options: { client: any; collection: string }) {
+    super();
+    this.client = options.client;
+    this.collection = options.collection;
+  }
+
+  async addVectors(
+    vectors: number[][],
+    documents: N8nDocument[],
+    options?: { ids?: string[] }
+  ): Promise<string[]> {
+    const ids = options?.ids ?? documents.map(() => crypto.randomUUID());
+
+    await this.client.upsert({
+      collection: this.collection,
+      points: vectors.map((vector, i) => ({
+        id: ids[i],
+        vector,
+        payload: {
+          content: documents[i].pageContent,
+          ...documents[i].metadata,
+        },
+      })),
+    });
+
+    return ids;
+  }
+
+  async similaritySearchVectorWithScore(
+    query: number[],
+    k: number,
+    filter?: Record<string, unknown>
+  ): Promise<Array<[N8nDocument, number]>> {
+    const results = await this.client.search({
+      collection: this.collection,
+      vector: query,
+      limit: k,
+      filter,
+    });
+
+    return results.map((r: any) => [
+      {
+        pageContent: r.payload.content,
+        metadata: r.payload,
+      },
+      r.score,
+    ]);
+  }
+
+  async delete(params: { ids: string[] }): Promise<void> {
+    await this.client.delete({
+      collection: this.collection,
+      ids: params.ids,
+    });
+  }
+}
+
+export class VectorStoreCustom implements INodeType {
+  description: INodeTypeDescription = {
+    displayName: 'Custom Vector Store',
+    name: 'vectorStoreCustom',
+    group: ['transform'],
+    version: 1,
+    description: 'Store vectors in custom database',
+    inputs: [
+      { type: NodeConnectionTypes.AiEmbedding },
+    ],
+    outputs: [NodeConnectionTypes.AiVectorStore],
+    outputNames: ['Vector Store'],
+    credentials: [{ name: 'customVectorStoreApi', required: true }],
+    properties: [
+      {
+        displayName: 'Collection',
+        name: 'collection',
+        type: 'string',
+        default: 'default',
+        required: true,
+      },
+    ],
+  };
+
+  async supplyData(
+    this: ISupplyDataFunctions,
+    itemIndex: number
+  ): Promise<SupplyData> {
+    const credentials = await this.getCredentials('customVectorStoreApi');
+    const collection = this.getNodeParameter('collection', itemIndex) as string;
+
+    // Get embeddings from connected node
+    const embeddings = await this.getInputConnectionData(
+      NodeConnectionTypes.AiEmbedding,
+      0
+    );
+
+    // Create custom provider
+    const provider = new CustomVectorStoreProvider({
+      client: createClient(credentials),
+      collection,
+    });
+
+    // Factory creates LangChain-compatible vector store
+    const vectorStore = createVectorStore({
+      provider,
+      embeddings, // Pass through embeddings
+    });
+
+    return { response: vectorStore };
+  }
+}
+```
+
+---
+
+## Migration Strategy
+
+### Phase 1: Foundation (Week 1-2)
+
+1. **Create `@n8n/ai-node-sdk` package**
+   - Define all public types and interfaces
+   - Implement base classes (`N8nChatHistory`, `N8nEmbeddingsProvider`, etc.)
+   - Create factory functions with LangChain adapters
+
+2. **Migrate internal nodes as proof-of-concept**
+   - `MemoryPostgres` → Use new SDK
+   - `LmChatOpenAi` → Verify OpenAI-compatible path works
+   - Validate no regressions
+
+### Phase 2: Core Adapters (Week 3-4)
+
+1. **Implement all factory functions**
+   - `createChatModel()` with OpenAI-compatible and custom paths
+   - `createMemory()` with buffer, bufferWindow, tokenBuffer types
+   - `createEmbeddings()` with provider abstraction
+   - `createVectorStore()` with provider abstraction
+
+2. **Add comprehensive test coverage**
+   - Unit tests for adapters
+   - Integration tests with real LangChain objects
+   - E2E tests with sample community nodes
+
+### Phase 3: Documentation & Launch (Week 5-6)
+
+1. **Developer documentation**
+   - Getting started guide
+   - API reference
+   - Example nodes for each type
+
+2. **Community guidelines**
+   - Publishing requirements
+   - Security review process
+   - Versioning policy
+
+### Phase 4: Gradual Internal Migration (Ongoing)
+
+Optionally migrate existing n8n AI nodes to use the SDK internally, ensuring the same code path for both internal and community nodes.
+
+---
+
+## Backwards Compatibility
+
+### For Existing Workflows
+
+**Zero breaking changes.** The new SDK is additive:
+
+- Existing nodes continue using direct LangChain imports
+- AI Agent and chains receive the same LangChain objects
+- `logWrapper()` continues to work
