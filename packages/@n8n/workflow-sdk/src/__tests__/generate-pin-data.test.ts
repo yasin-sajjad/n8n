@@ -1,39 +1,10 @@
 import { workflow } from '../workflow-builder';
 import { node, trigger } from '../node-builder';
-import * as outputSchemaResolver from '../output-schema-resolver';
-import type { OutputSchemaEntry } from '../output-schema-resolver';
-
-// Mock the output schema loading
-jest.mock('../output-schema-resolver', () => {
-	const actual = jest.requireActual('../output-schema-resolver');
-	return {
-		...actual,
-		loadOutputSchemas: jest.fn(),
-	};
-});
-
-const mockLoadOutputSchemas = outputSchemaResolver.loadOutputSchemas as jest.Mock;
 
 describe('generatePinData', () => {
-	beforeEach(() => {
-		jest.clearAllMocks();
-	});
-
 	describe('basic generation', () => {
-		it('generates pin data for nodes with schemas', () => {
-			const testSchema: OutputSchemaEntry[] = [
-				{
-					parameters: { resource: 'channel', operation: 'get' },
-					schema: {
-						type: 'object',
-						properties: {
-							id: { type: 'string' },
-							name: { type: 'string' },
-						},
-					},
-				},
-			];
-			mockLoadOutputSchemas.mockReturnValue(testSchema);
+		it('uses output declaration directly as pinData', () => {
+			const outputData = [{ id: 'channel-1', name: 'general' }];
 
 			const wf = workflow('id', 'Test')
 				.add(
@@ -51,6 +22,7 @@ describe('generatePinData', () => {
 							name: 'Slack',
 							parameters: { resource: 'channel', operation: 'get' },
 						},
+						output: outputData,
 					}),
 				)
 				.generatePinData();
@@ -58,23 +30,16 @@ describe('generatePinData', () => {
 			const json = wf.toJSON();
 			expect(json.pinData).toBeDefined();
 			expect(json.pinData!['Slack']).toBeDefined();
-			expect(json.pinData!['Slack']).toHaveLength(1);
-			expect(json.pinData!['Slack'][0]).toHaveProperty('id');
-			expect(json.pinData!['Slack'][0]).toHaveProperty('name');
+			expect(json.pinData!['Slack']).toEqual(outputData);
 		});
 
 		it('returns this for chaining', () => {
-			mockLoadOutputSchemas.mockReturnValue([]);
-
 			const wf = workflow('id', 'Test');
 			const result = wf.generatePinData();
 			expect(result).toBe(wf);
 		});
 
-		it('silently skips nodes without output schemas', () => {
-			// Return undefined to simulate no schema found
-			mockLoadOutputSchemas.mockReturnValue(undefined);
-
+		it('silently skips nodes without output declaration', () => {
 			const wf = workflow('id', 'Test')
 				.add(
 					node({
@@ -89,47 +54,49 @@ describe('generatePinData', () => {
 			// No pin data should be generated (either empty object or undefined)
 			expect(json.pinData?.['No Op']).toBeUndefined();
 		});
-	});
 
-	describe('item count', () => {
-		it('generates 1 item for non-getAll operations', () => {
-			const testSchema: OutputSchemaEntry[] = [
-				{
-					schema: {
-						type: 'object',
-						properties: { id: { type: 'string' } },
-					},
-				},
-			];
-			mockLoadOutputSchemas.mockReturnValue(testSchema);
-
+		it('skips nodes with empty output array', () => {
 			const wf = workflow('id', 'Test')
 				.add(
 					node({
-						type: 'n8n-nodes-base.slack',
-						version: 2,
-						config: {
-							name: 'Slack',
-							parameters: { resource: 'channel', operation: 'get' },
-						},
+						type: 'n8n-nodes-base.noOp',
+						version: 1,
+						config: { name: 'Empty Output' },
+						output: [],
 					}),
 				)
 				.generatePinData();
 
 			const json = wf.toJSON();
-			expect(json.pinData!['Slack']).toHaveLength(1);
+			expect(json.pinData?.['Empty Output']).toBeUndefined();
 		});
 
-		it('generates 2 items for getAll operations', () => {
-			const testSchema: OutputSchemaEntry[] = [
-				{
-					schema: {
-						type: 'object',
-						properties: { id: { type: 'string' } },
-					},
-				},
+		it('uses output from trigger nodes', () => {
+			const outputData = [{ amount: 500, description: 'Test purchase' }];
+
+			const wf = workflow('id', 'Test')
+				.add(
+					trigger({
+						type: 'n8n-nodes-base.webhook',
+						version: 2,
+						config: { name: 'Webhook' },
+						output: outputData,
+					}),
+				)
+				.generatePinData();
+
+			const json = wf.toJSON();
+			expect(json.pinData!['Webhook']).toEqual(outputData);
+		});
+	});
+
+	describe('multiple items in output', () => {
+		it('preserves all items from output declaration', () => {
+			const outputData = [
+				{ id: 'channel-1', name: 'general' },
+				{ id: 'channel-2', name: 'random' },
+				{ id: 'channel-3', name: 'support' },
 			];
-			mockLoadOutputSchemas.mockReturnValue(testSchema);
 
 			const wf = workflow('id', 'Test')
 				.add(
@@ -140,33 +107,26 @@ describe('generatePinData', () => {
 							name: 'Slack',
 							parameters: { resource: 'channel', operation: 'getAll' },
 						},
+						output: outputData,
 					}),
 				)
 				.generatePinData();
 
 			const json = wf.toJSON();
-			expect(json.pinData!['Slack']).toHaveLength(2);
+			expect(json.pinData!['Slack']).toHaveLength(3);
+			expect(json.pinData!['Slack']).toEqual(outputData);
 		});
 	});
 
 	describe('filtering by nodes option', () => {
 		it('only generates for specified node names', () => {
-			const testSchema: OutputSchemaEntry[] = [
-				{
-					schema: {
-						type: 'object',
-						properties: { id: { type: 'string' } },
-					},
-				},
-			];
-			mockLoadOutputSchemas.mockReturnValue(testSchema);
-
 			const wf = workflow('id', 'Test')
 				.add(
 					node({
 						type: 'n8n-nodes-base.slack',
 						version: 2,
 						config: { name: 'Slack 1' },
+						output: [{ id: '1' }],
 					}),
 				)
 				.then(
@@ -174,6 +134,7 @@ describe('generatePinData', () => {
 						type: 'n8n-nodes-base.slack',
 						version: 2,
 						config: { name: 'Slack 2' },
+						output: [{ id: '2' }],
 					}),
 				)
 				.generatePinData({ nodes: ['Slack 1'] });
@@ -186,16 +147,6 @@ describe('generatePinData', () => {
 
 	describe('filtering by hasNoCredentials option', () => {
 		it('only generates for nodes without credentials', () => {
-			const testSchema: OutputSchemaEntry[] = [
-				{
-					schema: {
-						type: 'object',
-						properties: { id: { type: 'string' } },
-					},
-				},
-			];
-			mockLoadOutputSchemas.mockReturnValue(testSchema);
-
 			const wf = workflow('id', 'Test')
 				.add(
 					node({
@@ -205,6 +156,7 @@ describe('generatePinData', () => {
 							name: 'With Creds',
 							credentials: { slackApi: { id: '1', name: 'Slack' } },
 						},
+						output: [{ id: 'cred' }],
 					}),
 				)
 				.then(
@@ -212,6 +164,7 @@ describe('generatePinData', () => {
 						type: 'n8n-nodes-base.code',
 						version: 2,
 						config: { name: 'No Creds' },
+						output: [{ id: 'nocred' }],
 					}),
 				)
 				.generatePinData({ hasNoCredentials: true });
@@ -222,22 +175,13 @@ describe('generatePinData', () => {
 		});
 
 		it('treats empty credentials object as having no credentials', () => {
-			const testSchema: OutputSchemaEntry[] = [
-				{
-					schema: {
-						type: 'object',
-						properties: { id: { type: 'string' } },
-					},
-				},
-			];
-			mockLoadOutputSchemas.mockReturnValue(testSchema);
-
 			const wf = workflow('id', 'Test')
 				.add(
 					node({
 						type: 'n8n-nodes-base.code',
 						version: 2,
 						config: { name: 'Empty Creds', credentials: {} },
+						output: [{ id: 'test' }],
 					}),
 				)
 				.generatePinData({ hasNoCredentials: true });
@@ -249,16 +193,6 @@ describe('generatePinData', () => {
 
 	describe('filtering by beforeWorkflow option', () => {
 		it('only generates for nodes not in the before workflow', () => {
-			const testSchema: OutputSchemaEntry[] = [
-				{
-					schema: {
-						type: 'object',
-						properties: { id: { type: 'string' } },
-					},
-				},
-			];
-			mockLoadOutputSchemas.mockReturnValue(testSchema);
-
 			const beforeWorkflow = {
 				name: 'Before',
 				nodes: [
@@ -280,6 +214,7 @@ describe('generatePinData', () => {
 						type: 'n8n-nodes-base.slack',
 						version: 2,
 						config: { name: 'Existing Node' },
+						output: [{ id: 'existing' }],
 					}),
 				)
 				.then(
@@ -287,6 +222,7 @@ describe('generatePinData', () => {
 						type: 'n8n-nodes-base.slack',
 						version: 2,
 						config: { name: 'New Node' },
+						output: [{ id: 'new' }],
 					}),
 				)
 				.generatePinData({ beforeWorkflow });
@@ -299,16 +235,6 @@ describe('generatePinData', () => {
 
 	describe('combining filters', () => {
 		it('combines filters with AND logic', () => {
-			const testSchema: OutputSchemaEntry[] = [
-				{
-					schema: {
-						type: 'object',
-						properties: { id: { type: 'string' } },
-					},
-				},
-			];
-			mockLoadOutputSchemas.mockReturnValue(testSchema);
-
 			const beforeWorkflow = {
 				name: 'Before',
 				nodes: [
@@ -330,6 +256,7 @@ describe('generatePinData', () => {
 						type: 'n8n-nodes-base.slack',
 						version: 2,
 						config: { name: 'Old' },
+						output: [{ id: 'old' }],
 					}),
 				)
 				.then(
@@ -340,6 +267,7 @@ describe('generatePinData', () => {
 							name: 'New With Creds',
 							credentials: { slackApi: { id: '1', name: 'Slack' } },
 						},
+						output: [{ id: 'newcreds' }],
 					}),
 				)
 				.then(
@@ -347,6 +275,7 @@ describe('generatePinData', () => {
 						type: 'n8n-nodes-base.code',
 						version: 2,
 						config: { name: 'New No Creds' },
+						output: [{ id: 'newnocreds' }],
 					}),
 				)
 				.generatePinData({ beforeWorkflow, hasNoCredentials: true });
@@ -361,17 +290,9 @@ describe('generatePinData', () => {
 		});
 	});
 
-	describe('seeded generation', () => {
-		it('generates deterministic data with seed', () => {
-			const testSchema: OutputSchemaEntry[] = [
-				{
-					schema: {
-						type: 'object',
-						properties: { id: { type: 'string' } },
-					},
-				},
-			];
-			mockLoadOutputSchemas.mockReturnValue(testSchema);
+	describe('deterministic output', () => {
+		it('produces same pinData when nodes have same output declarations', () => {
+			const outputData = [{ id: 'test-123' }];
 
 			const wf1 = workflow('id', 'Test')
 				.add(
@@ -379,9 +300,10 @@ describe('generatePinData', () => {
 						type: 'n8n-nodes-base.slack',
 						version: 2,
 						config: { name: 'Slack' },
+						output: outputData,
 					}),
 				)
-				.generatePinData({ seed: 42 });
+				.generatePinData();
 
 			const wf2 = workflow('id', 'Test')
 				.add(
@@ -389,9 +311,10 @@ describe('generatePinData', () => {
 						type: 'n8n-nodes-base.slack',
 						version: 2,
 						config: { name: 'Slack' },
+						output: outputData,
 					}),
 				)
-				.generatePinData({ seed: 42 });
+				.generatePinData();
 
 			expect(wf1.toJSON().pinData).toEqual(wf2.toJSON().pinData);
 		});
