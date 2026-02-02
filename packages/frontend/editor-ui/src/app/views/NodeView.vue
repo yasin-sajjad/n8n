@@ -107,6 +107,7 @@ import { useTelemetry } from '@/app/composables/useTelemetry';
 import { useHistoryStore } from '@/app/stores/history.store';
 import { useProjectsStore } from '@/features/collaboration/projects/projects.store';
 import { useNodeHelpers } from '@/app/composables/useNodeHelpers';
+import { useWorkflowHelpers } from '@/app/composables/useWorkflowHelpers';
 import { useExecutionDebugging } from '@/features/execution/executions/composables/useExecutionDebugging';
 import { useUsersStore } from '@/features/settings/users/users.store';
 import { sourceControlEventBus } from '@/features/integrations/sourceControl.ee/sourceControl.eventBus';
@@ -192,6 +193,7 @@ const workflowSaving = useWorkflowSaving({
 	},
 });
 const nodeHelpers = useNodeHelpers();
+const workflowHelpers = useWorkflowHelpers();
 const clipboard = useClipboard({ onPaste: onClipboardPaste });
 
 const nodeTypesStore = useNodeTypesStore();
@@ -1284,7 +1286,7 @@ async function onRunWorkflowToNode(id: string) {
 	}
 }
 async function copyWebhookUrl(id: string, webhookType: 'test' | 'production') {
-	const webhookUrl = await workflowsStore.getWebhookUrl(id, webhookType);
+	const webhookUrl = await workflowHelpers.getWebhookUrlByNodeId(id, webhookType);
 	if (!webhookUrl) return;
 
 	void clipboard.copy(webhookUrl);
