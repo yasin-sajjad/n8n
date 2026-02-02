@@ -72,7 +72,6 @@ beforeAll(async () => {
 		Container.get(WorkflowSharingService), // workflowSharingService
 		Container.get(ProjectService), // projectService
 		mock(),
-		mock(),
 		globalConfig,
 		mock(),
 		Container.get(WorkflowFinderService),
