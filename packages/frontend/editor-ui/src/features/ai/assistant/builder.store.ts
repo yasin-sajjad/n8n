@@ -1,6 +1,5 @@
 import type { VIEWS } from '@/app/constants';
 import { BUILDER_ENABLED_VIEWS } from './constants';
-import type { ChatRequest } from './assistant.types';
 import { STORES } from '@n8n/stores';
 import type { ChatUI } from '@n8n/design-system/types/assistant';
 import { isToolMessage, isWorkflowUpdatedMessage } from '@n8n/design-system/types/assistant';
@@ -125,10 +124,6 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 	// Track the workflowId for which sessions have been loaded (or attempted)
 	// to prevent redundant API calls when no session exists
 	const loadedSessionsForWorkflowId = ref<string | undefined>();
-
-	// Prompt version and model selection for A/B testing
-	const selectedPromptVersion = ref<ChatRequest.PromptVersionId>('v1-sonnet');
-	const selectedModelId = ref<ChatRequest.BuilderModelId>('claude-sonnet-4.5');
 
 	const documentTitle = useDocumentTitle();
 
@@ -607,8 +602,6 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 			workflow: workflowsStore.workflow,
 			executionData: executionResult,
 			nodesForSchema: Object.keys(workflowsStore.nodesByName),
-			promptVersion: selectedPromptVersion.value,
-			modelId: selectedModelId.value,
 		});
 
 		const retry = createRetryHandler(userMessageId, async () => await sendChatMessage(options));
@@ -905,20 +898,6 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 		}
 	}
 
-	/**
-	 * Set the prompt version for A/B testing
-	 */
-	function setPromptVersion(version: ChatRequest.PromptVersionId) {
-		selectedPromptVersion.value = version;
-	}
-
-	/**
-	 * Set the model ID for A/B testing
-	 */
-	function setModelId(modelId: ChatRequest.BuilderModelId) {
-		selectedModelId.value = modelId;
-	}
-
 	// Public API
 	return {
 		// State
@@ -939,9 +918,6 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 		hasMessages,
 		workflowTodos,
 		lastUserMessageId,
-		// Prompt version and model selection
-		selectedPromptVersion,
-		selectedModelId,
 
 		// Methods
 		abortStreaming,
@@ -963,8 +939,5 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 		clearExistingWorkflow,
 		// Title management for AI builder
 		clearDoneIndicatorTitle,
-		// Prompt version and model selection methods
-		setPromptVersion,
-		setModelId,
 	};
 });
