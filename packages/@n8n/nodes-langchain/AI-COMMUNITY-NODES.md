@@ -93,7 +93,7 @@ Use composable building blocks instead of monolithic configuration objects:
 // ✅ Composable
 const memory = createMemory(this, {
   type: 'bufferWindow',
-  chatHistory: new MyChatHistory({ connectionString }),
+  chatHistory: new MyChatHistory(connectionString),
   k: 10,
 });
 
@@ -123,8 +123,8 @@ const model = createChatModel(this, {
 // Complex: Fully custom model
 const model = createChatModel(this, {
   type: 'custom',
+  name: 'my-custom-model',
   invoke: async (messages, options) => { /* ... */ },
-  stream: async function* (messages, options) { /* ... */ },
 });
 ```
 
@@ -140,10 +140,11 @@ const model = createChatModel(this, {
 │  ┌─────────────────────────────────────────────────────────────────────────────┐    │
 │  │  import { createMemory, ChatHistory } from '@n8n/ai-node-sdk';              │    │
 │  │                                                                             │    │
-│  │  class MyMemory extends ChatHistory { /* provider-specific logic */ }       │    │
+│  │  class MyChatHistory extends ChatHistory { /* storage logic */ }            │    │
 │  │                                                                             │    │
 │  │  supplyData() {                                                             │    │
-│  │    return { response: createMemory(this, { chatHistory: new MyMemory() }) };│    │
+│  │    const memory = createMemory(this, { chatHistory: new MyChatHistory() }); │    │
+│  │    return { response: memory };                                             │    │
 │  │  }                                                                          │    │
 │  └─────────────────────────────────────────────────────────────────────────────┘    │
 └───────────────────────────────────────┬─────────────────────────────────────────────┘
@@ -360,8 +361,6 @@ export interface BufferWindowMemoryOptions extends BaseMemoryOptions {
 export interface TokenBufferMemoryOptions extends BaseMemoryOptions {
   type: 'tokenBuffer';
   maxTokenLimit: number;
-  // Note: Token counting uses tiktoken internally for OpenAI models
-  // Custom models fall back to character-based estimation
 }
 ```
 
