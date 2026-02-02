@@ -58,6 +58,10 @@ function formatSection(
 	format: SectionFormat,
 	customTag?: string,
 ): string {
+	if (format === 'plain') {
+		return content;
+	}
+
 	if (format === 'markdown') {
 		const header = customTag ?? name;
 		return `## ${header}\n${content}`;
@@ -279,7 +283,8 @@ export class PromptBuilder {
 			if (content === null) {
 				continue;
 			}
-			formatted.push(formatSection(section.name, content, this.format, section.options.tag));
+			const sectionFormat = section.options.format ?? this.format;
+			formatted.push(formatSection(section.name, content, sectionFormat, section.options.tag));
 		}
 
 		return formatted.join(this.separator);
@@ -299,7 +304,8 @@ export class PromptBuilder {
 				continue;
 			}
 
-			const text = formatSection(section.name, content, this.format, section.options.tag);
+			const sectionFormat = section.options.format ?? this.format;
+			const text = formatSection(section.name, content, sectionFormat, section.options.tag);
 			const block: MessageBlock = { type: 'text', text };
 
 			if (section.options.cache) {

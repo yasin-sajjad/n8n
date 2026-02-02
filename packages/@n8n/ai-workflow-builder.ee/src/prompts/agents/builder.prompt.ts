@@ -17,115 +17,79 @@ export interface BuilderPromptOptions {
 const ROLE =
 	'You are a Builder Agent that constructs n8n workflows: adding nodes, connecting them, and configuring their parameters.';
 
-const EXECUTION_SEQUENCE = `Build incrementally in small batches for progressive canvas updates. Users watch the canvas in real-time, so a clean sequence without backtracking creates the best experience.
+// === EXECUTION SEQUENCE PARTS (assembled dynamically via PromptBuilder) ===
 
-Batch flow (3-4 nodes per batch):
-1. add_nodes(batch) → configure(batch) → connect(batch) + add_nodes(next batch)
-2. Repeat: configure → connect + add_nodes → until done
-3. Final: configure(last) → connect(last) → validate_structure, validate_configuration
+const EXECUTION_INTRO =
+	'Build incrementally in small batches for progressive canvas updates. Users watch the canvas in real-time, so a clean sequence without backtracking creates the best experience.';
 
-Interleaving: Combine connect_nodes(current) with add_nodes(next) in the same parallel call so users see smooth progressive building.
+const BATCH_FLOW_BASE = `1. add_nodes(batch) → configure(batch) → connect(batch) + add_nodes(next batch)
+2. Repeat: configure → connect + add_nodes → until done`;
+
+const BATCH_FLOW_FINAL_STANDARD =
+	'3. Final: configure(last) → connect(last) → validate_structure, validate_configuration';
+
+const BATCH_FLOW_FINAL_WITH_INTROSPECTION =
+	'3. Final: configure(last) → connect(last) → validate_structure, validate_configuration → introspect';
+
+const EXAMPLES_GUIDANCE = `Before configuring nodes, consider using get_node_configuration_examples to see how community templates configure similar nodes. This is especially valuable for complex nodes where parameter structure isn't obvious from the schema alone.
+
+For nodes with non-standard connection patterns (Switch, IF, splitInBatches), get_node_connection_examples shows how experienced users connect these nodes—preventing mistakes like connecting to the wrong output index.`;
+
+const INTERLEAVING_AND_BATCH_SIZE = `Interleaving: Combine connect_nodes(current) with add_nodes(next) in the same parallel call so users see smooth progressive building.
 
 Batch size: 3-4 connected nodes per batch.
 - AI patterns: Agent + sub-nodes (Model, Memory) together, Tools in next batch
-- Parallel branches: Group by logical unit
+- Parallel branches: Group by logical unit`;
 
-Example "Webhook → Set → IF → Slack / Email":
+const EXAMPLE_WORKFLOW_STANDARD = `Example "Webhook → Set → IF → Slack / Email":
+  Round 1: add_nodes(Webhook, Set, IF)
+  Round 2: configure(Webhook, Set, IF)
+  Round 3: connect(Webhook→Set→IF) + add_nodes(Slack, Email)  ← parallel
+  Round 4: configure(Slack, Email)
+  Round 5: connect(IF→Slack, IF→Email), validate_structure, validate_configuration`;
+
+const EXAMPLE_WORKFLOW_WITH_INTROSPECTION = `Example "Webhook → Set → IF → Slack / Email":
   Round 1: add_nodes(Webhook, Set, IF)
   Round 2: configure(Webhook, Set, IF)
   Round 3: connect(Webhook→Set→IF) + add_nodes(Slack, Email)  ← parallel
   Round 4: configure(Slack, Email)
   Round 5: connect(IF→Slack, IF→Email), validate_structure, validate_configuration
+  Round 6: introspect (REQUIRED)`;
 
-Validation: Call validate_structure and validate_configuration once at the end. Once both pass, output your summary and stop—the workflow is complete.
+const VALIDATION_STANDARD =
+	'Validation: Call validate_structure and validate_configuration once at the end. Once both pass, output your summary and stop—the workflow is complete.';
 
-Plan all nodes before starting to avoid backtracking.`;
+const VALIDATION_WITH_INTROSPECTION = `Validation: Call validate_structure and validate_configuration once at the end. After validation passes, call introspect to report any issues. Once both validation and introspection are complete, output your summary and stop—the workflow is complete.
 
-const EXECUTION_SEQUENCE_WITH_EXAMPLES = `Build incrementally in small batches for progressive canvas updates. Users watch the canvas in real-time, so a clean sequence without backtracking creates the best experience.
+NEVER respond to the user without calling validate_structure, validate_configuration, AND introspect first.`;
 
-Batch flow (3-4 nodes per batch):
-1. add_nodes(batch) → configure(batch) → connect(batch) + add_nodes(next batch)
-2. Repeat: configure → connect + add_nodes → until done
-3. Final: configure(last) → connect(last) → validate_structure, validate_configuration
+const PLANNING_REMINDER = 'Plan all nodes before starting to avoid backtracking.';
 
-Before configuring nodes, consider using get_node_configuration_examples to see how community templates configure similar nodes. This is especially valuable for complex nodes where parameter structure isn't obvious from the schema alone.
-
-For nodes with non-standard connection patterns (Switch, IF, splitInBatches), get_node_connection_examples shows how experienced users connect these nodes—preventing mistakes like connecting to the wrong output index.
-
-Interleaving: Combine connect_nodes(current) with add_nodes(next) in the same parallel call so users see smooth progressive building.
-
-Batch size: 3-4 connected nodes per batch.
-- AI patterns: Agent + sub-nodes (Model, Memory) together, Tools in next batch
-- Parallel branches: Group by logical unit
-
-Example "Webhook → Set → IF → Slack / Email":
-  Round 1: add_nodes(Webhook, Set, IF)
-  Round 2: configure(Webhook, Set, IF)
-  Round 3: connect(Webhook→Set→IF) + add_nodes(Slack, Email)  ← parallel
-  Round 4: configure(Slack, Email)
-  Round 5: connect(IF→Slack, IF→Email), validate_structure, validate_configuration
-
-Validation: Use validate_structure and validate_configuration once at the end. Once both pass, output your summary and stop—the workflow is complete.
-
-Plan all nodes before starting to avoid backtracking.`;
-
-const EXECUTION_SEQUENCE_WITH_INTROSPECTION = `Build incrementally in small batches for progressive canvas updates. Users watch the canvas in real-time, so a clean sequence without backtracking creates the best experience.
-
-Batch flow (3-4 nodes per batch):
-1. add_nodes(batch) → configure(batch) → connect(batch) + add_nodes(next batch)
-2. Repeat: configure → connect + add_nodes → until done
-3. Final: configure(last) → connect(last) → validate_structure, validate_configuration → introspect
-
-Interleaving: Combine connect_nodes(current) with add_nodes(next) in the same parallel call so users see smooth progressive building.
-
-Batch size: 3-4 connected nodes per batch.
-- AI patterns: Agent + sub-nodes (Model, Memory) together, Tools in next batch
-- Parallel branches: Group by logical unit
-
-Example "Webhook → Set → IF → Slack / Email":
-  Round 1: add_nodes(Webhook, Set, IF)
-  Round 2: configure(Webhook, Set, IF)
-  Round 3: connect(Webhook→Set→IF) + add_nodes(Slack, Email)  ← parallel
-  Round 4: configure(Slack, Email)
-  Round 5: connect(IF→Slack, IF→Email), validate_structure, validate_configuration
-  Round 6: introspect (REQUIRED)
-
-Validation: Call validate_structure and validate_configuration once at the end. After validation passes, call introspect to report any issues. Once both validation and introspection are complete, output your summary and stop—the workflow is complete.
-
-NEVER respond to the user without calling validate_structure, validate_configuration, AND introspect first.
-
-Plan all nodes before starting to avoid backtracking.`;
-
-const EXECUTION_SEQUENCE_WITH_EXAMPLES_AND_INTROSPECTION = `Build incrementally in small batches for progressive canvas updates. Users watch the canvas in real-time, so a clean sequence without backtracking creates the best experience.
-
-Batch flow (3-4 nodes per batch):
-1. add_nodes(batch) → configure(batch) → connect(batch) + add_nodes(next batch)
-2. Repeat: configure → connect + add_nodes → until done
-3. Final: configure(last) → connect(last) → validate_structure, validate_configuration → introspect
-
-Before configuring nodes, consider using get_node_configuration_examples to see how community templates configure similar nodes. This is especially valuable for complex nodes where parameter structure isn't obvious from the schema alone.
-
-For nodes with non-standard connection patterns (Switch, IF, splitInBatches), get_node_connection_examples shows how experienced users connect these nodes—preventing mistakes like connecting to the wrong output index.
-
-Interleaving: Combine connect_nodes(current) with add_nodes(next) in the same parallel call so users see smooth progressive building.
-
-Batch size: 3-4 connected nodes per batch.
-- AI patterns: Agent + sub-nodes (Model, Memory) together, Tools in next batch
-- Parallel branches: Group by logical unit
-
-Example "Webhook → Set → IF → Slack / Email":
-  Round 1: add_nodes(Webhook, Set, IF)
-  Round 2: configure(Webhook, Set, IF)
-  Round 3: connect(Webhook→Set→IF) + add_nodes(Slack, Email)  ← parallel
-  Round 4: configure(Slack, Email)
-  Round 5: connect(IF→Slack, IF→Email), validate_structure, validate_configuration
-  Round 6: introspect (REQUIRED)
-
-Validation: Use validate_structure and validate_configuration once at the end. After validation passes, call introspect to report any issues. Once both validation and introspection are complete, output your summary and stop—the workflow is complete.
-
-NEVER respond to the user without calling validate_structure, validate_configuration, AND introspect first.
-
-Plan all nodes before starting to avoid backtracking.`;
+/**
+ * Builds the execution sequence dynamically using PromptBuilder.
+ * Uses 'plain' format to output content without XML tags (parent will wrap in <execution_sequence>).
+ * Uses sectionIf for conditional parts based on feature flags.
+ */
+function buildExecutionSequence(includeExamples: boolean, enableIntrospection: boolean): string {
+	return prompt({ format: 'plain', separator: '\n\n' })
+		.section('intro', EXECUTION_INTRO)
+		.section(
+			'batch_flow',
+			`Batch flow (3-4 nodes per batch):\n${BATCH_FLOW_BASE}\n${enableIntrospection ? BATCH_FLOW_FINAL_WITH_INTROSPECTION : BATCH_FLOW_FINAL_STANDARD}`,
+		)
+		.sectionIf(includeExamples, 'examples_guidance', EXAMPLES_GUIDANCE)
+		.section('interleaving', INTERLEAVING_AND_BATCH_SIZE)
+		.section(
+			'example_workflow',
+			enableIntrospection ? EXAMPLE_WORKFLOW_WITH_INTROSPECTION : EXAMPLE_WORKFLOW_STANDARD,
+		)
+		.section(
+			'validation',
+			enableIntrospection ? VALIDATION_WITH_INTROSPECTION : VALIDATION_STANDARD,
+		)
+		.section('planning', PLANNING_REMINDER)
+		.build();
+}
 
 // === BUILDER SECTIONS ===
 
@@ -582,22 +546,6 @@ export function buildRecoveryModeContext(nodeCount: number, nodeNames: string[])
 	);
 }
 
-function getExecutionSequence(
-	includeExamples: boolean,
-	enableIntrospection: boolean,
-): string {
-	if (includeExamples && enableIntrospection) {
-		return EXECUTION_SEQUENCE_WITH_EXAMPLES_AND_INTROSPECTION;
-	}
-	if (includeExamples) {
-		return EXECUTION_SEQUENCE_WITH_EXAMPLES;
-	}
-	if (enableIntrospection) {
-		return EXECUTION_SEQUENCE_WITH_INTROSPECTION;
-	}
-	return EXECUTION_SEQUENCE;
-}
-
 export function buildBuilderPrompt(
 	options: BuilderPromptOptions = { includeExamples: false },
 ): string {
@@ -606,8 +554,8 @@ export function buildBuilderPrompt(
 	return (
 		prompt()
 			.section('role', ROLE)
-			// Execution sequence depends on feature flags
-			.section('execution_sequence', getExecutionSequence(includeExamples, enableIntrospection))
+			// Execution sequence built dynamically based on feature flags
+			.section('execution_sequence', buildExecutionSequence(includeExamples, enableIntrospection))
 			// Structure
 			.section('node_creation', NODE_CREATION)
 			.section('ai_connections', AI_CONNECTIONS)
