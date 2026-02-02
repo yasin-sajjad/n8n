@@ -40,7 +40,11 @@ import type {
 } from './types/streaming';
 import type { TextEditorCommand } from './types/text-editor';
 import type { EvaluationLogger } from './utils/evaluation-logger';
-import { extractWorkflowCode } from './utils/extract-code';
+import {
+	extractWorkflowCode,
+	SDK_IMPORT_STATEMENT,
+	stripImportStatements,
+} from './utils/extract-code';
 import { NodeTypeParser } from './utils/node-type-parser';
 import type { ChatPayload } from './workflow-builder-agent';
 
@@ -427,11 +431,13 @@ ${'='.repeat(50)}
 
 				// Always pre-populate with current workflow code (even for empty workflows)
 				// This ensures the LLM uses str_replace instead of create command
+				// Prepend SDK import so LLM sees available functions
 				if (currentWorkflow) {
 					const existingCode = generateWorkflowCode(currentWorkflow);
-					textEditorHandler.setWorkflowCode(existingCode);
+					const codeWithImport = `${SDK_IMPORT_STATEMENT}\n\n${existingCode}`;
+					textEditorHandler.setWorkflowCode(codeWithImport);
 					this.debugLog('CHAT', 'Pre-populated text editor with workflow code', {
-						codeLength: existingCode.length,
+						codeLength: codeWithImport.length,
 					});
 				}
 			}
@@ -1400,12 +1406,19 @@ ${'='.repeat(50)}
 			codeEnd: code.substring(Math.max(0, code.length - 500)),
 		});
 
+		// Strip import statements before parsing - SDK functions are available as globals
+		const codeToparse = stripImportStatements(code);
+		this.debugLog('PARSE_VALIDATE', 'Code after stripping imports', {
+			originalLength: code.length,
+			strippedLength: codeToparse.length,
+		});
+
 		try {
 			// Parse the TypeScript code to WorkflowBuilder
-			this.logger?.debug('Parsing WorkflowCode', { codeLength: code.length });
+			this.logger?.debug('Parsing WorkflowCode', { codeLength: codeToparse.length });
 			this.debugLog('PARSE_VALIDATE', 'Calling parseWorkflowCodeToBuilder...');
 			const parseStartTime = Date.now();
-			const builder = parseWorkflowCodeToBuilder(code);
+			const builder = parseWorkflowCodeToBuilder(codeToparse);
 			const parseDuration = Date.now() - parseStartTime;
 
 			this.debugLog('PARSE_VALIDATE', 'Code parsed to builder', {
