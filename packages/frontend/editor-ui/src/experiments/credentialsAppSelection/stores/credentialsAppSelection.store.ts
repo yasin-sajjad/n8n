@@ -26,13 +26,11 @@ export const useCredentialsAppSelectionStore = defineStore(
 			posthogStore.getVariant(CREDENTIALS_APP_SELECTION_EXPERIMENT.name),
 		);
 
-		// TODO: Remove hardcoded true before merging - for development only
 		const isVariant = computed(
-			() => true || currentVariant.value === CREDENTIALS_APP_SELECTION_EXPERIMENT.variant,
+			() => currentVariant.value === CREDENTIALS_APP_SELECTION_EXPERIMENT.variant,
 		);
 
-		// TODO: Remove hardcoded true before merging - for development only
-		const userIsTrialing = computed(() => true || cloudPlanStore.userIsTrialing);
+		const userIsTrialing = computed(() => cloudPlanStore.userIsTrialing);
 
 		const isFeatureEnabled = computed(() => {
 			if (isDismissed.value) {
