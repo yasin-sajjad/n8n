@@ -801,7 +801,7 @@ export function generateConditionalSchemaLine(
 	}
 
 	const propName = quotePropertyName(prop.name);
-	const required = prop.required ?? false;
+	const required = !isPropertyOptional(prop);
 	const displayOptionsStr = JSON.stringify(prop.displayOptions);
 
 	// Extract defaults for properties referenced in displayOptions

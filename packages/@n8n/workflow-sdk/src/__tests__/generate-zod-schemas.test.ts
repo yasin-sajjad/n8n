@@ -91,7 +91,7 @@ describe('generateConditionalSchemaLine', () => {
 			displayName: 'Node Credential Type',
 			type: 'string',
 			required: true,
-			default: '',
+			// No default - truly required
 			displayOptions: { show: { authentication: ['predefinedCredentialType'] } },
 		};
 
@@ -110,13 +110,29 @@ describe('generateConditionalSchemaLine', () => {
 			name: 'optionalField',
 			displayName: 'Optional Field',
 			type: 'string',
-			default: '',
 			displayOptions: { show: { mode: ['advanced'] } },
 		};
 
 		const line = generateConditionalSchemaLine(prop);
 
 		expect(line).toContain('required: false');
+	});
+
+	it('generates resolveSchema call with required false when property has default value even if required: true', () => {
+		const prop: NodeProperty = {
+			name: 'text',
+			displayName: 'Text',
+			type: 'string',
+			required: true, // marked required
+			default: '={{ $json.chatInput }}', // but has a default
+			displayOptions: { show: { promptType: ['auto'] } },
+		};
+
+		const line = generateConditionalSchemaLine(prop);
+
+		// Should be required: false because it has a default value
+		expect(line).toContain('required: false');
+		expect(line).not.toContain('required: true');
 	});
 
 	it('generates resolveSchema call with hide displayOptions', () => {
