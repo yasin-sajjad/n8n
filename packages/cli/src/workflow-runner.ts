@@ -8,21 +8,23 @@ import { ExecutionRepository } from '@n8n/db';
 import { Container, Service } from '@n8n/di';
 import type { ExecutionLifecycleHooks } from 'n8n-core';
 import { ErrorReporter, InstanceSettings, StorageConfig, WorkflowExecute } from 'n8n-core';
+import {
+	createRunExecutionData,
+	ExecutionCancelledError,
+	ManualExecutionCancelledError,
+	migrateRunExecutionData,
+	TimeoutExecutionCancelledError,
+	Workflow,
+} from 'n8n-workflow';
 import type {
 	ExecutionError,
 	IDeferredPromise,
 	IExecuteResponsePromiseData,
 	IPinData,
 	IRun,
+	IRunExecutionDataAll,
 	WorkflowExecuteMode,
 	IWorkflowExecutionDataProcess,
-} from 'n8n-workflow';
-import {
-	createRunExecutionData,
-	ExecutionCancelledError,
-	ManualExecutionCancelledError,
-	TimeoutExecutionCancelledError,
-	Workflow,
 } from 'n8n-workflow';
 import PCancelable from 'p-cancelable';
 
@@ -46,6 +48,9 @@ import * as WorkflowExecuteAdditionalData from '@/workflow-execute-additional-da
 import { WorkflowStaticDataService } from '@/workflows/workflow-static-data.service';
 
 import { EventService } from './events/event.service';
+// import { parse } from 'flatted';
+// eslint-disable-next-line unused-imports/no-unused-imports
+import { parseAsync, ASYNC_PARSE_THRESHOLD } from './utils/flatted-async';
 
 @Service()
 export class WorkflowRunner {
@@ -474,12 +479,21 @@ export class WorkflowRunner {
 						executionId,
 						{
 							includeData: true,
-							unflattenData: true,
+							unflattenData: false,
 						},
 					);
 					if (!fullExecutionData) {
 						return reject(new Error(`Could not find execution with id "${executionId}"`));
 					}
+
+					// const parsedData: IRunExecutionDataAll =
+					// 	fullExecutionData.data.length < ASYNC_PARSE_THRESHOLD
+					// 		? parse(fullExecutionData.data)
+					// 		: await parseAsync(fullExecutionData.data);
+
+					const parsedData: IRunExecutionDataAll = await parseAsync(fullExecutionData.data);
+
+					const migratedData = migrateRunExecutionData(parsedData);
 
 					runData = {
 						finished: fullExecutionData.finished,
@@ -487,7 +501,7 @@ export class WorkflowRunner {
 						startedAt: fullExecutionData.startedAt,
 						stoppedAt: fullExecutionData.stoppedAt,
 						status: fullExecutionData.status,
-						data: fullExecutionData.data,
+						data: migratedData,
 						jobId: job.id.toString(),
 						storedAt: fullExecutionData.storedAt,
 					};
