@@ -17,7 +17,7 @@ import {
 } from 'vue';
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import WorkflowCanvas from '@/features/workflows/canvas/components/WorkflowCanvas.vue';
-import FocusSidebar from '@/app/components/FocusSidebar.vue';
+import FocusPanel from '@/app/components/FocusPanel.vue';
 import { useNodeTypesStore } from '@/app/stores/nodeTypes.store';
 import { useUIStore } from '@/app/stores/ui.store';
 import CanvasRunWorkflowButton from '@/features/workflows/canvas/components/elements/buttons/CanvasRunWorkflowButton.vue';
@@ -446,10 +446,6 @@ async function initializeRoute(force = false) {
 			historyStore.reset();
 
 			if (isDemoRoute.value) {
-				return await initializeWorkspaceForNewWorkflow();
-			}
-
-			if (!workflowId.value) {
 				return await initializeWorkspaceForNewWorkflow();
 			}
 
@@ -1276,9 +1272,7 @@ async function onRunWorkflowToNode(id: string) {
 		});
 	} else {
 		trackRunWorkflowToNode(node);
-		if (workflowId.value) {
-			agentRequestStore.clearAgentRequests(workflowId.value, node.id);
-		}
+		agentRequestStore.clearAgentRequests(workflowId.value, node.id);
 
 		void runWorkflow({
 			destinationNode: { nodeName: node.name, mode: 'inclusive' },
@@ -2290,7 +2284,7 @@ onBeforeUnmount(() => {
 				/>
 			</Suspense>
 		</WorkflowCanvas>
-		<FocusSidebar
+		<FocusPanel
 			v-if="
 				!isLoading && (experimentalNdvStore.isNdvInFocusPanelEnabled ? !isCanvasReadOnly : true)
 			"

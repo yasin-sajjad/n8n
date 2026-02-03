@@ -7,6 +7,7 @@ import ExpressionFunctionIcon from './ExpressionFunctionIcon.vue';
 import InlineExpressionEditorInput from '@/features/shared/editors/components/InlineExpressionEditor/InlineExpressionEditorInput.vue';
 import InlineExpressionEditorOutput from '@/features/shared/editors/components/InlineExpressionEditor/InlineExpressionEditorOutput.vue';
 import { useNDVStore } from '@/features/ndv/shared/ndv.store';
+import { useWorkflowsStore } from '@/app/stores/workflows.store';
 import { createExpressionTelemetryPayload } from '@/app/utils/telemetryUtils';
 
 import { useTelemetry } from '@/app/composables/useTelemetry';
@@ -57,6 +58,7 @@ const emit = defineEmits<{
 
 const telemetry = useTelemetry();
 const ndvStore = useNDVStore();
+const workflowsStore = useWorkflowsStore();
 const workflowId = useInjectWorkflowId();
 
 const canvas = inject(CanvasKey, undefined);
@@ -103,17 +105,15 @@ function onBlur(event?: FocusEvent | KeyboardEvent) {
 	if (wasFocused) {
 		emit('blur', event);
 
-		if (workflowId.value) {
-			const telemetryPayload = createExpressionTelemetryPayload(
-				segments.value,
-				props.modelValue,
-				workflowId.value,
-				ndvStore.pushRef,
-				ndvStore.activeNode?.type ?? '',
-			);
+		const telemetryPayload = createExpressionTelemetryPayload(
+			segments.value,
+			props.modelValue,
+			workflowId.value,
+			ndvStore.pushRef,
+			ndvStore.activeNode?.type ?? '',
+		);
 
-			telemetry.track('User closed Expression Editor', telemetryPayload);
-		}
+		telemetry.track('User closed Expression Editor', telemetryPayload);
 	}
 }
 

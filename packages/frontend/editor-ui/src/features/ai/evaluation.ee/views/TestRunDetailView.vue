@@ -68,7 +68,7 @@ const hasFailedTestCases = ref<boolean>(false);
 const runId = computed(() => router.currentRoute.value.params.runId as string);
 const workflowId = injectStrict(WorkflowIdKey);
 const workflowName = computed(
-	() => (workflowId.value ? workflowsListStore.getWorkflowById(workflowId.value)?.name : '') ?? '',
+	() => workflowsListStore.getWorkflowById(workflowId.value)?.name ?? '',
 );
 
 const cachedUserPreferences = ref<UserEvaluationPreferences | undefined>();
@@ -164,12 +164,10 @@ const fetchExecutionTestCases = async () => {
 };
 
 async function loadCachedUserPreferences() {
-	if (!workflowId.value) return;
 	cachedUserPreferences.value = await workflowsCache.getEvaluationPreferences(workflowId.value);
 }
 
 async function saveCachedUserPreferences() {
-	if (!workflowId.value) return;
 	if (cachedUserPreferences.value) {
 		await workflowsCache.saveEvaluationPreferences(workflowId.value, cachedUserPreferences.value);
 	}

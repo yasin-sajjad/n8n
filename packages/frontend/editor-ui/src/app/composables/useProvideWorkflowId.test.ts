@@ -3,8 +3,9 @@ import { defineComponent, h, inject } from 'vue';
 import { useProvideWorkflowId } from './useProvideWorkflowId';
 import { WorkflowIdKey } from '@/app/constants/injectionKeys';
 
-const mockRoute: { params: { name?: string | string[] } } = {
-	params: { name: 'test-workflow-id' as string | undefined },
+const mockRoute: { params: { name?: string | string[] }; meta: { layout?: string } } = {
+	params: { name: 'test-workflow-id' },
+	meta: { layout: 'workflow' },
 };
 
 vi.mock('vue-router', () => ({
@@ -14,9 +15,10 @@ vi.mock('vue-router', () => ({
 describe('useProvideWorkflowId', () => {
 	beforeEach(() => {
 		mockRoute.params = { name: 'test-workflow-id' };
+		mockRoute.meta = { layout: 'workflow' };
 	});
 
-	it('should provide workflow ID from route params', () => {
+	it('should provide workflow ID from route params on workflow routes', () => {
 		const ChildComponent = defineComponent({
 			setup() {
 				const workflowId = inject(WorkflowIdKey);
@@ -61,17 +63,47 @@ describe('useProvideWorkflowId', () => {
 		expect(wrapper.text()).toBe('first-id');
 	});
 
-	it('should handle undefined route params', () => {
+	it('should return empty string when route has no name param', () => {
 		mockRoute.params = {};
 
 		const TestComponent = defineComponent({
 			setup() {
 				const workflowId = useProvideWorkflowId();
-				return () => h('div', workflowId.value ?? 'undefined');
+				return () => h('div', `[${workflowId.value}]`);
 			},
 		});
 
 		const wrapper = mount(TestComponent);
-		expect(wrapper.text()).toBe('undefined');
+		expect(wrapper.text()).toBe('[]');
+	});
+
+	it('should return empty string when not on a workflow route', () => {
+		mockRoute.params = { name: 'some-id' };
+		mockRoute.meta = { layout: 'settings' };
+
+		const TestComponent = defineComponent({
+			setup() {
+				const workflowId = useProvideWorkflowId();
+				return () => h('div', `[${workflowId.value}]`);
+			},
+		});
+
+		const wrapper = mount(TestComponent);
+		expect(wrapper.text()).toBe('[]');
+	});
+
+	it('should return empty string when route has no layout meta', () => {
+		mockRoute.params = { name: 'some-id' };
+		mockRoute.meta = {};
+
+		const TestComponent = defineComponent({
+			setup() {
+				const workflowId = useProvideWorkflowId();
+				return () => h('div', `[${workflowId.value}]`);
+			},
+		});
+
+		const wrapper = mount(TestComponent);
+		expect(wrapper.text()).toBe('[]');
 	});
 });
