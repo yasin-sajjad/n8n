@@ -58,22 +58,26 @@ export async function createBuilderPayload(
 		}
 	}
 
-	if (options.nodesForSchema?.length) {
-		workflowContext.executionSchema = assistantHelpers.getNodesSchemas(
-			options.nodesForSchema,
-			true,
-		);
-	}
-
 	// Get feature flags from Posthog
+	const isCodeBuilderEnabled =
+		posthogStore.getVariant(CODE_WORKFLOW_BUILDER_EXPERIMENT.name) ===
+		CODE_WORKFLOW_BUILDER_EXPERIMENT.test;
+
 	const featureFlags: ChatRequest.BuilderFeatureFlags = {
 		templateExamples:
 			posthogStore.getVariant(AI_BUILDER_TEMPLATE_EXAMPLES_EXPERIMENT.name) ===
 			AI_BUILDER_TEMPLATE_EXAMPLES_EXPERIMENT.variant,
-		codeBuilder:
-			posthogStore.getVariant(CODE_WORKFLOW_BUILDER_EXPERIMENT.name) ===
-			CODE_WORKFLOW_BUILDER_EXPERIMENT.test,
+		codeBuilder: isCodeBuilderEnabled,
 	};
+
+	if (options.nodesForSchema?.length) {
+		// Include schema values when code builder is enabled (excludeValues = false)
+		const excludeValues = !isCodeBuilderEnabled;
+		workflowContext.executionSchema = assistantHelpers.getNodesSchemas(
+			options.nodesForSchema,
+			excludeValues,
+		);
+	}
 
 	return {
 		role: 'user',
