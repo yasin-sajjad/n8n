@@ -57,11 +57,8 @@ import type { CanvasLayoutEvent } from '@/features/workflows/canvas/composables/
 import { useTelemetry } from './useTelemetry';
 import { useToast } from '@/app/composables/useToast';
 import * as nodeHelpers from '@/app/composables/useNodeHelpers';
-import {
-	injectWorkflowState,
-	useWorkflowState,
-	type WorkflowState,
-} from '@/app/composables/useWorkflowState';
+import type * as useNodeHelpersModule from '@/app/composables/useNodeHelpers';
+import { useWorkflowState, type WorkflowState } from '@/app/composables/useWorkflowState';
 
 import { useRouter } from 'vue-router';
 import { useTemplatesStore } from '@/features/workflows/templates/templates.store';
@@ -139,10 +136,20 @@ vi.mock('@/app/composables/useToast', () => {
 const workflowStateRef: { current: WorkflowState | undefined } = { current: undefined };
 
 vi.mock('@/app/composables/useWorkflowState', async (importOriginal) => {
+	// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 	const actual = await importOriginal<typeof import('@/app/composables/useWorkflowState')>();
 	return {
 		...actual,
 		injectWorkflowState: () => workflowStateRef.current,
+	};
+});
+
+vi.mock('@/app/composables/useNodeHelpers', async (importOriginal) => {
+	const actual = await importOriginal<typeof useNodeHelpersModule>();
+	return {
+		...actual,
+		useNodeHelpers: (opts = {}) =>
+			actual.useNodeHelpers({ ...opts, workflowState: workflowStateRef.current }),
 	};
 });
 

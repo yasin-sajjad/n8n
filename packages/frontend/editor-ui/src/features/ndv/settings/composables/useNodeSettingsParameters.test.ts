@@ -18,6 +18,7 @@ import { CHAT_TRIGGER_NODE_TYPE, HTTP_REQUEST_NODE_TYPE, WEBHOOK_NODE_TYPE } fro
 const displayParameterSpy = vi.fn();
 
 vi.mock('@/app/composables/useWorkflowState', async (importOriginal) => {
+	// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 	const actual = await importOriginal<typeof import('@/app/composables/useWorkflowState')>();
 	return {
 		...actual,
