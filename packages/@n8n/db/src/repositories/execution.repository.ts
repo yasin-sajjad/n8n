@@ -301,7 +301,7 @@ export class ExecutionRepository extends Repository<ExecutionEntity> {
 		};
 		if (options?.includeData) {
 			findOptions.relations = {
-				executionData: { workflowData: true, workflowHistory: true },
+				executionData: { workflowHistory: true },
 				metadata: true,
 			};
 		}
