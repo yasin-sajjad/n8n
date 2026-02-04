@@ -815,7 +815,7 @@ describe('parseWorkflowCode', () => {
 			const codeWithUnescapedQuotes = `
 return workflow('test-id', 'Test Workflow')
   .add(trigger({ type: 'n8n-nodes-base.manualTrigger', version: 1, config: {} }))
-  .then(node({ type: 'n8n-nodes-base.set', version: 3.4, config: {
+  .to(node({ type: 'n8n-nodes-base.set', version: 3.4, config: {
     parameters: {
       mode: 'manual',
       assignments: {
@@ -851,7 +851,7 @@ return workflow('test-id', 'Test Workflow')
 			const code = `
 return workflow('test-id', 'Test Workflow')
   .add(trigger({ type: 'n8n-nodes-base.manualTrigger', version: 1, config: {} }))
-  .then(node({ type: 'n8n-nodes-base.set', version: 3.4, config: {
+  .to(node({ type: 'n8n-nodes-base.set', version: 3.4, config: {
     parameters: {
       mode: 'raw',
       jsonOutput: '={{ $('Node A').item.json.a + $('Node B').item.json.b }}'
@@ -870,7 +870,7 @@ return workflow('test-id', 'Test Workflow')
 			const codeWithEscapedQuotes = `
 return workflow('test-id', 'Test Workflow')
   .add(trigger({ type: 'n8n-nodes-base.manualTrigger', version: 1, config: {} }))
-  .then(node({ type: 'n8n-nodes-base.set', version: 3.4, config: {
+  .to(node({ type: 'n8n-nodes-base.set', version: 3.4, config: {
     parameters: {
       mode: 'raw',
       jsonOutput: '={{ $(\\'Properly Escaped\\').item.json.data }}'
@@ -889,7 +889,7 @@ return workflow('test-id', 'Test Workflow')
 			const code = `
 return workflow('test-id', 'Test Workflow')
   .add(trigger({ type: 'n8n-nodes-base.manualTrigger', version: 1, config: {} }))
-  .then(node({ type: 'n8n-nodes-base.set', version: 3.4, config: {
+  .to(node({ type: 'n8n-nodes-base.set', version: 3.4, config: {
     parameters: {
       mode: 'raw',
       jsonOutput: "={{ $('Node Name').item.json.data }}"
@@ -907,7 +907,7 @@ return workflow('test-id', 'Test Workflow')
 			const code = `
 return workflow('test-id', 'Test Workflow')
   .add(trigger({ type: 'n8n-nodes-base.manualTrigger', version: 1, config: {} }))
-  .then(node({ type: 'n8n-nodes-base.set', version: 3.4, config: {
+  .to(node({ type: 'n8n-nodes-base.set', version: 3.4, config: {
     parameters: {
       mode: 'raw',
       jsonOutput: '={{ $('Lead Generation Form').item.json.fullName }}'
@@ -927,7 +927,7 @@ return workflow('test-id', 'Test Workflow')
 			const code = `
 return workflow('test-id', 'Test Workflow')
   .add(trigger({ type: 'n8n-nodes-base.manualTrigger', version: 1, config: {} }))
-  .then(node({ type: 'n8n-nodes-base.slack', version: 2.2, config: {
+  .to(node({ type: 'n8n-nodes-base.slack', version: 2.2, config: {
     name: 'Send Slack Message',
     parameters: { channel: placeholder('Enter Slack Channel') }
   } }))
@@ -949,7 +949,7 @@ return workflow('test-id', 'Test Workflow')
 			const code = `
 return workflow('test-id', 'Test Workflow')
   .add(trigger({ type: 'n8n-nodes-base.manualTrigger', version: 1, config: {} }))
-  .then(node({ type: 'n8n-nodes-base.slack', version: 2.2, config: {
+  .to(node({ type: 'n8n-nodes-base.slack', version: 2.2, config: {
     name: 'Send Slack Message',
     parameters: { channel: '#general', text: 'Hello!' },
     credentials: { slackApi: newCredential('My Slack Bot') }
@@ -969,7 +969,7 @@ return workflow('test-id', 'Test Workflow')
 			const code = `
 return workflow('test-id', 'Test Workflow')
   .add(trigger({ type: 'n8n-nodes-base.manualTrigger', version: 1, config: {} }))
-  .then(node({ type: 'n8n-nodes-base.httpRequest', version: 4.2, config: {
+  .to(node({ type: 'n8n-nodes-base.httpRequest', version: 4.2, config: {
     name: 'HTTP Request',
     parameters: { url: 'https://api.example.com' },
     credentials: {
@@ -988,7 +988,7 @@ return workflow('test-id', 'Test Workflow')
 			const code = `
 return workflow('test-id', 'Test Workflow')
   .add(trigger({ type: 'n8n-nodes-base.manualTrigger', version: 1, config: {} }))
-  .then(node({ type: 'n8n-nodes-base.httpRequest', version: 4.2, config: {
+  .to(node({ type: 'n8n-nodes-base.httpRequest', version: 4.2, config: {
     name: 'HTTP Request',
     parameters: { url: 'https://api.example.com' },
     credentials: {
@@ -1009,7 +1009,7 @@ return workflow('test-id', 'Test Workflow')
 			const code = `
 return workflow('test-id', 'AI Agent')
   .add(trigger({ type: 'n8n-nodes-base.manualTrigger', version: 1, config: {} }))
-  .then(node({
+  .to(node({
     type: '@n8n/n8n-nodes-langchain.agent',
     version: 3.1,
     config: {
@@ -1141,7 +1141,7 @@ return workflow('AlNAxHXOpfimqHPOGVuNg', 'My workflow 23')
         position: [240, 300]
       }
     })
-    .then(
+    .to(
       node({
         type: 'n8n-nodes-base.linear',
         version: 1.1,
@@ -1193,7 +1193,7 @@ return workflow('AlNAxHXOpfimqHPOGVuNg', 'My workflow 23')
         })
       )
     )
-    .then(triageSwitch.onCase(0, tagAsBug).onCase(1, tagAsFeature))
+    .to(triageSwitch.onCase(0, tagAsBug).onCase(1, tagAsFeature))
   );`;
 
 			// This should not throw an error
@@ -1420,11 +1420,11 @@ const editingSticky = sticky(
 // Build the workflow
 return workflow('test-multi-sticky', 'Multi-Agent Research Workflow')
   .add(startTrigger)
-  .then(setTopic)
-  .then(researchAgent)
-  .then(factCheckAgent)
-  .then(writingAgent)
-  .then(editingAgent)
+  .to(setTopic)
+  .to(researchAgent)
+  .to(factCheckAgent)
+  .to(writingAgent)
+  .to(editingAgent)
   .add(researchSticky)
   .add(factCheckSticky)
   .add(writingSticky)
@@ -1683,7 +1683,7 @@ return workflow('test-simple-multi-sticky', 'Simple Multi-Sticky Workflow')
 			const code = `
 return workflow('test-id', 'Code Workflow')
   .add(trigger({ type: 'n8n-nodes-base.manualTrigger', version: 1, config: {} }))
-  .then(node({
+  .to(node({
     type: 'n8n-nodes-base.code',
     version: 2,
     config: {
@@ -1713,7 +1713,7 @@ return { json: { message } };\`
 			const code = `
 return workflow('test-id', 'Validation Workflow')
   .add(trigger({ type: 'n8n-nodes-base.manualTrigger', version: 1, config: {} }))
-  .then(node({
+  .to(node({
     type: 'n8n-nodes-base.code',
     version: 2,
     config: {
@@ -1743,7 +1743,7 @@ return { json: { errors } };\`
 			const code = `
 return workflow('test-id', 'Complex Code')
   .add(trigger({ type: 'n8n-nodes-base.manualTrigger', version: 1, config: {} }))
-  .then(node({
+  .to(node({
     type: 'n8n-nodes-base.code',
     version: 2,
     config: {

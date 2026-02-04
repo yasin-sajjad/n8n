@@ -64,10 +64,10 @@ describe('Merge', () => {
 
 			// New syntax: use .input(n) to specify target input index
 			const wf = workflow('test-id', 'Test')
-				.add(t.then([source1, source2])) // Fan-out from trigger
-				.add(source1.then(mergeNode.input(0))) // Source 1 to input 0
-				.add(source2.then(mergeNode.input(1))) // Source 2 to input 1
-				.add(mergeNode.then(downstream));
+				.add(t.to([source1, source2])) // Fan-out from trigger
+				.add(source1.to(mergeNode.input(0))) // Source 1 to input 0
+				.add(source2.to(mergeNode.input(1))) // Source 2 to input 1
+				.add(mergeNode.to(downstream));
 
 			const json = wf.toJSON();
 
@@ -123,10 +123,10 @@ describe('Merge', () => {
 
 			// Multiple sources to same input index (replaces fanIn)
 			const wf = workflow('test-id', 'Test')
-				.add(t.then([sourceA, sourceB, sourceC]))
-				.add(sourceA.then(mergeNode.input(0))) // A goes to input 0
-				.add(sourceB.then(mergeNode.input(0))) // B also goes to input 0
-				.add(sourceC.then(mergeNode.input(1))); // C goes to input 1
+				.add(t.to([sourceA, sourceB, sourceC]))
+				.add(sourceA.to(mergeNode.input(0))) // A goes to input 0
+				.add(sourceB.to(mergeNode.input(0))) // B also goes to input 0
+				.add(sourceC.to(mergeNode.input(1))); // C goes to input 1
 
 			const json = wf.toJSON();
 
@@ -177,9 +177,9 @@ describe('Merge', () => {
 
 			// Chains ending at merge inputs
 			const wf = workflow('test-id', 'Test')
-				.add(t.then([process1, process2]))
-				.add(process1.then(transform1).then(mergeNode.input(0))) // Chain to input 0
-				.add(process2.then(mergeNode.input(1))); // Direct to input 1
+				.add(t.to([process1, process2]))
+				.add(process1.to(transform1).to(mergeNode.input(0))) // Chain to input 0
+				.add(process2.to(mergeNode.input(1))); // Direct to input 1
 
 			const json = wf.toJSON();
 
@@ -216,10 +216,10 @@ describe('Merge', () => {
 			});
 
 			const wf = workflow('test-id', 'Test')
-				.add(t.then([api1, api2, api3]))
-				.add(api1.then(mergeNode.input(0)))
-				.add(api2.then(mergeNode.input(1)))
-				.add(api3.then(mergeNode.input(2)));
+				.add(t.to([api1, api2, api3]))
+				.add(api1.to(mergeNode.input(0)))
+				.add(api2.to(mergeNode.input(1)))
+				.add(api3.to(mergeNode.input(2)));
 
 			const json = wf.toJSON();
 
