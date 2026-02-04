@@ -16,6 +16,7 @@ import { isAutoRenamed, formatNodeRef } from '../types';
 import type { GraphNode } from '../../types/base';
 import { isNodeChain } from '../../types/base';
 import { isTriggerNodeType } from '../../utils/trigger-detection';
+import { isStickyNoteType } from '../../constants/node-types';
 
 /**
  * AI connection types used by subnodes to connect to parent nodes.
@@ -140,7 +141,7 @@ export const disconnectedNodeValidator: ValidatorPlugin = {
 			}
 
 			// Skip sticky notes - they don't participate in data flow
-			if (graphNode.instance.type === 'n8n-nodes-base.stickyNote') {
+			if (isStickyNoteType(graphNode.instance.type)) {
 				continue;
 			}
 

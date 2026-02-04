@@ -11,9 +11,6 @@ import {
 	type NewCredentialValue,
 	type DeclaredConnection,
 	type NodeChain,
-	type SwitchCaseComposite,
-	type IfElseComposite,
-	type SplitInBatchesBuilder,
 	type InputTarget,
 	type OutputSelector,
 	type IfElseBuilder,
@@ -21,6 +18,13 @@ import {
 	type IfElseTarget,
 	type SwitchCaseTarget,
 } from './types/base';
+import { NODE_TYPES, isIfNodeType, isSwitchNodeType } from './constants/node-types';
+import {
+	isSwitchCaseComposite,
+	isIfElseComposite,
+	isSplitInBatchesBuilder,
+	extractSplitInBatchesBuilder,
+} from './workflow-builder/type-guards';
 
 /**
  * Type guard to check if a value is an InputTarget
@@ -47,82 +51,16 @@ export function isOutputSelector(value: unknown): value is OutputSelector<string
 }
 
 /**
- * Check if value is a SwitchCaseComposite
- */
-function isSwitchCaseComposite(value: unknown): value is SwitchCaseComposite {
-	return (
-		typeof value === 'object' &&
-		value !== null &&
-		'switchNode' in value &&
-		'cases' in value &&
-		Array.isArray((value as SwitchCaseComposite).cases)
-	);
-}
-
-/**
- * Check if value is an IfElseComposite
- */
-function isIfElseComposite(value: unknown): value is IfElseComposite {
-	return (
-		typeof value === 'object' &&
-		value !== null &&
-		'ifNode' in value &&
-		'trueBranch' in value &&
-		'falseBranch' in value
-	);
-}
-
-/**
- * Check if value is a SplitInBatchesBuilder or a chain (DoneChain/EachChain) from one
- */
-function isSplitInBatchesBuilderOrChain(value: unknown): value is SplitInBatchesBuilder<unknown> {
-	if (value === null || typeof value !== 'object') return false;
-
-	// Direct builder check (has sibNode, _doneNodes, _eachNodes)
-	if ('sibNode' in value && '_doneNodes' in value && '_eachNodes' in value) {
-		return true;
-	}
-
-	// Check if it's a DoneChain or EachChain with a _parent that's a builder
-	if ('_parent' in value && '_nodes' in value) {
-		const parent = (value as { _parent: unknown })._parent;
-		return (
-			parent !== null &&
-			typeof parent === 'object' &&
-			'sibNode' in parent &&
-			'_doneNodes' in parent &&
-			'_eachNodes' in parent
-		);
-	}
-
-	return false;
-}
-
-/**
- * Extract the SplitInBatchesBuilder from a value (handles both direct builder and chains)
- */
-function extractSplitInBatchesBuilder(value: unknown): SplitInBatchesBuilder<unknown> {
-	// Direct builder
-	if ('sibNode' in (value as object)) {
-		return value as SplitInBatchesBuilder<unknown>;
-	}
-
-	// Chain with _parent - extract the parent builder
-	const chain = value as { _parent: unknown };
-	return chain._parent as SplitInBatchesBuilder<unknown>;
-}
-
-/**
  * Get the output node from a composite (the node that should receive connections)
  */
 function getCompositeOutputNode(value: unknown): NodeInstance<string, string, unknown> | null {
 	if (isSwitchCaseComposite(value)) {
-		return value.switchNode;
+		return (value as { switchNode: NodeInstance<string, string, unknown> }).switchNode;
 	}
 	if (isIfElseComposite(value)) {
-		return value.ifNode;
+		return (value as { ifNode: NodeInstance<string, string, unknown> }).ifNode;
 	}
-	if (isSplitInBatchesBuilderOrChain(value)) {
+	if (isSplitInBatchesBuilder(value)) {
 		return extractSplitInBatchesBuilder(value).sibNode;
 	}
 	return null;
@@ -233,7 +171,7 @@ class NodeInstanceImpl<TType extends string, TVersion extends string, TOutput = 
 			}
 			// For SplitInBatchesBuilder, return it as-is so it can be detected and handled
 			// by workflow-builder's addSplitInBatchesChainNodes
-			if (isSplitInBatchesBuilderOrChain(t)) {
+			if (isSplitInBatchesBuilder(t)) {
 				return [t as unknown as NodeInstance<string, string, unknown>];
 			}
 			// For IfElseBuilder, return it as-is so it can be detected and handled
@@ -295,8 +233,8 @@ class NodeInstanceImpl<TType extends string, TVersion extends string, TOutput = 
 	 * ifNode.onTrue(trueHandler).onFalse(falseHandler)
 	 */
 	onTrue(target: IfElseTarget): IfElseBuilder<TOutput> {
-		if (this.type !== 'n8n-nodes-base.if') {
-			throw new Error('.onTrue() is only available on IF nodes (n8n-nodes-base.if)');
+		if (!isIfNodeType(this.type)) {
+			throw new Error(`.onTrue() is only available on IF nodes (${NODE_TYPES.IF})`);
 		}
 		const builder = new IfElseBuilderImpl<TOutput>(
 			this as unknown as NodeInstance<'n8n-nodes-base.if', string, TOutput>,
@@ -312,8 +250,8 @@ class NodeInstanceImpl<TType extends string, TVersion extends string, TOutput = 
 	 * ifNode.onFalse(falseHandler).onTrue(trueHandler)
 	 */
 	onFalse(target: IfElseTarget): IfElseBuilder<TOutput> {
-		if (this.type !== 'n8n-nodes-base.if') {
-			throw new Error('.onFalse() is only available on IF nodes (n8n-nodes-base.if)');
+		if (!isIfNodeType(this.type)) {
+			throw new Error(`.onFalse() is only available on IF nodes (${NODE_TYPES.IF})`);
 		}
 		const builder = new IfElseBuilderImpl<TOutput>(
 			this as unknown as NodeInstance<'n8n-nodes-base.if', string, TOutput>,
@@ -329,8 +267,8 @@ class NodeInstanceImpl<TType extends string, TVersion extends string, TOutput = 
 	 * switchNode.onCase(0, caseA).onCase(1, caseB)
 	 */
 	onCase(index: number, target: SwitchCaseTarget): SwitchCaseBuilder<TOutput> {
-		if (this.type !== 'n8n-nodes-base.switch') {
-			throw new Error('.onCase() is only available on Switch nodes (n8n-nodes-base.switch)');
+		if (!isSwitchNodeType(this.type)) {
+			throw new Error(`.onCase() is only available on Switch nodes (${NODE_TYPES.SWITCH})`);
 		}
 		const builder = new SwitchCaseBuilderImpl<TOutput>(
 			this as unknown as NodeInstance<'n8n-nodes-base.switch', string, TOutput>,
@@ -353,12 +291,12 @@ class NodeInstanceImpl<TType extends string, TVersion extends string, TOutput = 
 	 */
 	private calculateErrorOutputIndex(): number {
 		// IF nodes have true (0) and false (1) branches, error at index 2
-		if (this.type === 'n8n-nodes-base.if') {
+		if (isIfNodeType(this.type)) {
 			return 2;
 		}
 
 		// Switch nodes have variable outputs based on parameters
-		if (this.type === 'n8n-nodes-base.switch') {
+		if (isSwitchNodeType(this.type)) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const params = this.config.parameters as Record<string, any> | undefined;
 			const numberOutputs = params?.numberOutputs ?? params?.rules?.rules?.length ?? 4;
@@ -459,7 +397,7 @@ class NodeChainImpl<
 			}
 			// For SplitInBatchesBuilder, return it as-is so it can be detected and handled
 			// by workflow-builder's addSplitInBatchesChainNodes
-			if (isSplitInBatchesBuilderOrChain(t)) {
+			if (isSplitInBatchesBuilder(t)) {
 				return [t as unknown as NodeInstance<string, string, unknown>];
 			}
 			// For IfElseBuilder, return it as-is so it can be detected and handled
@@ -529,7 +467,7 @@ class NodeChainImpl<
 	 */
 	onTrue(target: IfElseTarget): IfElseBuilder<TTail['_outputType']> {
 		if (!this.tail.onTrue) {
-			throw new Error('.onTrue() is only available on IF nodes (n8n-nodes-base.if)');
+			throw new Error(`.onTrue() is only available on IF nodes (${NODE_TYPES.IF})`);
 		}
 		return this.tail.onTrue(target);
 	}
@@ -540,7 +478,7 @@ class NodeChainImpl<
 	 */
 	onFalse(target: IfElseTarget): IfElseBuilder<TTail['_outputType']> {
 		if (!this.tail.onFalse) {
-			throw new Error('.onFalse() is only available on IF nodes (n8n-nodes-base.if)');
+			throw new Error(`.onFalse() is only available on IF nodes (${NODE_TYPES.IF})`);
 		}
 		return this.tail.onFalse(target);
 	}
@@ -551,7 +489,7 @@ class NodeChainImpl<
 	 */
 	onCase(index: number, target: SwitchCaseTarget): SwitchCaseBuilder<TTail['_outputType']> {
 		if (!this.tail.onCase) {
-			throw new Error('.onCase() is only available on Switch nodes (n8n-nodes-base.switch)');
+			throw new Error(`.onCase() is only available on Switch nodes (${NODE_TYPES.SWITCH})`);
 		}
 		const builder = this.tail.onCase(index, target);
 		// Pass this chain to the builder so workflow-builder can add all chain nodes

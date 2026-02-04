@@ -2,25 +2,27 @@
  * Node type utility functions for code generation
  */
 
+import { isWebhookType, isStickyNoteType, isMergeNodeType } from '../constants/node-types';
+
 /**
  * Check if node is a trigger type
  */
 export function isTriggerType(type: string): boolean {
-	return type.toLowerCase().includes('trigger') || type === 'n8n-nodes-base.webhook';
+	return type.toLowerCase().includes('trigger') || isWebhookType(type);
 }
 
 /**
  * Check if node is a sticky note
  */
 export function isStickyNote(type: string): boolean {
-	return type === 'n8n-nodes-base.stickyNote';
+	return isStickyNoteType(type);
 }
 
 /**
  * Check if node is a merge type
  */
 export function isMergeType(type: string): boolean {
-	return type === 'n8n-nodes-base.merge';
+	return isMergeNodeType(type);
 }
 
 /**

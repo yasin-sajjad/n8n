@@ -13,6 +13,7 @@ import type {
 } from './types/base';
 import { isNodeChain, isNodeInstance } from './types/base';
 import { isIfElseBuilder, isSwitchCaseBuilder } from './node-builder';
+import { isSplitInBatchesType } from './constants/node-types';
 
 /**
  * Internal split in batches node implementation
@@ -353,7 +354,7 @@ export function splitInBatches(
 		branches !== undefined &&
 		isBranchesConfig(branches) &&
 		isNodeInstance(configOrNode) &&
-		configOrNode.type === 'n8n-nodes-base.splitInBatches'
+		isSplitInBatchesType(configOrNode.type)
 	) {
 		return new SplitInBatchesNamedSyntaxBuilder(
 			configOrNode as NodeInstance<'n8n-nodes-base.splitInBatches', string, unknown>,
@@ -362,7 +363,7 @@ export function splitInBatches(
 	}
 
 	// Check if the argument is a NodeInstance (pre-declared SplitInBatches node)
-	if (isNodeInstance(configOrNode) && configOrNode.type === 'n8n-nodes-base.splitInBatches') {
+	if (isNodeInstance(configOrNode) && isSplitInBatchesType(configOrNode.type)) {
 		return new SplitInBatchesBuilderWithExistingNode(
 			configOrNode as NodeInstance<'n8n-nodes-base.splitInBatches', string, unknown>,
 		);

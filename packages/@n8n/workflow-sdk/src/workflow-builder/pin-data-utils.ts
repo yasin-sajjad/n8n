@@ -5,6 +5,7 @@
  */
 
 import type { NodeInstance } from '../types/base';
+import { isHttpRequestType, isWebhookType, isDataTableType } from '../constants/node-types';
 
 /**
  * Check if a node or any of its subnodes have a newCredential() marker.
@@ -46,7 +47,7 @@ export function hasNewCredential(node: NodeInstance<string, string, unknown>): b
  * These nodes typically need pin data for testing.
  */
 export function isHttpRequestOrWebhook(type: string): boolean {
-	return type === 'n8n-nodes-base.httpRequest' || type === 'n8n-nodes-base.webhook';
+	return isHttpRequestType(type) || isWebhookType(type);
 }
 
 /**
@@ -54,7 +55,7 @@ export function isHttpRequestOrWebhook(type: string): boolean {
  * These nodes need pin data to provide sample data during testing.
  */
 export function isDataTableWithoutTable(node: NodeInstance<string, string, unknown>): boolean {
-	if (node.type !== 'n8n-nodes-base.dataTable') {
+	if (!isDataTableType(node.type)) {
 		return false;
 	}
 

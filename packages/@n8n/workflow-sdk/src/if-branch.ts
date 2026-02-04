@@ -11,6 +11,7 @@ import type {
 } from './types/base';
 import { isNodeInstance } from './types/base';
 import { isInputTarget } from './node-builder';
+import { isIfNodeType } from './constants/node-types';
 
 /**
  * Extended config for IF branch that includes version and id
@@ -237,7 +238,7 @@ export function ifBranch(
 	configOrNode?: IfBranchConfig | NodeInstance<'n8n-nodes-base.if', string, unknown>,
 ): IfElseComposite {
 	// Check if the second argument is a NodeInstance (pre-declared IF node)
-	if (isNodeInstance(configOrNode) && configOrNode.type === 'n8n-nodes-base.if') {
+	if (isNodeInstance(configOrNode) && isIfNodeType(configOrNode.type)) {
 		return new IfElseCompositeWithExistingNode(
 			branches,
 			configOrNode as NodeInstance<'n8n-nodes-base.if', string, unknown>,
