@@ -10,7 +10,7 @@ import pLimit from 'p-limit';
 
 import type { CoordinationLogEntry } from '@/types/coordination';
 import { CodeWorkflowBuilder } from '@/code-builder';
-import { EvaluationLogger } from '@/utils/evaluation-logger';
+import { EvaluationLogger } from '@/code-builder/utils/evaluation-logger.js';
 import type { SimpleWorkflow } from '@/types/workflow';
 import type { StreamChunk, WorkflowUpdateChunk } from '@/types/streaming';
 import type { TokenUsage, GenerationError } from '../harness/harness-types.js';
