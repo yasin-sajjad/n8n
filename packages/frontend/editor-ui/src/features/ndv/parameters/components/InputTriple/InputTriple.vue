@@ -71,14 +71,32 @@ const isStacked = computed(() => width.value > 0 && width.value <= STACKED_BREAK
 }
 
 .itemFirst {
-	input {
+	input,
+	:global(.cm-editor) {
 		border-top-right-radius: 0;
 		border-bottom-right-radius: 0;
+	}
+
+	// Expression input: fx icon keeps left radius, cm-editor has no radius
+	:global(.el-input-group__prepend) {
+		border-top-right-radius: 0;
+		border-bottom-right-radius: 0;
+	}
+
+	:global(.el-input-group__prepend + * .cm-editor) {
+		border-radius: 0;
 	}
 }
 
 .itemLast {
-	input {
+	input,
+	:global(.cm-editor) {
+		border-top-left-radius: 0;
+		border-bottom-left-radius: 0;
+	}
+
+	// Expression input: fx icon has no left radius, cm-editor keeps right radius
+	:global(.el-input-group__prepend) {
 		border-top-left-radius: 0;
 		border-bottom-left-radius: 0;
 	}
@@ -105,16 +123,38 @@ const isStacked = computed(() => width.value > 0 && width.value <= STACKED_BREAK
 		flex-basis: 100%;
 	}
 
-	.itemFirst input {
+	.itemFirst input,
+	.itemFirst :global(.cm-editor) {
 		border-radius: var(--radius) var(--radius) 0 0;
 	}
 
-	.itemMiddle input {
+	// Expression input in first item: fx icon top-left, cm-editor top-right only
+	.itemFirst :global(.el-input-group__prepend) {
+		border-radius: var(--radius) 0 0 0;
+	}
+
+	.itemFirst :global(.el-input-group__prepend + * .cm-editor) {
+		border-radius: 0 var(--radius) 0 0;
+	}
+
+	.itemMiddle input,
+	.itemMiddle :global(.cm-editor),
+	.itemMiddle :global(.el-input-group__prepend) {
 		border-radius: 0;
 	}
 
-	.itemLast input {
+	.itemLast input,
+	.itemLast :global(.cm-editor) {
 		border-radius: 0 0 var(--radius) var(--radius);
+	}
+
+	// Expression input in last item: fx icon bottom-left, cm-editor bottom-right only
+	.itemLast :global(.el-input-group__prepend) {
+		border-radius: 0 0 0 var(--radius);
+	}
+
+	.itemLast :global(.el-input-group__prepend + * .cm-editor) {
+		border-radius: 0 0 var(--radius) 0;
 	}
 }
 </style>
