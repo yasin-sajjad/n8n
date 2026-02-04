@@ -100,6 +100,10 @@ const isStacked = computed(() => width.value > 0 && width.value <= STACKED_BREAK
 		border-top-left-radius: 0;
 		border-bottom-left-radius: 0;
 	}
+
+	:global(.el-input-group__prepend ~ button) {
+		border-bottom-right-radius: var(--radius);
+	}
 }
 
 // Stacked layout when container is narrow
@@ -148,13 +152,13 @@ const isStacked = computed(() => width.value > 0 && width.value <= STACKED_BREAK
 		border-radius: 0 0 var(--radius) var(--radius);
 	}
 
-	// Expression input in last item: fx icon bottom-left, cm-editor bottom-right only
+	// Expression input in last item: fx icon bottom-left, modal opener bottom-right
 	.itemLast :global(.el-input-group__prepend) {
 		border-radius: 0 0 0 var(--radius);
 	}
 
 	.itemLast :global(.el-input-group__prepend + * .cm-editor) {
-		border-radius: 0 0 var(--radius) 0;
+		border-bottom-left-radius: 0;
 	}
 }
 </style>
