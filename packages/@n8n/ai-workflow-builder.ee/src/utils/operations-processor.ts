@@ -45,20 +45,18 @@ function applyRemoveNodeOperation(
 ): SimpleWorkflow {
 	if (operation.type !== 'removeNode') return workflow;
 
-	// nodeNames contains the names of nodes to remove
-	const nodeNamesToRemove = new Set(operation.nodeNames);
+	// Normalize all names to lowercase
+	const nodeNamesToRemove = new Set(operation.nodeNames.map((name) => name.toLowerCase()));
 
 	// Filter out removed nodes by name (case-insensitive)
-	const nodes = workflow.nodes.filter(
-		(node) => !nodeNamesToRemove.has(node.name) && !hasMatchingName(node.name, nodeNamesToRemove),
-	);
+	const nodes = workflow.nodes.filter((node) => !nodeNamesToRemove.has(node.name.toLowerCase()));
 
 	// Clean up connections
 	const cleanedConnections: IConnections = {};
 
 	// Copy connections, excluding those from/to removed nodes (using node names)
 	for (const [sourceName, nodeConnections] of Object.entries(workflow.connections)) {
-		if (!nodeNamesToRemove.has(sourceName) && !hasMatchingName(sourceName, nodeNamesToRemove)) {
+		if (!nodeNamesToRemove.has(sourceName.toLowerCase())) {
 			cleanedConnections[sourceName] = {};
 
 			for (const [connectionType, outputs] of Object.entries(nodeConnections)) {
@@ -66,9 +64,7 @@ function applyRemoveNodeOperation(
 					cleanedConnections[sourceName][connectionType] = outputs.map((outputConnections) => {
 						if (Array.isArray(outputConnections)) {
 							return outputConnections.filter(
-								(conn) =>
-									!nodeNamesToRemove.has(conn.node) &&
-									!hasMatchingName(conn.node, nodeNamesToRemove),
+								(conn) => !nodeNamesToRemove.has(conn.node.toLowerCase()),
 							);
 						}
 						return outputConnections;
@@ -83,19 +79,6 @@ function applyRemoveNodeOperation(
 		nodes,
 		connections: cleanedConnections,
 	};
-}
-
-/**
- * Check if a name matches any name in the set (case-insensitive)
- */
-function hasMatchingName(name: string, names: Set<string>): boolean {
-	const lowerName = name.toLowerCase();
-	for (const n of names) {
-		if (n.toLowerCase() === lowerName) {
-			return true;
-		}
-	}
-	return false;
 }
 
 /**
