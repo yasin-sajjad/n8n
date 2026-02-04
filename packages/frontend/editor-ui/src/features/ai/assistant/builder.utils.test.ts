@@ -38,6 +38,7 @@ vi.mock('./composables/useAIAssistantHelpers', () => ({
 	}),
 }));
 
+
 describe('builder.utils', () => {
 	describe('extractRevertVersionIds', () => {
 		it('should extract revertVersionId from messages that have them', () => {
