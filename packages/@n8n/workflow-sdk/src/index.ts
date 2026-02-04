@@ -98,10 +98,10 @@ export {
 	ifElse,
 	switchCase,
 	merge,
-} from './node-builder';
+} from './workflow-builder/node-builders/node-builder';
 
 // Export MergeFactoryConfig type for merge() factory
-export type { MergeFactoryConfig } from './node-builder';
+export type { MergeFactoryConfig } from './workflow-builder/node-builders/node-builder';
 
 // Subnode builders (for AI/LangChain nodes)
 export {
@@ -116,25 +116,29 @@ export {
 	documentLoader,
 	textSplitter,
 	fromAi, // Top-level function for $fromAI expressions
-} from './subnode-builders';
+} from './workflow-builder/node-builders/subnode-builders';
 
 // Merge nodes - use merge() factory and .input(n) syntax for connections
 // Example: const mergeNode = merge({ version: 3 }); source.to(mergeNode.input(0))
 
 // IF else types - use .onTrue()/.onFalse() fluent syntax
-export type { IfElseTarget } from './if-else';
+export type { IfElseTarget } from './workflow-builder/control-flow-builders/if-else';
 
 // Switch case types - use .onCase() fluent syntax
-export type { SwitchCaseTarget } from './switch-case';
+export type { SwitchCaseTarget } from './workflow-builder/control-flow-builders/switch-case';
 
 // Split in batches
-export { splitInBatches } from './split-in-batches';
+export { splitInBatches } from './workflow-builder/control-flow-builders/split-in-batches';
 
 // Note: fanOut() removed - use plain arrays for parallel connections
 // Note: fanIn() removed - use multiple .to(node.input(n)) calls instead
 
 // Loop-back helper for split in batches
-export { nextBatch, isNextBatch, type NextBatchMarker } from './next-batch';
+export {
+	nextBatch,
+	isNextBatch,
+	type NextBatchMarker,
+} from './workflow-builder/control-flow-builders/next-batch';
 
 // Expression utilities
 export {
@@ -146,7 +150,7 @@ export {
 } from './expression';
 
 // Code helpers
-export { runOnceForAllItems, runOnceForEachItem } from './code-helpers';
+export { runOnceForAllItems, runOnceForEachItem } from './utils/code-helpers';
 
 // Utility functions
 export { isPlainObject, getProperty, hasProperty } from './utils/safe-access';
@@ -163,7 +167,7 @@ export {
 
 // Code generation
 export { generateWorkflowCode } from './codegen/index';
-export { parseWorkflowCode, parseWorkflowCodeToBuilder } from './parse-workflow-code';
+export { parseWorkflowCode, parseWorkflowCodeToBuilder } from './codegen/parse-workflow-code';
 
 // Type generation utilities (for runtime type generation in CLI)
 export * from './generate-types';

@@ -12,7 +12,7 @@ import type {
 	SwitchCaseBuilder,
 } from '../../types/base';
 import { isSwitchCaseComposite } from '../../workflow-builder/type-guards';
-import { isSwitchCaseBuilder } from '../../node-builder';
+import { isSwitchCaseBuilder } from '../../workflow-builder/node-builders/node-builder';
 import {
 	collectFromTarget,
 	addBranchTargetNodes,

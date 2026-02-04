@@ -11,7 +11,7 @@ import {
 	findMapKey,
 } from '../types';
 import type { GraphNode, NodeInstance } from '../../types/base';
-import { isInputTarget } from '../../node-builder';
+import { isInputTarget } from '../../workflow-builder/node-builders/node-builder';
 
 /**
  * Validator for Merge nodes.

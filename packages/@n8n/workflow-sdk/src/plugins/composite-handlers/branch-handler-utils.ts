@@ -26,7 +26,10 @@ import {
 	isSplitInBatchesBuilder,
 	extractSplitInBatchesBuilder,
 } from '../../workflow-builder/type-guards';
-import { isIfElseBuilder, isSwitchCaseBuilder } from '../../node-builder';
+import {
+	isIfElseBuilder,
+	isSwitchCaseBuilder,
+} from '../../workflow-builder/node-builders/node-builder';
 
 /**
  * Get the head node name from a target (which could be a node, chain, or composite).

@@ -3,7 +3,7 @@ import { generateCode } from './code-generator';
 import { buildSemanticGraph } from './semantic-graph';
 import { annotateGraph } from './graph-annotator';
 import { buildCompositeTree } from './composite-builder';
-import { parseWorkflowCode } from '../parse-workflow-code';
+import { parseWorkflowCode } from './parse-workflow-code';
 import type { WorkflowJSON } from '../types/base';
 
 // Helper to generate code from workflow JSON

@@ -24,7 +24,7 @@ import type {
 // Ensure default plugins are registered on module load
 registerDefaultPlugins(pluginRegistry);
 import { isNodeChain } from './types/base';
-import { isInputTarget, cloneNodeWithId } from './node-builder';
+import { isInputTarget, cloneNodeWithId } from './workflow-builder/node-builders/node-builder';
 import { generateDeterministicNodeId } from './workflow-builder/string-utils';
 import { shouldGeneratePinData } from './workflow-builder/pin-data-utils';
 import { parseWorkflowJSON } from './workflow-builder/workflow-import';
