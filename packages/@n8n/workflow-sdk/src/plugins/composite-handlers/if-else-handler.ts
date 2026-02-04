@@ -12,7 +12,7 @@ import type {
 	IfElseBuilder,
 } from '../../types/base';
 import { isIfElseComposite } from '../../workflow-builder/type-guards';
-import { isIfElseBuilder } from '../../node-builder';
+import { isIfElseBuilder } from '../../workflow-builder/node-builders/node-builder';
 import {
 	collectFromTarget,
 	addBranchTargetNodes,

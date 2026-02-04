@@ -7,7 +7,7 @@
 import type { GraphNode, NodeInstance, NodeChain } from '../types/base';
 import type { PluginRegistry } from '../plugins/registry';
 import { isNodeChain } from '../types/base';
-import { isInputTarget } from '../node-builder';
+import { isInputTarget } from './node-builders/node-builder';
 
 /**
  * Find the map key for a node instance by its ID.
