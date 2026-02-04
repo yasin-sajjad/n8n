@@ -17,6 +17,7 @@ import type {
 	DiscriminatorTree,
 	AIInputTypeInfo,
 } from './generate-types';
+// eslint-disable-next-line import-x/no-cycle -- TODO: Refactor shared types/utils to break cycle
 import {
 	extractDiscriminatorCombinations,
 	getPropertiesForCombination,
