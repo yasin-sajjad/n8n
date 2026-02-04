@@ -13,6 +13,7 @@ import type {
 	DeferredMergeDownstream,
 } from '../composite-tree';
 import { toVarName } from '../variable-names';
+import { isStickyNoteType, isMergeNodeType, isSwitchNodeType } from '../../constants/node-types';
 
 // Re-export for consumers
 export { toVarName } from '../variable-names';
@@ -62,7 +63,7 @@ export function createVarRef(nodeName: string): VariableReference {
  * Sticky notes are excluded since they have no connections.
  */
 export function shouldBeVariable(node: SemanticNode): boolean {
-	if (node.type === 'n8n-nodes-base.stickyNote') {
+	if (isStickyNoteType(node.type)) {
 		return false;
 	}
 	return true;
@@ -72,14 +73,14 @@ export function shouldBeVariable(node: SemanticNode): boolean {
  * Check if a node is a merge node
  */
 export function isMergeType(type: string): boolean {
-	return type === 'n8n-nodes-base.merge';
+	return isMergeNodeType(type);
 }
 
 /**
  * Check if a node is a switch node
  */
 export function isSwitchType(type: string): boolean {
-	return type === 'n8n-nodes-base.switch';
+	return isSwitchNodeType(type);
 }
 
 /**

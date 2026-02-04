@@ -7,6 +7,7 @@
 import type { ValidatorPlugin, ValidationIssue, PluginContext } from '../types';
 import type { GraphNode, NodeInstance } from '../../types/base';
 import { findMissingExpressionPrefixes } from '../../workflow-builder/validation-helpers';
+import { isStickyNoteType } from '../../constants/node-types';
 
 /**
  * Validator for expression prefixes.
@@ -28,7 +29,7 @@ export const expressionPrefixValidator: ValidatorPlugin = {
 		const issues: ValidationIssue[] = [];
 
 		// Skip sticky notes - they're documentation, not code
-		if (node.type === 'n8n-nodes-base.stickyNote') {
+		if (isStickyNoteType(node.type)) {
 			return issues;
 		}
 
