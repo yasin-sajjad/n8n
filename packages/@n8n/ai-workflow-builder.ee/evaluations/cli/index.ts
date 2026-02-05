@@ -174,7 +174,11 @@ function createCodeWorkflowBuilderGenerator(
 	llms: ResolvedStageLLMs,
 	timeoutMs?: number,
 ): (prompt: string, collectors?: GenerationCollectors) => Promise<GenerationResult> {
-	return async (prompt: string): Promise<GenerationResult> => {
+	// TODO: Token usage tracking is not yet implemented for CodeWorkflowBuilder.
+	// The CodeWorkflowBuilder doesn't support external callbacks like the multi-agent system.
+	// To add token tracking, CodeWorkflowBuilder.chat() would need to accept callback handlers.
+	// Subgraph metrics are also not applicable since CodeWorkflowBuilder doesn't use coordination logs.
+	return async (prompt: string, _collectors?: GenerationCollectors): Promise<GenerationResult> => {
 		const runId = generateRunId();
 		const evalLogger = new EvaluationLogger();
 
