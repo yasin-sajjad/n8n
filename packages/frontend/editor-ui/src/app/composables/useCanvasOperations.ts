@@ -2291,6 +2291,7 @@ export function useCanvasOperations() {
 
 	async function initializeWorkspace(data: IWorkflowDb) {
 		const { workflowDocumentStore } = await workflowHelpers.initState(data, useWorkflowState());
+
 		data.nodes.forEach((node) => {
 			const nodeTypeDescription = requireNodeTypeDescription(node.type, node.typeVersion);
 			const isInstalledNode = nodeTypesStore.getIsNodeInstalled(node.type);
@@ -2301,6 +2302,7 @@ export function useCanvasOperations() {
 				resolveNodeWebhook(node, nodeTypeDescription);
 			}
 		});
+
 		workflowsStore.setNodes(data.nodes);
 		workflowsStore.setConnections(data.connections);
 		workflowState.setWorkflowProperty('createdAt', data.createdAt);
