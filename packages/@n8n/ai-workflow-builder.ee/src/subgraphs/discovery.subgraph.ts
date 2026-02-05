@@ -10,7 +10,7 @@ import { HumanMessage, ToolMessage, isAIMessage } from '@langchain/core/messages
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import type { Runnable, RunnableConfig } from '@langchain/core/runnables';
 import { tool, type StructuredTool } from '@langchain/core/tools';
-import { Annotation, END, START, StateGraph, interrupt } from '@langchain/langgraph';
+import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
 import type { Logger } from '@n8n/backend-common';
 import type { INodeTypeDescription } from 'n8n-workflow';
 import { z } from 'zod';
@@ -24,9 +24,7 @@ import {
 } from '@/utils/resource-operation-extractor';
 import type { BuilderFeatureFlags } from '@/workflow-builder-agent';
 
-import { createPlannerAgent, plannerOutputSchema } from '@/agents/planner.agent';
-import { buildPlannerContext } from '@/prompts/agents/planner.prompt';
-import { formatPlanAsText } from '@/utils/plan-helpers';
+import { createPlannerAgent, invokePlannerNode } from '@/agents/planner.agent';
 import type { ParentGraphState } from '@/parent-graph-state';
 import { createGetDocumentationTool } from '@/tools/get-documentation.tool';
 import { createGetWorkflowExamplesTool } from '@/tools/get-workflow-examples.tool';
@@ -78,24 +76,6 @@ const discoveryOutputSchema = z.object({
 });
 
 type DiscoveryOutput = z.infer<typeof discoveryOutputSchema>;
-
-function parsePlanDecision(value: unknown): { action: PlanDecision; feedback?: string } {
-	if (typeof value !== 'object' || value === null) {
-		return { action: 'reject', feedback: 'Invalid response: expected an object.' };
-	}
-
-	const obj = value as Record<string, unknown>;
-	const action = obj.action;
-	if (action !== 'approve' && action !== 'reject' && action !== 'modify') {
-		return {
-			action: 'reject',
-			feedback: 'Invalid response: expected action to be approve/reject/modify.',
-		};
-	}
-
-	const feedback = typeof obj.feedback === 'string' ? obj.feedback : undefined;
-	return { action, ...(feedback ? { feedback } : {}) };
-}
 
 /**
  * Discovery Subgraph State
@@ -329,8 +309,8 @@ export class DiscoverySubgraph extends BaseSubgraph<
 	}
 
 	/**
-	 * Planner node - generates a plan and interrupts for user approval.
-	 * Skips if plan mode is disabled, not in plan mode, or plan already exists.
+	 * Planner node - delegates to the planner agent for plan generation,
+	 * interrupt, and decision handling. Skips if plan mode is not active.
 	 */
 	private async plannerNode(
 		state: typeof DiscoverySubgraphState.State,
@@ -340,64 +320,20 @@ export class DiscoverySubgraph extends BaseSubgraph<
 			return {};
 		}
 
-		const contextContent = buildPlannerContext({
-			userRequest: state.userRequest || 'Build a workflow',
-			discoveryContext: {
-				nodesFound: state.nodesFound ?? [],
-				bestPractices: state.bestPractices,
+		return await invokePlannerNode(
+			this.plannerAgent,
+			{
+				userRequest: state.userRequest || 'Build a workflow',
+				discoveryContext: {
+					nodesFound: state.nodesFound ?? [],
+					bestPractices: state.bestPractices,
+				},
+				workflowJSON: state.workflowJSON,
+				planPrevious: state.planPrevious,
+				planFeedback: state.planFeedback,
 			},
-			workflowJSON: state.workflowJSON,
-			planPrevious: state.planPrevious,
-			planFeedback: state.planFeedback,
-		});
-		const contextMessage = createContextMessage([contextContent]);
-		const output = await this.plannerAgent.invoke({ messages: [contextMessage] }, runnableConfig);
-		const parsedPlan = plannerOutputSchema.safeParse(output.structuredResponse);
-		if (!parsedPlan.success) {
-			throw new Error(`Planner produced invalid output: ${parsedPlan.error.message}`);
-		}
-
-		const plan = parsedPlan.data;
-		const decisionValue: unknown = interrupt({ type: 'plan', plan });
-		const decision = parsePlanDecision(decisionValue);
-
-		if (decision.action === 'approve') {
-			return {
-				planDecision: 'approve' as const,
-				planOutput: plan,
-				mode: 'build' as const,
-				planFeedback: null,
-				planPrevious: null,
-			};
-		}
-
-		if (decision.action === 'reject') {
-			return {
-				planDecision: 'reject' as const,
-				planOutput: null,
-				planFeedback: null,
-				planPrevious: null,
-			};
-		}
-
-		// Modify: provide feedback context for re-discovery
-		const feedbackMessageParts: string[] = [];
-		feedbackMessageParts.push('<plan_feedback>');
-		feedbackMessageParts.push(
-			decision.feedback ?? 'User requested changes without additional details.',
+			runnableConfig,
 		);
-		feedbackMessageParts.push('</plan_feedback>');
-		feedbackMessageParts.push('<previous_plan>');
-		feedbackMessageParts.push(formatPlanAsText(plan));
-		feedbackMessageParts.push('</previous_plan>');
-
-		return {
-			planDecision: 'modify' as const,
-			planOutput: null,
-			planFeedback: decision.feedback ?? 'User requested changes without additional details.',
-			planPrevious: plan,
-			messages: [createContextMessage(feedbackMessageParts)],
-		};
 	}
 
 	private shouldPlan(state: typeof DiscoverySubgraphState.State): 'planner' | typeof END {

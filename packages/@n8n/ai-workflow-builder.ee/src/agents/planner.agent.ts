@@ -1,14 +1,27 @@
 /**
- * Planner Agent using LangChain v1 createAgent API
+ * Planner Agent
  *
  * Generates a structured workflow plan for user approval (Plan Mode).
+ * Owns the full lifecycle: context building, LLM invocation, interrupt, and decision handling.
  */
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
+import type { BaseMessage } from '@langchain/core/messages';
 import { SystemMessage } from '@langchain/core/messages';
+import type { RunnableConfig } from '@langchain/core/runnables';
 import { createAgent } from 'langchain';
+import { interrupt } from '@langchain/langgraph';
 import { z } from 'zod';
 
-import { buildPlannerPrompt } from '@/prompts';
+import { buildPlannerPrompt, buildPlannerContext } from '@/prompts';
+import type { DiscoveryContext } from '@/types/discovery-types';
+import type { PlanDecision, PlanOutput } from '@/types/planning';
+import type { SimpleWorkflow } from '@/types/workflow';
+import { createContextMessage } from '@/utils/context-builders';
+import { formatPlanAsText } from '@/utils/plan-helpers';
+
+// ============================================================================
+// SCHEMA
+// ============================================================================
 
 export const plannerOutputSchema = z.object({
 	summary: z.string().describe('1-2 sentence description of the workflow outcome'),
@@ -33,6 +46,10 @@ export const plannerOutputSchema = z.object({
 });
 
 export type PlannerOutput = z.infer<typeof plannerOutputSchema>;
+
+// ============================================================================
+// AGENT CREATION
+// ============================================================================
 
 export interface PlannerAgentConfig {
 	llm: BaseChatModel;
@@ -60,3 +77,104 @@ export function createPlannerAgent(config: PlannerAgentConfig) {
 }
 
 export type PlannerAgentType = ReturnType<typeof createPlannerAgent>;
+
+// ============================================================================
+// INVOCATION
+// ============================================================================
+
+export interface PlannerNodeInput {
+	userRequest: string;
+	discoveryContext: DiscoveryContext;
+	workflowJSON: SimpleWorkflow;
+	planPrevious?: PlanOutput | null;
+	planFeedback?: string | null;
+}
+
+export interface PlannerNodeResult {
+	planDecision?: PlanDecision;
+	planOutput?: PlanOutput | null;
+	planFeedback?: string | null;
+	planPrevious?: PlanOutput | null;
+	mode?: 'build';
+	messages?: BaseMessage[];
+}
+
+function parsePlanDecision(value: unknown): { action: PlanDecision; feedback?: string } {
+	if (typeof value !== 'object' || value === null) {
+		return { action: 'reject', feedback: 'Invalid response: expected an object.' };
+	}
+
+	const obj = value as Record<string, unknown>;
+	const action = obj.action;
+	if (action !== 'approve' && action !== 'reject' && action !== 'modify') {
+		return {
+			action: 'reject',
+			feedback: 'Invalid response: expected action to be approve/reject/modify.',
+		};
+	}
+
+	const feedback = typeof obj.feedback === 'string' ? obj.feedback : undefined;
+	return { action, ...(feedback ? { feedback } : {}) };
+}
+
+/**
+ * Invoke the planner agent: build context, call LLM, interrupt for user decision,
+ * and return the appropriate state update.
+ */
+export async function invokePlannerNode(
+	agent: PlannerAgentType,
+	input: PlannerNodeInput,
+	config?: RunnableConfig,
+): Promise<PlannerNodeResult> {
+	const contextContent = buildPlannerContext({
+		userRequest: input.userRequest,
+		discoveryContext: input.discoveryContext,
+		workflowJSON: input.workflowJSON,
+		planPrevious: input.planPrevious,
+		planFeedback: input.planFeedback,
+	});
+	const contextMessage = createContextMessage([contextContent]);
+	const output = await agent.invoke({ messages: [contextMessage] }, config);
+	const parsedPlan = plannerOutputSchema.safeParse(output.structuredResponse);
+	if (!parsedPlan.success) {
+		throw new Error(`Planner produced invalid output: ${parsedPlan.error.message}`);
+	}
+
+	const plan = parsedPlan.data;
+	const decisionValue: unknown = interrupt({ type: 'plan', plan });
+	const decision = parsePlanDecision(decisionValue);
+
+	if (decision.action === 'approve') {
+		return {
+			planDecision: 'approve',
+			planOutput: plan,
+			mode: 'build',
+			planFeedback: null,
+			planPrevious: null,
+		};
+	}
+
+	if (decision.action === 'reject') {
+		return {
+			planDecision: 'reject',
+			planOutput: null,
+			planFeedback: null,
+			planPrevious: null,
+		};
+	}
+
+	// Modify: provide feedback context for re-discovery
+	const feedback = decision.feedback ?? 'User requested changes without additional details.';
+	const feedbackMessage = createContextMessage([
+		`<plan_feedback>\n${feedback}\n</plan_feedback>`,
+		`<previous_plan>\n${formatPlanAsText(plan)}\n</previous_plan>`,
+	]);
+
+	return {
+		planDecision: 'modify',
+		planOutput: null,
+		planFeedback: feedback,
+		planPrevious: plan,
+		messages: [feedbackMessage],
+	};
+}
