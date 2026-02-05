@@ -6,7 +6,7 @@
  */
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import type { BaseMessage, AIMessage } from '@langchain/core/messages';
-import { HumanMessage, isAIMessage } from '@langchain/core/messages';
+import { HumanMessage, ToolMessage, isAIMessage } from '@langchain/core/messages';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import type { Runnable, RunnableConfig } from '@langchain/core/runnables';
 import { tool, type StructuredTool } from '@langchain/core/tools';
@@ -25,6 +25,7 @@ import {
 import type { BuilderFeatureFlags } from '@/workflow-builder-agent';
 
 import { createPlannerAgent, plannerOutputSchema } from '@/agents/planner.agent';
+import { formatPlanAsText } from '@/utils/plan-helpers';
 import type { ParentGraphState } from '@/parent-graph-state';
 import { createGetDocumentationTool } from '@/tools/get-documentation.tool';
 import { createGetWorkflowExamplesTool } from '@/tools/get-workflow-examples.tool';
@@ -76,31 +77,6 @@ const discoveryOutputSchema = z.object({
 });
 
 type DiscoveryOutput = z.infer<typeof discoveryOutputSchema>;
-
-function formatPlanForContext(plan: PlanOutput): string {
-	const lines: string[] = [];
-	lines.push(`Summary: ${plan.summary}`);
-	lines.push(`Trigger: ${plan.trigger}`);
-	lines.push('');
-	lines.push('Steps:');
-	plan.steps.forEach((step, index) => {
-		lines.push(`${index + 1}. ${step.description}`);
-		if (step.subSteps?.length) {
-			step.subSteps.forEach((subStep) => lines.push(`   - ${subStep}`));
-		}
-		if (step.suggestedNodes?.length) {
-			lines.push(`   Suggested nodes: ${step.suggestedNodes.join(', ')}`);
-		}
-	});
-
-	if (plan.additionalSpecs?.length) {
-		lines.push('');
-		lines.push('Additional specs / assumptions:');
-		plan.additionalSpecs.forEach((spec) => lines.push(`- ${spec}`));
-	}
-
-	return lines.join('\n');
-}
 
 function parsePlanDecision(value: unknown): { action: PlanDecision; feedback?: string } {
 	if (typeof value !== 'object' || value === null) {
@@ -350,7 +326,7 @@ export class DiscoverySubgraph extends BaseSubgraph<
 
 			if (state.planPrevious) {
 				contextParts.push('=== PREVIOUS PLAN ===');
-				contextParts.push(formatPlanForContext(state.planPrevious));
+				contextParts.push(formatPlanAsText(state.planPrevious));
 			}
 
 			if (state.planFeedback) {
@@ -405,7 +381,7 @@ export class DiscoverySubgraph extends BaseSubgraph<
 			feedbackMessageParts.push('</plan_feedback>');
 
 			feedbackMessageParts.push('<previous_plan>');
-			feedbackMessageParts.push(formatPlanForContext(plan));
+			feedbackMessageParts.push(formatPlanAsText(plan));
 			feedbackMessageParts.push('</previous_plan>');
 
 			const feedbackMessage = createContextMessage(feedbackMessageParts);
@@ -517,12 +493,14 @@ export class DiscoverySubgraph extends BaseSubgraph<
 	private formatOutput(state: typeof DiscoverySubgraphState.State) {
 		const lastMessage = state.messages.at(-1);
 		let output: DiscoveryOutput | undefined;
+		let submitToolCallId: string | undefined;
 
 		if (lastMessage && isAIMessage(lastMessage) && lastMessage.tool_calls) {
 			const submitCall = lastMessage.tool_calls.find(
 				(tc) => tc.name === 'submit_discovery_results',
 			);
 			if (submitCall) {
+				submitToolCallId = submitCall.id;
 				// Use Zod safeParse for type-safe validation instead of casting
 				const parseResult = discoveryOutputSchema.safeParse(submitCall.args);
 				if (!parseResult.success) {
@@ -643,11 +621,24 @@ export class DiscoverySubgraph extends BaseSubgraph<
 			hasPlanPrevious: Boolean(state.planPrevious),
 		});
 
+		// Add a ToolMessage for the submit_discovery_results call that was routed here
+		// instead of through the tools node. This keeps the message history valid for
+		// the Anthropic API (every tool_use must have a matching tool_result).
+		const toolResponseMessages = submitToolCallId
+			? [
+					new ToolMessage({
+						content: `Discovery complete: found ${hydratedNodesFound.length} nodes.`,
+						tool_call_id: submitToolCallId,
+					}),
+				]
+			: [];
+
 		// Return hydrated output with best practices from state (updated by get_documentation tool)
 		return {
 			nodesFound: hydratedNodesFound,
 			bestPractices: state.bestPractices,
 			templateIds: state.templateIds ?? [],
+			messages: toolResponseMessages,
 		};
 	}
 
@@ -744,8 +735,8 @@ export class DiscoverySubgraph extends BaseSubgraph<
 			mode: parentState.mode,
 			planOutput: parentState.planOutput,
 			planDecision: null,
-			planFeedback: null,
-			planPrevious: null,
+			planFeedback: parentState.planFeedback ?? null,
+			planPrevious: parentState.planPrevious ?? null,
 			messages: [contextMessage], // Context already in messages
 			cachedTemplates: parentState.cachedTemplates,
 		};
@@ -791,6 +782,8 @@ export class DiscoverySubgraph extends BaseSubgraph<
 			cachedTemplates: subgraphOutput.cachedTemplates,
 			planOutput: subgraphOutput.planOutput,
 			planDecision: subgraphOutput.planDecision,
+			planFeedback: subgraphOutput.planFeedback,
+			planPrevious: subgraphOutput.planPrevious,
 			...(subgraphOutput.mode ? { mode: subgraphOutput.mode } : {}),
 		};
 	}

@@ -255,6 +255,7 @@
 	"aiAssistant.builder.planMode.actions.implement": "Implement the plan",
 	"aiAssistant.builder.planMode.actions.modify": "Request changes",
 	"aiAssistant.builder.planMode.actions.modifyWithFeedback": "Request changes: {feedback}",
+	"aiAssistant.builder.planMode.answers.noAnswer": "No answer provided",
 	"aiAssistant.builder.planMode.actions.reject": "Reject the plan",
 	"aiAssistant.builder.planMode.actions.rejectWithFeedback": "Reject the plan: {feedback}",
 	"aiAssistant.builder.characterLimit": "You've reached the { limit } character limit",

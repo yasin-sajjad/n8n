@@ -326,7 +326,13 @@ export function createMultiAgentWorkflowWithSubgraphs(config: MultiAgentSubgraph
 				});
 
 				if (state.planDecision === 'reject') {
-					return { nextPhase: 'responder', planDecision: null, planOutput: null };
+					return {
+						nextPhase: 'responder',
+						planDecision: null,
+						planOutput: null,
+						planFeedback: null,
+						planPrevious: null,
+					};
 				}
 
 				if (state.planDecision === 'modify') {

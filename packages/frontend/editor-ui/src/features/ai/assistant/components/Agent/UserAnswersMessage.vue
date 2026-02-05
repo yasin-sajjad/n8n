@@ -9,6 +9,7 @@
 import { computed } from 'vue';
 
 import { N8nText } from '@n8n/design-system';
+import { useI18n } from '@n8n/i18n';
 
 import type { PlanMode } from '../../assistant.types';
 
@@ -17,6 +18,7 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+const i18n = useI18n();
 
 // Filter out skipped questions
 const displayedAnswers = computed(() => props.answers.filter((answer) => !answer.skipped));
@@ -32,7 +34,7 @@ function formatAnswer(answer: PlanMode.QuestionResponse): string {
 		parts.push(answer.customText.trim());
 	}
 
-	return parts.join(', ') || 'No answer provided';
+	return parts.join(', ') || i18n.baseText('aiAssistant.builder.planMode.answers.noAnswer');
 }
 </script>
 

@@ -1,7 +1,7 @@
 import type { BaseMessage } from '@langchain/core/messages';
 import { isAIMessage, ToolMessage, HumanMessage } from '@langchain/core/messages';
 import type { StructuredTool } from '@langchain/core/tools';
-import { isCommand, END } from '@langchain/langgraph';
+import { isCommand, isGraphInterrupt, END } from '@langchain/langgraph';
 
 import { isBaseMessage } from '../types/langchain';
 import type { WorkflowMetadata } from '../types/tools';
@@ -107,6 +107,10 @@ export async function executeSubgraphTools(
 				// We return it as-is and handle the type in the loop below
 				return result;
 			} catch (error) {
+				// Let GraphInterrupt propagate - tools like submit_questions use interrupt() for HITL
+				if (isGraphInterrupt(error)) {
+					throw error;
+				}
 				return new ToolMessage({
 					content: `Tool failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
 					tool_call_id: toolCall.id ?? '',

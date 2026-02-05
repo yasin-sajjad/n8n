@@ -676,6 +676,7 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 			executionData: executionResult,
 			nodesForSchema: Object.keys(workflowsStore.nodesByName),
 			mode: modeForPayload,
+			isPlanModeEnabled: isPlanModeAvailable.value,
 		});
 		if (resumeData !== undefined) {
 			payload.resumeData = resumeData;

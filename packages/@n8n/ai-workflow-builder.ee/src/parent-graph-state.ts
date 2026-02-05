@@ -93,4 +93,16 @@ export const ParentGraphState = Annotation.Root({
 		reducer: (x, y) => (y === undefined ? x : y),
 		default: () => null,
 	}),
+
+	// Plan Mode: User feedback after a "modify" decision (for plan revision)
+	planFeedback: Annotation<string | null>({
+		reducer: (x, y) => (y === undefined ? x : y),
+		default: () => null,
+	}),
+
+	// Plan Mode: Previous plan to revise after a "modify" decision
+	planPrevious: Annotation<PlanOutput | null>({
+		reducer: (x, y) => (y === undefined ? x : y),
+		default: () => null,
+	}),
 });

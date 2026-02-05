@@ -17,6 +17,49 @@ export interface MessageProcessingResult {
 	shouldClearThinking: boolean;
 }
 
+/**
+ * Factory functions for creating custom UI messages.
+ * Shared between streaming (processSingleMessage) and session replay (mapAssistantMessageToUI).
+ */
+function createQuestionsUIMessage(
+	id: string,
+	questions: PlanMode.PlannerQuestion[],
+	introMessage?: string,
+): ChatUI.AssistantMessage {
+	return {
+		id,
+		role: 'assistant',
+		type: 'custom',
+		customType: 'questions',
+		data: { questions, introMessage },
+		read: false,
+	} satisfies ChatUI.AssistantMessage;
+}
+
+function createPlanUIMessage(id: string, plan: PlanMode.PlanOutput): ChatUI.AssistantMessage {
+	return {
+		id,
+		role: 'assistant',
+		type: 'custom',
+		customType: 'plan',
+		data: { plan },
+		read: false,
+	} satisfies ChatUI.AssistantMessage;
+}
+
+function createUserAnswersUIMessage(
+	id: string,
+	answers: PlanMode.QuestionResponse[],
+): ChatUI.AssistantMessage {
+	return {
+		id,
+		role: 'user',
+		type: 'custom',
+		customType: 'user_answers',
+		data: { answers },
+	} satisfies ChatUI.AssistantMessage;
+}
+
 export function useBuilderMessages() {
 	const locale = useI18n();
 
@@ -170,17 +213,7 @@ export function useBuilderMessages() {
 				existingQuestionsIndex !== -1 &&
 				messages.slice(existingQuestionsIndex + 1).some((m) => m.role === 'user');
 			if (existingQuestionsIndex === -1 || hasUserAnswerAfterQuestions) {
-				messages.push({
-					id: messageId,
-					role: 'assistant',
-					type: 'custom',
-					customType: 'questions',
-					data: {
-						questions: msg.questions,
-						introMessage: msg.introMessage,
-					},
-					read: false,
-				} satisfies ChatUI.AssistantMessage);
+				messages.push(createQuestionsUIMessage(messageId, msg.questions, msg.introMessage));
 			}
 			shouldClearThinking = true;
 		} else if (isPlanMessage(msg)) {
@@ -205,25 +238,12 @@ export function useBuilderMessages() {
 				existingPlanIndex !== -1 &&
 				messages.slice(existingPlanIndex + 1).some((m) => m.role === 'user');
 			if (!hasDuplicatePlan && (existingPlanIndex === -1 || hasUserResponseAfterPlan)) {
-				messages.push({
-					id: messageId,
-					role: 'assistant',
-					type: 'custom',
-					customType: 'plan',
-					data: { plan: msg.plan },
-					read: false,
-				} satisfies ChatUI.AssistantMessage);
+				messages.push(createPlanUIMessage(messageId, msg.plan));
 			}
 			shouldClearThinking = true;
 		} else if (isUserAnswersMessage(msg)) {
 			// User answers from session replay - render as custom message
-			messages.push({
-				id: messageId,
-				role: 'user',
-				type: 'custom',
-				customType: 'user_answers',
-				data: { answers: msg.answers },
-			} satisfies ChatUI.AssistantMessage);
+			messages.push(createUserAnswersUIMessage(messageId, msg.answers));
 			shouldClearThinking = true;
 		} else if (isWorkflowUpdatedMessage(msg)) {
 			messages.push({
@@ -492,38 +512,15 @@ export function useBuilderMessages() {
 		}
 
 		if (isQuestionsMessage(message)) {
-			return {
-				id,
-				role: 'assistant',
-				type: 'custom',
-				customType: 'questions',
-				data: {
-					questions: message.questions,
-					introMessage: message.introMessage,
-				},
-				read: false,
-			} satisfies ChatUI.AssistantMessage;
+			return createQuestionsUIMessage(id, message.questions, message.introMessage);
 		}
 
 		if (isPlanMessage(message)) {
-			return {
-				id,
-				role: 'assistant',
-				type: 'custom',
-				customType: 'plan',
-				data: { plan: message.plan },
-				read: false,
-			} satisfies ChatUI.AssistantMessage;
+			return createPlanUIMessage(id, message.plan);
 		}
 
 		if (isUserAnswersMessage(message)) {
-			return {
-				id,
-				role: 'user',
-				type: 'custom',
-				customType: 'user_answers',
-				data: { answers: message.answers },
-			} satisfies ChatUI.AssistantMessage;
+			return createUserAnswersUIMessage(id, message.answers);
 		}
 
 		if (isWorkflowUpdatedMessage(message)) {

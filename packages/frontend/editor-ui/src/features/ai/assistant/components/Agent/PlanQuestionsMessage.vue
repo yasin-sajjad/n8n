@@ -8,6 +8,7 @@
 import { ref, computed } from 'vue';
 
 import { N8nButton, N8nCheckbox, N8nInput, N8nText } from '@n8n/design-system';
+import { useI18n } from '@n8n/i18n';
 
 import type { PlanMode } from '../../assistant.types';
 
@@ -18,6 +19,7 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+const i18n = useI18n();
 
 const emit = defineEmits<{
 	submit: [answers: PlanMode.QuestionResponse[]];
@@ -176,7 +178,7 @@ function goToNext() {
 						type="textarea"
 						:rows="3"
 						:disabled="disabled"
-						placeholder="Enter your answer..."
+						:placeholder="i18n.baseText('aiAssistant.builder.planMode.questions.customPlaceholder')"
 						@update:model-value="onCustomTextChange"
 					/>
 				</div>
@@ -198,7 +200,7 @@ function goToNext() {
 					<N8nInput
 						:model-value="currentAnswer.customText"
 						:disabled="disabled"
-						placeholder="Other"
+						:placeholder="i18n.baseText('aiAssistant.builder.planMode.questions.other')"
 						size="small"
 						:class="$style.otherInput"
 						@update:model-value="onCustomTextChange"
@@ -226,7 +228,7 @@ function goToNext() {
 						:disabled="disabled"
 						@click="goToPrevious"
 					>
-						Back
+						{{ i18n.baseText('aiAssistant.builder.planMode.questions.back') }}
 					</N8nButton>
 					<div v-else />
 
@@ -237,7 +239,11 @@ function goToNext() {
 						data-test-id="plan-mode-questions-next"
 						@click="goToNext"
 					>
-						{{ isLastQuestion ? 'Submit' : 'Next' }}
+						{{
+							isLastQuestion
+								? i18n.baseText('aiAssistant.builder.planMode.questions.submitButton')
+								: i18n.baseText('aiAssistant.builder.planMode.questions.next')
+						}}
 					</N8nButton>
 				</div>
 			</div>

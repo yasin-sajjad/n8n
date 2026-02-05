@@ -42,7 +42,7 @@ import type { CoordinationLogEntry } from '../types/coordination';
 import { createBuilderMetadata } from '../types/coordination';
 import type { DiscoveryContext } from '../types/discovery-types';
 import { isBaseMessage } from '../types/langchain';
-import type { PlanOutput } from '../types/planning';
+import { formatPlanAsText } from '../utils/plan-helpers';
 import type { WorkflowMetadata } from '../types/tools';
 import type { SimpleWorkflow, WorkflowOperation } from '../types/workflow';
 import { applySubgraphCacheMarkers } from '../utils/cache-control';
@@ -67,32 +67,6 @@ import {
 	extractUserRequest,
 	createStandardShouldContinue,
 } from '../utils/subgraph-helpers';
-
-function formatPlanForBuilder(plan: PlanOutput): string {
-	const lines: string[] = [];
-
-	lines.push(`Summary: ${plan.summary}`);
-	lines.push(`Trigger: ${plan.trigger}`);
-	lines.push('');
-	lines.push('Steps:');
-	plan.steps.forEach((step, index) => {
-		lines.push(`${index + 1}. ${step.description}`);
-		if (step.subSteps?.length) {
-			step.subSteps.forEach((subStep) => lines.push(`   - ${subStep}`));
-		}
-		if (step.suggestedNodes?.length) {
-			lines.push(`   Suggested nodes: ${step.suggestedNodes.join(', ')}`);
-		}
-	});
-
-	if (plan.additionalSpecs?.length) {
-		lines.push('');
-		lines.push('Additional specs / assumptions:');
-		plan.additionalSpecs.forEach((spec) => lines.push(`- ${spec}`));
-	}
-
-	return lines.join('\n');
-}
 
 /**
  * Builder Subgraph State
@@ -399,7 +373,7 @@ export class BuilderSubgraph extends BaseSubgraph<
 		// 2.1 Approved plan (Plan Mode)
 		if (parentState.planOutput) {
 			contextParts.push('=== APPROVED PLAN (FOLLOW THIS) ===');
-			contextParts.push(formatPlanForBuilder(parentState.planOutput));
+			contextParts.push(formatPlanAsText(parentState.planOutput));
 		}
 
 		// 3. Discovery context (what nodes to use)
@@ -528,6 +502,8 @@ export class BuilderSubgraph extends BaseSubgraph<
 			cachedTemplates: subgraphOutput.cachedTemplates,
 			planOutput: null,
 			planDecision: null,
+			planFeedback: null,
+			planPrevious: null,
 			// NO messages - clean separation from user-facing conversation
 		};
 	}
