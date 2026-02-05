@@ -8,6 +8,7 @@ import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { BaseMessage } from '@langchain/core/messages';
 import { SystemMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
+import type { StructuredTool } from '@langchain/core/tools';
 import { createAgent } from 'langchain';
 import { interrupt } from '@langchain/langgraph';
 import { z } from 'zod';
@@ -53,10 +54,13 @@ export type PlannerOutput = z.infer<typeof plannerOutputSchema>;
 
 export interface PlannerAgentConfig {
 	llm: BaseChatModel;
+	tools?: StructuredTool[];
 }
 
 export function createPlannerAgent(config: PlannerAgentConfig) {
-	const plannerPromptText = buildPlannerPrompt();
+	const tools = config.tools ?? [];
+	const hasDocumentationTool = tools.some((t) => t.name === 'get_documentation');
+	const plannerPromptText = buildPlannerPrompt({ hasDocumentationTool });
 
 	const systemPrompt = new SystemMessage({
 		content: [
@@ -70,7 +74,7 @@ export function createPlannerAgent(config: PlannerAgentConfig) {
 
 	return createAgent({
 		model: config.llm,
-		tools: [],
+		tools,
 		systemPrompt,
 		responseFormat: plannerOutputSchema,
 	});

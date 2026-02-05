@@ -264,7 +264,10 @@ export class DiscoverySubgraph extends BaseSubgraph<
 		// Bind all tools including the output tool
 		const allTools = [...tools, submitTool];
 		this.agent = systemPrompt.pipe(config.llm.bindTools(allTools));
-		this.plannerAgent = createPlannerAgent({ llm: config.plannerLLM });
+		this.plannerAgent = createPlannerAgent({
+			llm: config.plannerLLM,
+			tools: [createGetDocumentationTool().tool],
+		});
 
 		// Build the subgraph
 		const subgraph = new StateGraph(DiscoverySubgraphState)

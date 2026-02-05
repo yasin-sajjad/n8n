@@ -17,6 +17,12 @@ Create a clear implementation plan that the builder can follow to construct the 
 const GOAL = `Your goal is to propose an implementation plan the user can approve before any workflow is built.
 Use the user's request and the discovery context (suggested node types) to produce a practical plan.`;
 
+const BEST_PRACTICES_TOOL = `Before writing the plan, use the get_documentation tool to retrieve best practices for the relevant workflow techniques. This gives you proven n8n patterns, recommended node architectures, and common pitfalls to avoid.
+
+For example, if the user wants a notification workflow, fetch best practices for "notification". If it involves scheduling, fetch "scheduling". Match the techniques to the user's use case.
+
+Available techniques: trigger, loop, branch, subroutine, pagination, parallel_execution, error_handling, scheduling, rate_limiting, batch_processing, ai_agent, ai_chain, rag, data_transformation, http_request, chatbot, content_generation, data_extraction, data_persistence, document_processing, form_input, notification, triage, scraping_and_research, monitoring, enrichment, knowledge_base, human_in_the_loop, data_analysis.`;
+
 const RULES = `Rules:
 - Do not generate workflow JSON.
 - Do not invent unknown n8n node type names. Only suggest node type names when you are confident (prefer those in the discovery context).
@@ -29,10 +35,11 @@ const OUTPUT_FORMAT = `Output format:
 - steps: ordered list of steps; each step should describe what happens and may include suggestedNodes
 - additionalSpecs: optional list of assumptions, edge cases, or notes`;
 
-export function buildPlannerPrompt(): string {
+export function buildPlannerPrompt(options?: { hasDocumentationTool?: boolean }): string {
 	return prompt()
 		.section('role', ROLE)
 		.section('goal', GOAL)
+		.sectionIf(options?.hasDocumentationTool, 'best_practices_tool', BEST_PRACTICES_TOOL)
 		.section('rules', RULES)
 		.section('output_format', OUTPUT_FORMAT)
 		.build();
