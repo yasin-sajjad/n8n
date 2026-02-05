@@ -128,18 +128,48 @@ export class SessionManagerService {
 	}
 
 	/**
-	 * Clear session from persistent storage.
+	 * Clear session from both persistent storage and in-memory checkpointer.
 	 *
-	 * Note: The in-memory MemorySaver checkpointer doesn't support deletion of individual
-	 * thread states. However, this is acceptable because:
-	 * 1. When persistent storage is enabled, loadSessionMessages() loads from storage (which is cleared)
-	 * 2. The in-memory state will be overwritten on the next chat interaction
-	 * 3. MemorySaver is only used for within-session state, not cross-session persistence
+	 * Important: We must clear the in-memory checkpointer state because LangGraph's
+	 * messagesStateReducer merges/appends new messages to existing state. Without
+	 * clearing, old messages would resurface when the user sends a new message
+	 * without refreshing the page (state resurrection).
 	 */
 	async clearSession(threadId: string): Promise<void> {
 		// Clear from persistent storage if available
 		if (this.storage) {
 			await this.storage.deleteSession(threadId);
+		}
+
+		// Clear in-memory checkpointer state by overwriting with empty checkpoint
+		// This prevents state resurrection when user sends new messages
+		const threadConfig: RunnableConfig = {
+			configurable: { thread_id: threadId },
+		};
+
+		try {
+			const existingTuple = await this.checkpointer.getTuple(threadConfig);
+			if (existingTuple?.checkpoint) {
+				// Overwrite with empty messages to clear the state
+				const emptyCheckpoint: Checkpoint = {
+					...existingTuple.checkpoint,
+					channel_values: {
+						...existingTuple.checkpoint.channel_values,
+						messages: [],
+					},
+				};
+
+				const metadata = existingTuple.metadata ?? {
+					source: 'update' as const,
+					step: -1,
+					parents: {},
+				};
+
+				await this.checkpointer.put(threadConfig, emptyCheckpoint, metadata);
+			}
+		} catch (error) {
+			// Log but don't fail - clearing persistent storage is the critical path
+			this.logger?.debug('Failed to clear in-memory checkpointer state', { threadId, error });
 		}
 
 		this.logger?.debug('Session cleared', { threadId });

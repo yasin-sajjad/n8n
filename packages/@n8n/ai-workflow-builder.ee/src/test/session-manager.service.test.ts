@@ -769,7 +769,11 @@ describe('SessionManagerService', () => {
 		describe('saveSessionFromCheckpointer', () => {
 			it('should do nothing when no storage configured', async () => {
 				await service.saveSessionFromCheckpointer('thread-123');
-				// No error thrown, method completes silently
+
+				// Verify no storage operations were attempted
+				expect(mockStorage.saveSession).not.toHaveBeenCalled();
+				// Verify checkpointer was not accessed (no storage = no need to read checkpoint)
+				expect(mockMemorySaver.getTuple).not.toHaveBeenCalled();
 			});
 
 			it('should do nothing when no checkpoint exists', async () => {
@@ -886,18 +890,87 @@ describe('SessionManagerService', () => {
 		});
 
 		describe('clearSession', () => {
-			it('should delete from storage when configured', async () => {
+			it('should delete from storage and clear in-memory checkpointer when configured', async () => {
+				const existingCheckpoint = {
+					checkpoint: {
+						channel_values: { messages: [new HumanMessage('Old message')] },
+						ts: '2023-12-01T12:00:00Z',
+					},
+					metadata: { source: 'input' as const, step: 1, parents: {} },
+				};
+				(mockMemorySaver.getTuple as jest.Mock).mockResolvedValue(existingCheckpoint);
+				(mockMemorySaver.put as jest.Mock).mockResolvedValue(undefined);
+
 				await serviceWithStorage.clearSession('thread-123');
 
+				// Verify storage was cleared
 				expect(mockStorage.deleteSession).toHaveBeenCalledWith('thread-123');
+
+				// Verify in-memory checkpointer was cleared with empty messages
+				expect(mockMemorySaver.put).toHaveBeenCalledWith(
+					{ configurable: { thread_id: 'thread-123' } },
+					expect.objectContaining({
+						channel_values: expect.objectContaining({ messages: [] }),
+					}),
+					existingCheckpoint.metadata,
+				);
+
 				expect(mockLogger.debug).toHaveBeenCalledWith('Session cleared', {
 					threadId: 'thread-123',
 				});
 			});
 
-			it('should only log when no storage configured', async () => {
+			it('should clear in-memory checkpointer even when no storage configured', async () => {
+				const existingCheckpoint = {
+					checkpoint: {
+						channel_values: { messages: [new HumanMessage('Old message')] },
+						ts: '2023-12-01T12:00:00Z',
+					},
+					metadata: { source: 'input' as const, step: 1, parents: {} },
+				};
+				(mockMemorySaver.getTuple as jest.Mock).mockResolvedValue(existingCheckpoint);
+				(mockMemorySaver.put as jest.Mock).mockResolvedValue(undefined);
+
 				await service.clearSession('thread-123');
 
+				// Verify in-memory checkpointer was cleared
+				expect(mockMemorySaver.put).toHaveBeenCalledWith(
+					{ configurable: { thread_id: 'thread-123' } },
+					expect.objectContaining({
+						channel_values: expect.objectContaining({ messages: [] }),
+					}),
+					existingCheckpoint.metadata,
+				);
+
+				expect(mockLogger.debug).toHaveBeenCalledWith('Session cleared', {
+					threadId: 'thread-123',
+				});
+			});
+
+			it('should handle non-existent checkpointer state gracefully', async () => {
+				(mockMemorySaver.getTuple as jest.Mock).mockResolvedValue(null);
+
+				await service.clearSession('thread-123');
+
+				// Should not attempt to put when no existing checkpoint
+				expect(mockMemorySaver.put).not.toHaveBeenCalled();
+				expect(mockLogger.debug).toHaveBeenCalledWith('Session cleared', {
+					threadId: 'thread-123',
+				});
+			});
+
+			it('should continue even if checkpointer clear fails', async () => {
+				(mockMemorySaver.getTuple as jest.Mock).mockRejectedValue(new Error('Checkpointer error'));
+
+				await serviceWithStorage.clearSession('thread-123');
+
+				// Storage should still be cleared
+				expect(mockStorage.deleteSession).toHaveBeenCalledWith('thread-123');
+				// Should log the error but not fail
+				expect(mockLogger.debug).toHaveBeenCalledWith(
+					'Failed to clear in-memory checkpointer state',
+					expect.objectContaining({ threadId: 'thread-123' }),
+				);
 				expect(mockLogger.debug).toHaveBeenCalledWith('Session cleared', {
 					threadId: 'thread-123',
 				});
