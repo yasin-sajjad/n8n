@@ -91,10 +91,16 @@ const workflowState = injectWorkflowState();
 const { check: checkEnvFeatureFlag } = useEnvFeatureFlag();
 
 // Quick connect feature flag and composable
-const isQuickConnectEnabled = computed(
-	() => posthogStore.getVariant(QUICK_CONNECT_EXPERIMENT.name) === 'variant',
+const isQuickConnectEnabled = computed(() =>
+	posthogStore.isVariantEnabled(QUICK_CONNECT_EXPERIMENT.name, 'variant'),
 );
-const { shouldShowQuickConnectUI, isGoogleOAuthType, getSignInButtonText } = useQuickConnect();
+const {
+	shouldShowQuickConnectUI,
+	isGoogleOAuthType,
+	getSignInButtonText,
+	isOAuthCredentialType,
+	getParentTypes,
+} = useQuickConnect();
 
 const canCreateCredentials = computed(
 	() =>
@@ -526,9 +532,107 @@ function showStandardEmptyState(type: INodeCredentialDescription): boolean {
 	return !hasCredentialsForType(type) && !shouldShowQuickConnectUI(type.name, props.node.type);
 }
 
-function onQuickConnectSignIn(credentialType: string) {
-	// For now, just open the credential modal - OAuth flow will be implemented next
-	createNewCredential(credentialType, true, false);
+async function onQuickConnectSignIn(credentialTypeName: string) {
+	if (!isOAuthCredentialType(credentialTypeName)) {
+		// TODO: Implement quick connect flow for non-OAuth credentials when backend is ready
+		createNewCredential(credentialTypeName, true, false);
+		return;
+	}
+
+	// For OAuth credentials, start the OAuth flow directly
+	subscribedToCredentialType.value = credentialTypeName;
+
+	// Create credential first
+	const credentialType = credentialsStore.getCredentialTypeByName(credentialTypeName);
+	if (!credentialType) {
+		return;
+	}
+
+	let credential: ICredentialsResponse;
+	try {
+		credential = await credentialsStore.createNewCredential({
+			id: '',
+			name: credentialType.displayName,
+			type: credentialTypeName,
+			data: {},
+		});
+	} catch (error) {
+		toast.showError(error, i18n.baseText('nodeCredentials.showMessage.title'));
+		return;
+	}
+
+	// Get OAuth authorization URL
+	let url: string | undefined;
+	const types = getParentTypes(credentialTypeName);
+
+	try {
+		if (credentialTypeName === 'oAuth2Api' || types.includes('oAuth2Api')) {
+			url = await credentialsStore.oAuth2Authorize(credential);
+		} else if (credentialTypeName === 'oAuth1Api' || types.includes('oAuth1Api')) {
+			url = await credentialsStore.oAuth1Authorize(credential);
+		}
+	} catch (error) {
+		toast.showError(
+			error,
+			i18n.baseText('credentialEdit.credentialEdit.showError.generateAuthorizationUrl.title'),
+		);
+		return;
+	}
+
+	if (!url) {
+		toast.showError(
+			new Error(i18n.baseText('credentialEdit.credentialEdit.showError.invalidOAuthUrl.message')),
+			i18n.baseText('credentialEdit.credentialEdit.showError.invalidOAuthUrl.title'),
+		);
+		return;
+	}
+
+	// Validate URL protocol
+	try {
+		const parsedUrl = new URL(url);
+		if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+			toast.showError(
+				new Error(i18n.baseText('credentialEdit.credentialEdit.showError.invalidOAuthUrl.message')),
+				i18n.baseText('credentialEdit.credentialEdit.showError.invalidOAuthUrl.title'),
+			);
+			return;
+		}
+	} catch {
+		toast.showError(
+			new Error(i18n.baseText('credentialEdit.credentialEdit.showError.invalidOAuthUrl.message')),
+			i18n.baseText('credentialEdit.credentialEdit.showError.invalidOAuthUrl.title'),
+		);
+		return;
+	}
+
+	// Open OAuth popup
+	const params =
+		'scrollbars=no,resizable=yes,status=no,titlebar=no,location=no,toolbar=no,menubar=no,width=500,height=700';
+	const oauthPopup = window.open(url, 'OAuth Authorization', params);
+
+	// Listen for OAuth callback
+	const oauthChannel = new BroadcastChannel('oauth-callback');
+	const receiveMessage = (event: MessageEvent) => {
+		const successfullyConnected = event.data === 'success';
+
+		if (successfullyConnected) {
+			oauthChannel.removeEventListener('message', receiveMessage);
+			oauthChannel.close();
+
+			if (oauthPopup) {
+				oauthPopup.close();
+			}
+
+			// Select the newly created credential for this node
+			onCredentialSelected(credentialTypeName, credential.id);
+
+			toast.showMessage({
+				title: i18n.baseText('credentialEdit.credentialEdit.showMessage.title'),
+				type: 'success',
+			});
+		}
+	};
+	oauthChannel.addEventListener('message', receiveMessage);
 }
 </script>
 
