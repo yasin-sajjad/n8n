@@ -5,6 +5,7 @@
  * Extracts the loop body logic for better testability and maintainability.
  */
 
+import type { Callbacks } from '@langchain/core/callbacks/manager';
 import type { BaseChatModelCallOptions } from '@langchain/core/language_models/chat_models';
 import type { BaseMessage, AIMessage } from '@langchain/core/messages';
 import type { Runnable } from '@langchain/core/runnables';
@@ -39,6 +40,10 @@ type DebugLogFn = (context: string, message: string, data?: Record<string, unkno
 export interface AgentIterationHandlerConfig {
 	debugLog?: DebugLogFn;
 	onTokenUsage?: (usage: TokenUsage) => void;
+	/** Optional LangChain callbacks (e.g., LangSmith tracer) for LLM invocations */
+	callbacks?: Callbacks;
+	/** Optional metadata to include in LangSmith traces */
+	runMetadata?: Record<string, unknown>;
 }
 
 /**
@@ -91,10 +96,14 @@ export interface LlmInvocationResult {
 export class AgentIterationHandler {
 	private debugLog: DebugLogFn;
 	private onTokenUsage?: (usage: TokenUsage) => void;
+	private callbacks?: Callbacks;
+	private runMetadata?: Record<string, unknown>;
 
 	constructor(config: AgentIterationHandlerConfig = {}) {
 		this.debugLog = config.debugLog ?? (() => {});
 		this.onTokenUsage = config.onTokenUsage;
+		this.callbacks = config.callbacks;
+		this.runMetadata = config.runMetadata;
 	}
 
 	/**
@@ -137,7 +146,11 @@ export class AgentIterationHandler {
 		// Invoke LLM
 		this.debugLog('ITERATION', 'Invoking LLM with message history...');
 		const llmStartTime = Date.now();
-		const response = await llmWithTools.invoke(messages, { signal: abortSignal });
+		const response = await llmWithTools.invoke(messages, {
+			signal: abortSignal,
+			callbacks: this.callbacks,
+			metadata: this.runMetadata,
+		});
 		const llmDurationMs = Date.now() - llmStartTime;
 
 		// Extract token usage from response metadata using type guard
