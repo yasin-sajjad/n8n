@@ -5,8 +5,7 @@ import {
 	setupIntegrationLLM,
 	shouldRunIntegrationTests,
 } from '@/chains/test/integration/test-helpers';
-import { createDiscoveryWrapper, type DiscoveryWrapperType } from '@/subgraphs/discovery.wrapper';
-import { createContextMessage } from '@/utils/context-builders';
+import { DiscoverySubgraph } from '@/subgraphs/discovery.subgraph';
 
 import { loadNodesFromFile } from '../../../../evaluations/support/load-nodes';
 
@@ -149,9 +148,9 @@ function calculateNodeFrequency(
 // 	return frequency;
 // }
 
-// Helper to invoke the Discovery wrapper with a user request
+// Helper to invoke the Discovery subgraph with a user request
 async function invokeDiscovery(
-	wrapper: DiscoveryWrapperType,
+	compiledDiscovery: ReturnType<DiscoverySubgraph['create']>,
 	userRequest: string,
 ): Promise<{
 	nodesFound: Array<{
@@ -166,15 +165,18 @@ async function invokeDiscovery(
 }> {
 	const input = {
 		userRequest,
-		contextMessage: createContextMessage([`<user_request>${userRequest}</user_request>`]),
+		workflowJSON: { nodes: [], connections: {}, name: '' },
+		mode: 'build' as const,
+		planOutput: null,
 	};
-	return await wrapper.invoke(input);
+	const result = await compiledDiscovery.invoke(input);
+	return result.discoveryContext;
 }
 
 describe('Discovery Subgraph - Integration Tests', () => {
 	let llm: BaseChatModel;
 	let parsedNodeTypes: INodeTypeDescription[];
-	let discoveryWrapper: DiscoveryWrapperType;
+	let compiledDiscovery: ReturnType<DiscoverySubgraph['create']>;
 
 	// Skip all tests if integration tests are not enabled
 	const skipTests = !shouldRunIntegrationTests();
@@ -204,8 +206,9 @@ describe('Discovery Subgraph - Integration Tests', () => {
 
 		console.log(`Loaded ${parsedNodeTypes.length} node types for testing\n`);
 
-		// Create discovery wrapper instance using the new LangChain v1 createAgent API
-		discoveryWrapper = createDiscoveryWrapper({ parsedNodeTypes, llm });
+		// Create discovery subgraph instance
+		const discoverySubgraph = new DiscoverySubgraph();
+		compiledDiscovery = discoverySubgraph.create({ parsedNodeTypes, llm, plannerLLM: llm });
 	});
 
 	describe('Basic Discovery', () => {
@@ -213,7 +216,7 @@ describe('Discovery Subgraph - Integration Tests', () => {
 			if (skipTests) return;
 
 			const result = await invokeDiscovery(
-				discoveryWrapper,
+				compiledDiscovery,
 				'Monitor my website every 5 minutes and send Slack alert if it goes down',
 			);
 
@@ -236,7 +239,7 @@ describe('Discovery Subgraph - Integration Tests', () => {
 			if (skipTests) return;
 
 			const result = await invokeDiscovery(
-				discoveryWrapper,
+				compiledDiscovery,
 				'Create a form to collect feedback and store in database',
 			);
 
@@ -252,7 +255,7 @@ describe('Discovery Subgraph - Integration Tests', () => {
 			if (skipTests) return;
 
 			const result = await invokeDiscovery(
-				discoveryWrapper,
+				compiledDiscovery,
 				'Build a chatbot with RAG using knowledge base documents',
 			);
 
@@ -273,7 +276,7 @@ describe('Discovery Subgraph - Integration Tests', () => {
 			if (skipTests) return;
 
 			const result = await invokeDiscovery(
-				discoveryWrapper,
+				compiledDiscovery,
 				'Send daily email with weather forecast',
 			);
 
@@ -297,7 +300,7 @@ describe('Discovery Subgraph - Integration Tests', () => {
 			if (skipTests) return;
 
 			const result = await invokeDiscovery(
-				discoveryWrapper,
+				compiledDiscovery,
 				'Create webhook to receive data and store in PostgreSQL',
 			);
 
@@ -342,7 +345,7 @@ describe('Discovery Subgraph - Integration Tests', () => {
 			if (skipTests) return;
 
 			const result = await invokeDiscovery(
-				discoveryWrapper,
+				compiledDiscovery,
 				'Scrape competitor data, analyze with AI, generate report, and send via email',
 			);
 
@@ -355,7 +358,7 @@ describe('Discovery Subgraph - Integration Tests', () => {
 		it('should handle vague prompts gracefully', async () => {
 			if (skipTests) return;
 
-			const result = await invokeDiscovery(discoveryWrapper, 'Automate my workflow');
+			const result = await invokeDiscovery(compiledDiscovery, 'Automate my workflow');
 
 			// Should still return structured output even for vague prompts
 			expect(result.nodesFound).toBeDefined();
@@ -366,7 +369,7 @@ describe('Discovery Subgraph - Integration Tests', () => {
 			if (skipTests) return;
 
 			const result = await invokeDiscovery(
-				discoveryWrapper,
+				compiledDiscovery,
 				'Use HTTP Request node to call an API and Code node to transform the response',
 			);
 
@@ -402,7 +405,7 @@ describe('Discovery Subgraph - Integration Tests', () => {
 
 			// Run all test prompts
 			for (const test of testPrompts) {
-				const result = await invokeDiscovery(discoveryWrapper, test.prompt);
+				const result = await invokeDiscovery(compiledDiscovery, test.prompt);
 
 				const check = hasExpectedNodes(result.nodesFound, test.expectedNodes);
 
@@ -499,7 +502,7 @@ describe('Discovery Subgraph - Integration Tests', () => {
 				index: number,
 			): Promise<TestResult> => {
 				// Note: This test is skipped during migration - the call is commented out
-				// const result = await invokeDiscovery(discoveryWrapper, test.prompt);
+				// const result = await invokeDiscovery(compiledDiscovery, test.prompt);
 				void test.prompt; // Suppress unused variable warning
 
 				// Note: The messages property is no longer exposed in the wrapper API

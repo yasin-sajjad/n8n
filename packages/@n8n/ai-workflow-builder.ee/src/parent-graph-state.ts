@@ -78,7 +78,7 @@ export const ParentGraphState = Annotation.Root({
 
 	// Plan Mode: Current plan (set by planner, consumed by builder)
 	planOutput: Annotation<PlanOutput | null>({
-		reducer: (x, y) => y ?? x,
+		reducer: (x, y) => (y === undefined ? x : y),
 		default: () => null,
 	}),
 
@@ -90,7 +90,7 @@ export const ParentGraphState = Annotation.Root({
 
 	// Plan Mode: Last plan decision after interrupt resume
 	planDecision: Annotation<PlanDecision | null>({
-		reducer: (x, y) => y ?? x,
+		reducer: (x, y) => (y === undefined ? x : y),
 		default: () => null,
 	}),
 });
