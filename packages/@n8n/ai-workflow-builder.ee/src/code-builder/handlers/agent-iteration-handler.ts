@@ -11,6 +11,7 @@ import type { Runnable } from '@langchain/core/runnables';
 
 import type { StreamOutput, AgentMessageChunk } from '../../types/streaming';
 import type { TokenUsage } from '../types';
+import { applySubgraphCacheMarkers } from '../../utils/cache-control/helpers';
 import { extractTextContent, extractThinkingContent } from '../utils/content-extractors';
 
 /** Type guard for response metadata with usage info */
@@ -129,6 +130,9 @@ export class AgentIterationHandler {
 			this.debugLog('ITERATION', 'Abort signal received');
 			throw new Error('Aborted');
 		}
+
+		// Apply cache markers for prompt caching optimization
+		applySubgraphCacheMarkers(messages);
 
 		// Invoke LLM
 		this.debugLog('ITERATION', 'Invoking LLM with message history...');
