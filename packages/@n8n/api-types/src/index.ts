@@ -1,3 +1,5 @@
+export { z } from 'zod';
+
 export type * from './datetime';
 export * from './dto';
 export type * from './push';
