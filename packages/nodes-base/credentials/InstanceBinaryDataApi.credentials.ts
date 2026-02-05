@@ -1,7 +1,7 @@
 import type { ICredentialType, INodeProperties } from 'n8n-workflow';
 
-export class N8nInternalBinaryDataServiceApi implements ICredentialType {
-	name = 'n8nInternalBinaryDataServiceApi';
+export class InstanceBinaryDataApi implements ICredentialType {
+	name = 'instanceBinaryDataApi';
 
 	// eslint-disable-next-line n8n-nodes-base/cred-class-field-display-name-miscased
 	displayName = 'n8n Internal Binary Data Service API';

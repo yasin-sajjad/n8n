@@ -1082,10 +1082,7 @@ Respond the title only:`,
 
 	private buildVectorStoreNodes(options: VectorStoreSearchOptions): INode[] {
 		const embeddingsModelNode = this.buildEmbeddingsModelNode(options);
-		const vectorStoreNode = this.buildVectorStoreNode(
-			options.memoryKey,
-			options.vectorStoreCredentialId,
-		);
+		const vectorStoreNode = this.buildVectorStoreNode(options.memoryKey, options.credentialId);
 		const vectorStoreQuestionToolNode = this.buildVectorStoreQuestionToolNode();
 
 		return [embeddingsModelNode, vectorStoreNode, vectorStoreQuestionToolNode];
@@ -1137,9 +1134,9 @@ Respond the title only:`,
 			id: uuidv4(),
 			name: 'Vector Store',
 			credentials: {
-				n8nInternalBinaryDataServiceApi: {
+				instanceBinaryDataApi: {
 					id: credentialId,
-					name: 'n8nInternalBinaryDataServiceApi',
+					name: '',
 				},
 			},
 		};
@@ -1206,9 +1203,9 @@ Respond the title only:`,
 				id: uuidv4(),
 				name: 'Vector Store',
 				credentials: {
-					n8nInternalBinaryDataServiceApi: {
-						id: vectorStoreSearch.vectorStoreCredentialId,
-						name: 'n8nInternalBinaryDataServiceApi',
+					instanceBinaryDataApi: {
+						id: vectorStoreSearch.credentialId,
+						name: '',
 					},
 				},
 			},

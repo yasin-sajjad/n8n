@@ -23,8 +23,6 @@ import { WorkflowExecutionService } from '@/workflows/workflow-execution.service
 import { BadRequestError } from '@/errors/response-errors/bad-request.error';
 import { ChatHubSettingsService } from './chat-hub.settings.service';
 import type { ProviderAndCredentialId } from './chat-hub.types';
-// TODO: Remove after implementing direct LanceDB access
-// import { VectorStoreDataRepository } from '../vector-store/vector-store-data.repository';
 
 import { NotFoundError } from '@/errors/response-errors/not-found.error';
 import { ChatHubExecutionService } from './chat-hub-execution.service';
@@ -41,8 +39,6 @@ export class ChatHubAgentService {
 		private readonly chatHubWorkflowService: ChatHubWorkflowService,
 		private readonly chatHubExecutionService: ChatHubExecutionService,
 		private readonly workflowExecutionService: WorkflowExecutionService,
-		// TODO: Remove after implementing direct LanceDB access
-		// private readonly vectorStoreRepository: VectorStoreDataRepository,
 		private readonly chatHubSettingsService: ChatHubSettingsService,
 		private readonly credentialsService: CredentialsService,
 		private readonly binaryDataService: BinaryDataService,
@@ -240,16 +236,20 @@ export class ChatHubAgentService {
 		return `chat-hub-agent-files-${agentId}`;
 	}
 
+	private getVectorStorePath(userId: string) {
+		return FileLocation.ofCustom({ pathSegments: ['chat-hub', 'users', userId, 'embeddings'] });
+	}
+
 	async createVectorStoreCredential(user: User) {
 		// Get storage config from binary data service
 		const storageConfig = this.binaryDataService.getStorageConfig();
 		const storagePath = await this.binaryDataService.ensureLocation(
-			FileLocation.ofCustom({ pathSegments: ['chat-hub', 'users', user.id, 'embeddings'] }),
+			this.getVectorStorePath(user.id),
 		);
 
 		return await this.credentialsService.createManagedCredential(
 			{
-				type: 'n8nInternalBinaryDataServiceApi',
+				type: 'instanceBinaryDataApi',
 				name: 'Temporary credential for ChatHub execution',
 				data: { ...storageConfig, storagePath },
 			},
@@ -280,7 +280,7 @@ export class ChatHubAgentService {
 					{
 						embeddingModel,
 						memoryKey: this.getAgentMemoryKey(agentId),
-						vectorStoreCredentialId: cred.id,
+						credentialId: cred.id,
 					},
 					trx,
 				);
@@ -301,6 +301,13 @@ export class ChatHubAgentService {
 			await this.chatHubExecutionService.ensureWasSuccessfulOrThrow(execution.executionId);
 		} finally {
 			//await this.chatHubWorkflowService.deleteWorkflow(workflowData.id);
+
+			// Delete temporary vector store credential
+			try {
+				await this.credentialsService.delete(user, cred.id);
+			} catch (error) {
+				this.logger.warn(`Failed to delete temporary vector store credential ${cred.id}: ${error}`);
+			}
 		}
 	}
 
@@ -309,8 +316,7 @@ export class ChatHubAgentService {
 		const { id: projectId } = await this.chatHubCredentialsService.findPersonalProject(user);
 
 		// Delete all embeddings for this agent from the vector store
-		// TODO: Implement direct LanceDB access to delete embeddings
-		// await this.vectorStoreRepository.clearStore(memoryKey, projectId);
+		await this.binaryDataService.deleteMany([this.getVectorStorePath(user.id)]);
 
 		this.logger.debug(
 			`Deleted embeddings for agent ${agentId} from vector store (memoryKey: ${memoryKey}, projectId: ${projectId})`,

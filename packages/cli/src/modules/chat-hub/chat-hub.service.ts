@@ -379,9 +379,12 @@ export class ChatHubService {
 		let processedAttachments: IBinaryData[] = [];
 		let workflow: PreparedChatWorkflow;
 		let previousMessage: ChatHubMessage | undefined;
+		let vectorStoreCredential:
+			| Awaited<ReturnType<typeof this.chatHubAgentService.createVectorStoreCredential>>
+			| undefined;
 
 		try {
-			const vectorStoreCredential =
+			vectorStoreCredential =
 				model.provider === 'custom-agent'
 					? await this.chatHubAgentService.createVectorStoreCredential(user)
 					: undefined;
@@ -517,6 +520,7 @@ export class ChatHubService {
 			credentials,
 			message,
 			processedAttachments,
+			vectorStoreCredential?.id,
 		);
 	}
 
@@ -644,6 +648,10 @@ export class ChatHubService {
 		});
 
 		// Start the workflow execution with streaming
+		const vectorStoreCredential =
+			model.provider === 'custom-agent'
+				? await this.chatHubAgentService.createVectorStoreCredential(user)
+				: undefined;
 		void this.executeChatWorkflowWithCleanup(
 			user,
 			model,
@@ -655,6 +663,7 @@ export class ChatHubService {
 			{},
 			'',
 			[],
+			vectorStoreCredential?.id,
 		);
 	}
 
@@ -721,6 +730,10 @@ export class ChatHubService {
 			});
 
 		// Start the workflow execution with streaming (fire and forget)
+		const vectorStoreCredential =
+			model.provider === 'custom-agent'
+				? await this.chatHubAgentService.createVectorStoreCredential(user)
+				: undefined;
 		void this.executeChatWorkflowWithCleanup(
 			user,
 			model,
@@ -732,6 +745,7 @@ export class ChatHubService {
 			{},
 			'',
 			[],
+			vectorStoreCredential?.id,
 		);
 	}
 
@@ -800,7 +814,7 @@ export class ChatHubService {
 				agent.systemPrompt + '\n\n' + this.getSystemMessage(timeZone, history),
 				executionMetadata,
 				embeddingModel && vectorStoreCredentialId
-					? { memoryKey, embeddingModel, vectorStoreCredentialId }
+					? { memoryKey, embeddingModel, credentialId: vectorStoreCredentialId }
 					: null,
 			);
 		}
@@ -862,6 +876,7 @@ export class ChatHubService {
 		credentials: INodeCredentials,
 		humanMessage: string,
 		processedAttachments: IBinaryData[],
+		vectorStoreCredentialId?: string,
 	) {
 		await this.chatHubExecutionService.executeChatWorkflowWithCleanup(
 			user,
@@ -872,6 +887,7 @@ export class ChatHubService {
 			previousMessageId,
 			retryOfMessageId,
 			workflow.responseMode,
+			vectorStoreCredentialId,
 		);
 
 		// Generate title for the session on receiving the first human message

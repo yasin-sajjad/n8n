@@ -89,7 +89,7 @@ export class VectorStoreInMemory extends createVectorStoreNode<
 		},
 		credentials: [
 			{
-				name: 'n8nInternalBinaryDataServiceApi',
+				name: 'instanceBinaryDataApi',
 				required: false,
 				displayOptions: {
 					show: {
@@ -227,9 +227,8 @@ export class VectorStoreInMemory extends createVectorStoreNode<
 				filter?: string,
 			): Promise<INodeListSearchResult> {
 				// Get credentials
-				const credentials = await this.getCredentials<BinaryDataCredentials>(
-					'n8nInternalBinaryDataServiceApi',
-				);
+				const credentials =
+					await this.getCredentials<BinaryDataCredentials>('instanceBinaryDataApi');
 
 				// Use DatabaseVectorStore to list stores
 				const tableNames = await DatabaseVectorStore.listStores(credentials, filter);
@@ -275,9 +274,8 @@ export class VectorStoreInMemory extends createVectorStoreNode<
 
 		if (enablePersistence) {
 			// Use LanceDB-backed vector store
-			const credentials = await context.getCredentials<BinaryDataCredentials>(
-				'n8nInternalBinaryDataServiceApi',
-			);
+			const credentials =
+				await context.getCredentials<BinaryDataCredentials>('instanceBinaryDataApi');
 
 			return new DatabaseVectorStore(credentials, embeddings, memoryKey);
 		} else {
@@ -297,9 +295,8 @@ export class VectorStoreInMemory extends createVectorStoreNode<
 
 		if (enablePersistence) {
 			// Use LanceDB-backed vector store
-			const credentials = await context.getCredentials<BinaryDataCredentials>(
-				'n8nInternalBinaryDataServiceApi',
-			);
+			const credentials =
+				await context.getCredentials<BinaryDataCredentials>('instanceBinaryDataApi');
 
 			const vectorStore = new DatabaseVectorStore(credentials, embeddings, memoryKey);
 

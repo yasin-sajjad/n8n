@@ -102,7 +102,7 @@ export type PreparedChatWorkflow = {
 export interface VectorStoreSearchOptions {
 	memoryKey: string;
 	embeddingModel: ProviderAndCredentialId;
-	vectorStoreCredentialId: string;
+	credentialId: string;
 }
 
 export interface ChatInput {
