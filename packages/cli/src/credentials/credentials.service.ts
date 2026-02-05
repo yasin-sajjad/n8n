@@ -44,6 +44,7 @@ import { ForbiddenError } from '@/errors/response-errors/forbidden.error';
 import { NotFoundError } from '@/errors/response-errors/not-found.error';
 import { ExternalHooks } from '@/external-hooks';
 import { validateEntity } from '@/generic-helpers';
+import { ExternalSecretsConfig } from '@/modules/external-secrets.ee/external-secrets.config';
 import { SecretsProviderAccessCheckService } from '@/modules/external-secrets.ee/secret-provider-access-check.service.ee';
 import { validateOAuthUrl } from '@/oauth/validate-oauth-url';
 import { userHasScopes } from '@/permissions.ee/check-access';
@@ -86,6 +87,7 @@ export class CredentialsService {
 		private readonly userRepository: UserRepository,
 		private readonly credentialsFinderService: CredentialsFinderService,
 		private readonly credentialsHelper: CredentialsHelper,
+		private readonly externalSecretsConfig: ExternalSecretsConfig,
 		private readonly externalSecretsProviderAccessCheckService: SecretsProviderAccessCheckService,
 	) {}
 
@@ -929,6 +931,11 @@ export class CredentialsService {
 		projectId: string,
 		data: ICredentialDataDecryptedObject,
 	) {
+		// Skip validation if project-scoped external secrets feature is disabled
+		if (!this.externalSecretsConfig.externalSecretsForProjects) {
+			return;
+		}
+
 		const secretPaths = getAllKeyPaths(data, '', [], containsExternalSecretExpression);
 		if (secretPaths.length === 0) {
 			return; // No external secrets referenced, nothing to check
