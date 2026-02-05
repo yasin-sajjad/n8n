@@ -5,7 +5,10 @@ import {
 } from '@/features/ai/assistant/assistant.types';
 import { useAIAssistantHelpers } from '@/features/ai/assistant/composables/useAIAssistantHelpers';
 import { usePostHog } from '@/app/stores/posthog.store';
-import { AI_BUILDER_TEMPLATE_EXAMPLES_EXPERIMENT } from '@/app/constants/experiments';
+import {
+	AI_BUILDER_PLAN_MODE_EXPERIMENT,
+	AI_BUILDER_TEMPLATE_EXAMPLES_EXPERIMENT,
+} from '@/app/constants/experiments';
 import type { IRunExecutionData } from 'n8n-workflow';
 import type { IWorkflowDb } from '@/Interface';
 import { getWorkflowVersionsByIds } from '@n8n/rest-api-client/api/workflowHistory';
@@ -27,6 +30,7 @@ export async function createBuilderPayload(
 		executionData?: IRunExecutionData['resultData'];
 		workflow?: IWorkflowDb;
 		nodesForSchema?: string[];
+		mode?: 'build' | 'plan';
 	} = {},
 ): Promise<ChatRequest.UserChatMessage> {
 	const assistantHelpers = useAIAssistantHelpers();
@@ -63,10 +67,13 @@ export async function createBuilderPayload(
 	}
 
 	// Get feature flags from Posthog
+	const planModeVariant = posthogStore.getVariant(AI_BUILDER_PLAN_MODE_EXPERIMENT.name);
 	const featureFlags: ChatRequest.BuilderFeatureFlags = {
 		templateExamples:
 			posthogStore.getVariant(AI_BUILDER_TEMPLATE_EXAMPLES_EXPERIMENT.name) ===
 			AI_BUILDER_TEMPLATE_EXAMPLES_EXPERIMENT.variant,
+		planMode:
+			planModeVariant === true || planModeVariant === AI_BUILDER_PLAN_MODE_EXPERIMENT.variant,
 	};
 
 	return {
@@ -77,6 +84,7 @@ export async function createBuilderPayload(
 		quickReplyType: options.quickReplyType,
 		workflowContext,
 		featureFlags,
+		mode: options.mode,
 	};
 }
 

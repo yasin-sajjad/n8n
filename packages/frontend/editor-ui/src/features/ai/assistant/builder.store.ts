@@ -39,6 +39,13 @@ import { useWorkflowSaving } from '@/app/composables/useWorkflowSaving';
 import { useUIStore } from '@/app/stores/ui.store';
 import { useDocumentTitle } from '@/app/composables/useDocumentTitle';
 import { useBrowserNotifications } from '@/app/composables/useBrowserNotifications';
+import { usePostHog } from '@/app/stores/posthog.store';
+import { AI_BUILDER_PLAN_MODE_EXPERIMENT } from '@/app/constants/experiments';
+import type { PlanMode } from '@/features/ai/assistant/assistant.types';
+import {
+	isPlanModePlanMessage,
+	isPlanModeQuestionsMessage,
+} from '@/features/ai/assistant/assistant.types';
 
 const INFINITE_CREDITS = -1;
 export const ENABLED_VIEWS = BUILDER_ENABLED_VIEWS;
@@ -105,6 +112,7 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 	const builderThinkingMessage = ref<string | undefined>();
 	const streamingAbortController = ref<AbortController | null>(null);
 	const initialGeneration = ref<boolean>(false);
+	const builderMode = ref<'build' | 'plan'>('build');
 	const creditsQuota = ref<number | undefined>();
 	const creditsClaimed = ref<number | undefined>();
 	const manualExecStatsInBetweenMessages = ref<{ success: number; error: number }>({
@@ -141,6 +149,7 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 	const uiStore = useUIStore();
 	const router = useRouter();
 	const workflowSaver = useWorkflowSaving({ router });
+	const posthogStore = usePostHog();
 
 	// Composables
 	const {
@@ -200,6 +209,22 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 
 	const hasMessages = computed(() => chatMessages.value.length > 0);
 
+	const isPlanModeAvailable = computed(() => {
+		const variant = posthogStore.getVariant(AI_BUILDER_PLAN_MODE_EXPERIMENT.name);
+		return variant === true || variant === AI_BUILDER_PLAN_MODE_EXPERIMENT.variant;
+	});
+
+	const pendingInterruptMessage = computed(() => {
+		const lastMessage = chatMessages.value[chatMessages.value.length - 1];
+		if (!lastMessage) return null;
+
+		return isPlanModeQuestionsMessage(lastMessage) || isPlanModePlanMessage(lastMessage)
+			? lastMessage
+			: null;
+	});
+
+	const isInterrupted = computed(() => pendingInterruptMessage.value !== null);
+
 	// Chat management functions
 	/**
 	 * Resets the entire chat session to initial state.
@@ -212,6 +237,12 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 		initialGeneration.value = false;
 		lastUserMessageId.value = undefined;
 		loadedSessionsForWorkflowId.value = undefined;
+		builderMode.value = 'build';
+	}
+
+	function setBuilderMode(mode: 'build' | 'plan') {
+		if (mode === 'plan' && !isPlanModeAvailable.value) return;
+		builderMode.value = mode;
 	}
 
 	function incrementManualExecutionStats(type: 'success' | 'error') {
@@ -545,6 +576,8 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 		errorMessage?: string;
 		errorNodeType?: string;
 		executionStatus?: string;
+		resumeData?: unknown;
+		mode?: 'build' | 'plan';
 	}) {
 		if (streaming.value) {
 			return;
@@ -568,6 +601,8 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 			type = 'message',
 			errorNodeType,
 			executionStatus,
+			resumeData,
+			mode,
 		} = options;
 
 		// Set initial generation flag if provided
@@ -599,12 +634,20 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 		prepareForStreaming(text, userMessageId, revertVersion);
 
 		const executionResult = workflowsStore.workflowExecutionData?.data?.resultData;
+		const modeForPayload =
+			resumeData !== undefined
+				? mode
+				: (mode ?? (builderMode.value === 'plan' ? ('plan' as const) : undefined));
 		const payload = await createBuilderPayload(text, userMessageId, {
 			quickReplyType,
 			workflow: workflowsStore.workflow,
 			executionData: executionResult,
 			nodesForSchema: Object.keys(workflowsStore.nodesByName),
+			mode: modeForPayload,
 		});
+		if (resumeData !== undefined) {
+			payload.resumeData = resumeData;
+		}
 
 		const retry = createRetryHandler(userMessageId, async () => await sendChatMessage(options));
 
@@ -642,6 +685,72 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 		} catch (e: unknown) {
 			handleServiceError(e, userMessageId, retry);
 		}
+	}
+
+	function formatQuestionResponsesForHistory(answers: PlanMode.QuestionResponse[]): string {
+		const lines = answers
+			.filter((a) => !a.skipped)
+			.map((a) => {
+				const selected = a.selectedOptions.join(', ');
+				const custom = a.customText?.trim();
+				const answerText = selected && custom ? `${selected}, ${custom}` : selected || custom || '';
+				return `- ${a.question}: ${answerText}`;
+			})
+			.filter((line) => line.trim().length > 0);
+
+		return lines.join('\n');
+	}
+
+	async function resumeWithQuestionsAnswers(answers: PlanMode.QuestionResponse[]) {
+		if (!isInterrupted.value) return;
+
+		const text =
+			formatQuestionResponsesForHistory(answers) ||
+			locale.baseText('aiAssistant.builder.planMode.actions.submitAnswers');
+		await sendChatMessage({
+			text,
+			resumeData: answers,
+		});
+	}
+
+	async function resumeWithPlanDecision(decision: {
+		action: 'approve' | 'reject' | 'modify';
+		feedback?: string;
+	}) {
+		if (!isInterrupted.value) return;
+
+		const feedback = decision.feedback?.trim();
+
+		if (decision.action === 'approve') {
+			builderMode.value = 'build';
+			await sendChatMessage({
+				text: locale.baseText('aiAssistant.builder.planMode.actions.implement'),
+				resumeData: decision,
+				mode: 'build',
+			});
+			return;
+		}
+
+		if (decision.action === 'modify') {
+			await sendChatMessage({
+				text: feedback
+					? locale.baseText('aiAssistant.builder.planMode.actions.modifyWithFeedback', {
+							interpolate: { feedback },
+						})
+					: locale.baseText('aiAssistant.builder.planMode.actions.modify'),
+				resumeData: decision,
+			});
+			return;
+		}
+
+		await sendChatMessage({
+			text: feedback
+				? locale.baseText('aiAssistant.builder.planMode.actions.rejectWithFeedback', {
+						interpolate: { feedback },
+					})
+				: locale.baseText('aiAssistant.builder.planMode.actions.reject'),
+			resumeData: decision,
+		});
 	}
 
 	/**
@@ -907,6 +1016,9 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 		streaming,
 		builderThinkingMessage,
 		isAIBuilderEnabled,
+		builderMode,
+		isPlanModeAvailable,
+		isInterrupted,
 		workflowPrompt,
 		toolMessages,
 		workflowMessages,
@@ -924,7 +1036,10 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 		// Methods
 		abortStreaming,
 		resetBuilderChat,
+		setBuilderMode,
 		sendChatMessage,
+		resumeWithQuestionsAnswers,
+		resumeWithPlanDecision,
 		loadSessions,
 		getWorkflowSnapshot,
 		fetchBuilderCredits,

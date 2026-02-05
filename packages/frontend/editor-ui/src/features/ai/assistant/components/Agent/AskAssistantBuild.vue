@@ -31,6 +31,10 @@ import AISettingsButton from '@/features/ai/assistant/components/Chat/AISettings
 import { useAssistantStore } from '@/features/ai/assistant/assistant.store';
 
 import { N8nAskAssistantChat, N8nText } from '@n8n/design-system';
+import { isPlanModePlanMessage, isPlanModeQuestionsMessage } from '../../assistant.types';
+import PlanDisplayMessage from './PlanDisplayMessage.vue';
+import PlanModeSelector from './PlanModeSelector.vue';
+import PlanQuestionsMessage from './PlanQuestionsMessage.vue';
 
 const emit = defineEmits<{
 	close: [];
@@ -152,8 +156,12 @@ const isInputDisabled = computed(() => {
 	return collaborationStore.shouldBeReadOnly || isAutosaving.value;
 });
 
+const isChatInputDisabled = computed(() => {
+	return isInputDisabled.value || builderStore.isInterrupted;
+});
+
 const disabledTooltip = computed(() => {
-	if (!isInputDisabled.value) {
+	if (!isChatInputDisabled.value) {
 		return undefined;
 	}
 	if (isAutosaving.value) {
@@ -163,6 +171,10 @@ const disabledTooltip = computed(() => {
 		return i18n.baseText('aiAssistant.builder.disabledTooltip.readOnly');
 	}
 	return undefined;
+});
+
+const isPlanModeSelectorDisabled = computed(() => {
+	return builderStore.streaming || isChatInputDisabled.value;
 });
 
 async function onUserMessage(content: string) {
@@ -407,7 +419,7 @@ defineExpose({
 			:input-placeholder="i18n.baseText('aiAssistant.builder.assistantPlaceholder')"
 			:workflow-id="workflowsStore.workflowId"
 			:prune-time-hours="workflowHistoryStore.evaluatedPruneTime"
-			:disabled="isInputDisabled"
+			:disabled="isChatInputDisabled"
 			:disabled-tooltip="disabledTooltip"
 			@close="emit('close')"
 			@message="onUserMessage"
@@ -420,11 +432,19 @@ defineExpose({
 			<template #header>
 				<div :class="{ [$style.header]: true, [$style['with-slot']]: !!slots.header }">
 					<slot name="header" />
-					<AISettingsButton
-						v-if="showSettingsButton"
-						:show-usability-notice="false"
-						:disabled="builderStore.streaming"
-					/>
+					<div :class="$style.headerActions">
+						<PlanModeSelector
+							v-if="builderStore.isPlanModeAvailable"
+							:model-value="builderStore.builderMode"
+							:disabled="isPlanModeSelectorDisabled"
+							@update:model-value="builderStore.setBuilderMode"
+						/>
+						<AISettingsButton
+							v-if="showSettingsButton"
+							:show-usability-notice="false"
+							:disabled="builderStore.streaming"
+						/>
+					</div>
 				</div>
 			</template>
 			<template #inputHeader>
@@ -439,6 +459,20 @@ defineExpose({
 				<N8nText :class="$style.topText"
 					>{{ i18n.baseText('aiAssistant.builder.assistantPlaceholder') }}
 				</N8nText>
+			</template>
+			<template #custom-message="{ message }">
+				<PlanQuestionsMessage
+					v-if="isPlanModeQuestionsMessage(message)"
+					:message="message"
+					:disabled="builderStore.streaming"
+					@submit="builderStore.resumeWithQuestionsAnswers"
+				/>
+				<PlanDisplayMessage
+					v-else-if="isPlanModePlanMessage(message)"
+					:message="message"
+					:disabled="builderStore.streaming"
+					@decision="builderStore.resumeWithPlanDecision"
+				/>
 			</template>
 		</N8nAskAssistantChat>
 	</div>
@@ -471,6 +505,12 @@ defineExpose({
 	&.with-slot {
 		justify-content: space-between;
 	}
+}
+
+.headerActions {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing--2xs);
 }
 
 .topText {

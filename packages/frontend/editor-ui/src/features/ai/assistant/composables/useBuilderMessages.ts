@@ -1,7 +1,13 @@
 import type { ChatUI } from '@n8n/design-system/types/assistant';
 import type { ChatRequest } from '../assistant.types';
 import { useI18n } from '@n8n/i18n';
-import { isTextMessage, isWorkflowUpdatedMessage, isToolMessage } from '../assistant.types';
+import {
+	isTextMessage,
+	isWorkflowUpdatedMessage,
+	isToolMessage,
+	isQuestionsMessage,
+	isPlanMessage,
+} from '../assistant.types';
 import { generateShortId } from '../builder.utils';
 
 export interface MessageProcessingResult {
@@ -149,6 +155,29 @@ export function useBuilderMessages() {
 				role: 'assistant',
 				type: 'text',
 				content: msg.text,
+				read: false,
+			} satisfies ChatUI.AssistantMessage);
+			shouldClearThinking = true;
+		} else if (isQuestionsMessage(msg)) {
+			messages.push({
+				id: messageId,
+				role: 'assistant',
+				type: 'custom',
+				customType: 'questions',
+				data: {
+					questions: msg.questions,
+					introMessage: msg.introMessage,
+				},
+				read: false,
+			} satisfies ChatUI.AssistantMessage);
+			shouldClearThinking = true;
+		} else if (isPlanMessage(msg)) {
+			messages.push({
+				id: messageId,
+				role: 'assistant',
+				type: 'custom',
+				customType: 'plan',
+				data: { plan: msg.plan },
 				read: false,
 			} satisfies ChatUI.AssistantMessage);
 			shouldClearThinking = true;
@@ -395,6 +424,31 @@ export function useBuilderMessages() {
 				type: 'text',
 				content: message.text,
 				revertVersion: message.revertVersion,
+				read: false,
+			} satisfies ChatUI.AssistantMessage;
+		}
+
+		if (isQuestionsMessage(message)) {
+			return {
+				id,
+				role: 'assistant',
+				type: 'custom',
+				customType: 'questions',
+				data: {
+					questions: message.questions,
+					introMessage: message.introMessage,
+				},
+				read: false,
+			} satisfies ChatUI.AssistantMessage;
+		}
+
+		if (isPlanMessage(message)) {
+			return {
+				id,
+				role: 'assistant',
+				type: 'custom',
+				customType: 'plan',
+				data: { plan: message.plan },
 				read: false,
 			} satisfies ChatUI.AssistantMessage;
 		}
