@@ -135,7 +135,6 @@ export class ResponderAgent {
 
 		// Builder output (handles both node creation and parameter configuration)
 		const builderOutput = getBuilderOutput(context.coordinationLog);
-		const workflowNodes = context.workflowJSON?.nodes ?? [];
 		if (builderOutput) {
 			contextParts.push(`**Builder:** ${builderOutput}`);
 		} else if (context.workflowJSON.nodes.length) {

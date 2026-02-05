@@ -45,6 +45,10 @@ import {
 	type TestCase,
 	type Evaluator,
 	type EvaluationContext,
+	createResponderEvaluator,
+	createSubgraphRunner,
+	runLocalSubgraphEvaluation,
+	runSubgraphEvaluation,
 } from '../index';
 import { generateRunId, isWorkflowStateValues } from '../langsmith/types';
 import { EVAL_TYPES, EVAL_USERS } from '../support/constants';
