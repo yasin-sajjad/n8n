@@ -7,7 +7,14 @@ import type { ToolCall } from '@langchain/core/messages/tool';
 import type { DynamicStructuredTool } from '@langchain/core/tools';
 
 import type {
+	HITLInterruptValue,
+	PlanInterruptValue,
+	QuestionsInterruptValue,
+} from '../types/planning';
+import type {
 	AgentMessageChunk,
+	PlanChunk,
+	QuestionsChunk,
 	ToolProgressChunk,
 	WorkflowUpdateChunk,
 	StreamOutput,
@@ -147,6 +154,66 @@ export function cleanContextTags(text: string): string {
 }
 
 // ============================================================================
+// HITL INTERRUPTS
+// ============================================================================
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null;
+}
+
+function isUnknownArray(value: unknown): value is unknown[] {
+	return Array.isArray(value);
+}
+
+function isQuestionsInterruptValue(value: unknown): value is QuestionsInterruptValue {
+	if (!isRecord(value)) return false;
+	return value.type === 'questions' && Array.isArray(value.questions);
+}
+
+function isPlanInterruptValue(value: unknown): value is PlanInterruptValue {
+	if (!isRecord(value)) return false;
+	return value.type === 'plan' && isRecord(value.plan);
+}
+
+function extractInterruptValue(update: unknown): HITLInterruptValue | null {
+	if (!isRecord(update)) return null;
+
+	const rawInterrupts = update.__interrupt__;
+	if (!isUnknownArray(rawInterrupts) || rawInterrupts.length === 0) return null;
+
+	const first = rawInterrupts[0];
+	if (!isRecord(first)) return null;
+
+	const value = first.value;
+	if (!isRecord(value)) return null;
+
+	if (isQuestionsInterruptValue(value) || isPlanInterruptValue(value)) {
+		return value;
+	}
+
+	return null;
+}
+
+function processInterrupt(interruptValue: HITLInterruptValue): StreamOutput {
+	if (interruptValue.type === 'questions') {
+		const chunk: QuestionsChunk = {
+			role: 'assistant',
+			type: 'questions',
+			introMessage: interruptValue.introMessage,
+			questions: interruptValue.questions,
+		};
+		return { messages: [chunk] };
+	}
+
+	const chunk: PlanChunk = {
+		role: 'assistant',
+		type: 'plan',
+		plan: interruptValue.plan,
+	};
+	return { messages: [chunk] };
+}
+
+// ============================================================================
 // CHUNK PROCESSORS
 // ============================================================================
 
@@ -200,6 +267,12 @@ function processUpdatesChunk(nodeUpdate: Record<string, unknown>): StreamOutput 
 
 	if (nodeUpdate.delete_messages || nodeUpdate.compact_messages) {
 		return null;
+	}
+
+	// Human-in-the-loop interrupts (questions/plan)
+	const interruptValue = extractInterruptValue(nodeUpdate);
+	if (interruptValue) {
+		return processInterrupt(interruptValue);
 	}
 
 	// Process operations emits workflow updates
@@ -367,6 +440,41 @@ function processAIMessageContent(msg: AIMessage): Array<Record<string, unknown>>
 	];
 }
 
+function tryFormatHitlMessage(msg: AIMessage): Record<string, unknown> | null {
+	const messageType = msg.additional_kwargs?.messageType;
+	if (messageType !== 'questions' && messageType !== 'plan') return null;
+	if (typeof msg.content !== 'string') return null;
+
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(msg.content);
+	} catch {
+		return null;
+	}
+
+	if (!isRecord(parsed) || parsed.type !== messageType) return null;
+
+	if (messageType === 'questions') {
+		const questions = parsed.questions;
+		if (!Array.isArray(questions)) return null;
+		const introMessage = typeof parsed.introMessage === 'string' ? parsed.introMessage : undefined;
+		return {
+			role: 'assistant',
+			type: 'questions',
+			questions,
+			...(introMessage ? { introMessage } : {}),
+		};
+	}
+
+	const plan = parsed.plan;
+	if (!isRecord(plan)) return null;
+	return {
+		role: 'assistant',
+		type: 'plan',
+		plan,
+	};
+}
+
 /** Create a formatted tool call message */
 function createToolCallMessage(
 	toolCall: ToolCall,
@@ -434,6 +542,12 @@ export function formatMessages(
 		if (msg instanceof HumanMessage) {
 			formattedMessages.push(formatHumanMessage(msg));
 		} else if (msg instanceof AIMessage) {
+			const hitlMessage = tryFormatHitlMessage(msg);
+			if (hitlMessage) {
+				formattedMessages.push(hitlMessage);
+				continue;
+			}
+
 			// Add AI message content
 			formattedMessages.push(...processAIMessageContent(msg));
 

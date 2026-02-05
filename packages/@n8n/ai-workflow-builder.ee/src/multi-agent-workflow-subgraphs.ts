@@ -1,9 +1,21 @@
 import { HumanMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
-import { StateGraph, END, START, type MemorySaver } from '@langchain/langgraph';
+import {
+	StateGraph,
+	END,
+	START,
+	type MemorySaver,
+	interrupt,
+	isGraphInterrupt,
+} from '@langchain/langgraph';
 import type { Logger } from '@n8n/backend-common';
 import type { INodeTypeDescription } from 'n8n-workflow';
 
+import {
+	createPlannerAgent,
+	plannerOutputSchema,
+	type PlannerAgentType,
+} from './agents/planner.agent';
 import {
 	createResponderAgent,
 	invokeResponderAgent,
@@ -24,9 +36,11 @@ import type { SubgraphPhase } from './types/coordination';
 import {
 	createDiscoveryMetadata,
 	createErrorMetadata,
+	createPlannerMetadata,
 	createResponderMetadata,
 	isSubgraphPhase,
 } from './types/coordination';
+import { buildWorkflowSummary, createContextMessage } from './utils/context-builders';
 import { getNextPhaseFromLog, hasErrorInLog } from './utils/coordination-log';
 import { processOperations } from './utils/operations-processor';
 import {
@@ -37,6 +51,7 @@ import {
 	handleCreateWorkflowName,
 	handleDeleteMessages,
 } from './utils/state-modifier';
+import { extractUserRequest } from './utils/subgraph-helpers';
 import type { BuilderFeatureFlags, StageLLMs } from './workflow-builder-agent';
 
 /**
@@ -139,6 +154,9 @@ function createSubgraphNodeHandler<
 				coordinationLog: [inProgressEntry, ...outputCoordinationLog],
 			};
 		} catch (error) {
+			if (isGraphInterrupt(error)) {
+				throw error;
+			}
 			logger?.error(`[${name}] ERROR:`, { error });
 			const errorMessage =
 				error instanceof Error ? error.message : `An error occurred in ${name}: ${String(error)}`;
@@ -176,6 +194,27 @@ function createSubgraphNodeHandler<
 			};
 		}
 	};
+}
+
+function parsePlanDecision(value: unknown): {
+	action: 'approve' | 'reject' | 'modify';
+	feedback?: string;
+} {
+	if (typeof value !== 'object' || value === null) {
+		return { action: 'reject', feedback: 'Invalid response: expected an object.' };
+	}
+
+	const obj = value as Record<string, unknown>;
+	const action = obj.action;
+	if (action !== 'approve' && action !== 'reject' && action !== 'modify') {
+		return {
+			action: 'reject',
+			feedback: 'Invalid response: expected action to be approve/reject/modify.',
+		};
+	}
+
+	const feedback = typeof obj.feedback === 'string' ? obj.feedback : undefined;
+	return { action, ...(feedback ? { feedback } : {}) };
 }
 
 /**
@@ -221,6 +260,8 @@ export function createMultiAgentWorkflowWithSubgraphs(config: MultiAgentSubgraph
 		featureFlags,
 		resourceLocatorCallback,
 	});
+
+	const plannerAgent: PlannerAgentType = createPlannerAgent({ llm: stageLLMs.responder });
 
 	// Build graph using method chaining for proper TypeScript inference
 	return (
@@ -369,6 +410,9 @@ export function createMultiAgentWorkflowWithSubgraphs(config: MultiAgentSubgraph
 						coordinationLog: [inProgressEntry, ...result.coordinationLog],
 					};
 				} catch (error) {
+					if (isGraphInterrupt(error)) {
+						throw error;
+					}
 					logger?.error('[discovery_subgraph] ERROR:', { error });
 					const errorMessage =
 						error instanceof Error
@@ -403,6 +447,95 @@ export function createMultiAgentWorkflowWithSubgraphs(config: MultiAgentSubgraph
 								summary: `Error: ${errorMessage}`,
 								metadata: createErrorMetadata({
 									failedSubgraph: 'discovery',
+									errorMessage,
+								}),
+							},
+						],
+					};
+				}
+			})
+			.addNode('planner', async (state, config) => {
+				try {
+					const userRequest = extractUserRequest(state.messages, 'Build a workflow');
+
+					const contextParts: string[] = [];
+					contextParts.push('=== USER REQUEST ===');
+					contextParts.push(userRequest);
+
+					if (state.discoveryContext?.nodesFound?.length) {
+						contextParts.push('=== DISCOVERY CONTEXT (SUGGESTED NODES) ===');
+						contextParts.push(
+							state.discoveryContext.nodesFound
+								.map((n) => `- ${n.nodeName} v${n.version}: ${n.reasoning}`)
+								.join('\n'),
+						);
+					}
+
+					if (state.workflowJSON.nodes.length > 0) {
+						contextParts.push('=== EXISTING WORKFLOW SUMMARY ===');
+						contextParts.push(buildWorkflowSummary(state.workflowJSON));
+					}
+
+					const contextMessage = createContextMessage(contextParts);
+
+					const output = await plannerAgent.invoke({ messages: [contextMessage] }, config);
+					const parsedPlan = plannerOutputSchema.safeParse(output.structuredResponse);
+					if (!parsedPlan.success) {
+						throw new Error(`Planner produced invalid output: ${parsedPlan.error.message}`);
+					}
+					const plan = parsedPlan.data;
+
+					const decisionValue: unknown = interrupt({
+						type: 'plan',
+						plan,
+					});
+
+					const decision = parsePlanDecision(decisionValue);
+
+					return {
+						planDecision: decision.action,
+						planOutput: decision.action === 'approve' ? plan : null,
+						...(decision.action === 'approve' ? { mode: 'build' as const } : {}),
+						coordinationLog: [
+							{
+								phase: 'planner' as const,
+								status: 'completed' as const,
+								timestamp: Date.now(),
+								summary: `Plan ${decision.action}: ${plan.summary}`,
+								metadata: createPlannerMetadata({
+									planSummary: plan.summary,
+									stepCount: plan.steps.length,
+								}),
+							},
+						],
+					};
+				} catch (error) {
+					if (isGraphInterrupt(error)) {
+						throw error;
+					}
+
+					logger?.error('[planner] ERROR:', { error });
+					const errorMessage =
+						error instanceof Error
+							? error.message
+							: `An error occurred in planner: ${String(error)}`;
+
+					return {
+						nextPhase: 'responder',
+						messages: [
+							new HumanMessage({
+								content: `Error in planner: ${errorMessage}`,
+								name: 'system_error',
+							}),
+						],
+						coordinationLog: [
+							{
+								phase: 'planner' as const,
+								status: 'error' as const,
+								timestamp: Date.now(),
+								summary: `Error: ${errorMessage}`,
+								metadata: createErrorMetadata({
+									failedSubgraph: 'planner',
 									errorMessage,
 								}),
 							},
@@ -454,9 +587,26 @@ export function createMultiAgentWorkflowWithSubgraphs(config: MultiAgentSubgraph
 			// Conditional Edge for Supervisor (initial routing via LLM)
 			.addConditionalEdges('supervisor', (state) => routeToNode(state.nextPhase))
 			// Deterministic routing after subgraphs complete (based on coordination log)
-			.addConditionalEdges('process_operations', (state) =>
-				routeToNode(getNextPhaseFromLog(state.coordinationLog)),
-			)
+			.addConditionalEdges('process_operations', (state) => {
+				const next = getNextPhaseFromLog(state.coordinationLog);
+
+				if (
+					next === 'builder' &&
+					featureFlags?.planMode === true &&
+					state.mode === 'plan' &&
+					!state.planOutput
+				) {
+					return 'planner';
+				}
+
+				return routeToNode(next);
+			})
+			.addConditionalEdges('planner', (state) => {
+				const decision = state.planDecision;
+				if (decision === 'approve') return 'builder_subgraph';
+				if (decision === 'modify') return 'planner';
+				return 'responder';
+			})
 			// Responder ends the workflow
 			.addEdge('responder', END)
 			// Compile the graph
