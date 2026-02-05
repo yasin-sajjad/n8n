@@ -15,7 +15,12 @@ export class SessionManagerService {
 
 	private nodeTypes: INodeTypeDescription[];
 
-	private pendingHitlByThreadId = new Map<string, HITLInterruptValue>();
+	private static readonly HITL_TTL_MS = 24 * 60 * 60 * 1000; // 1 day
+
+	private pendingHitlByThreadId = new Map<
+		string,
+		{ value: HITLInterruptValue; expiresAt: number }
+	>();
 
 	constructor(
 		parsedNodeTypes: INodeTypeDescription[],
@@ -50,15 +55,34 @@ export class SessionManagerService {
 	}
 
 	setPendingHitl(threadId: string, value: HITLInterruptValue) {
-		this.pendingHitlByThreadId.set(threadId, value);
+		this.evictExpiredHitl();
+		this.pendingHitlByThreadId.set(threadId, {
+			value,
+			expiresAt: Date.now() + SessionManagerService.HITL_TTL_MS,
+		});
 	}
 
 	clearPendingHitl(threadId: string) {
 		this.pendingHitlByThreadId.delete(threadId);
 	}
 
-	getPendingHitl(threadId: string) {
-		return this.pendingHitlByThreadId.get(threadId);
+	getPendingHitl(threadId: string): HITLInterruptValue | undefined {
+		const entry = this.pendingHitlByThreadId.get(threadId);
+		if (!entry) return undefined;
+		if (Date.now() > entry.expiresAt) {
+			this.pendingHitlByThreadId.delete(threadId);
+			return undefined;
+		}
+		return entry.value;
+	}
+
+	private evictExpiredHitl() {
+		const now = Date.now();
+		for (const [id, entry] of this.pendingHitlByThreadId) {
+			if (now > entry.expiresAt) {
+				this.pendingHitlByThreadId.delete(id);
+			}
+		}
 	}
 
 	/**
