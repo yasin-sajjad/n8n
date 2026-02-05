@@ -6,18 +6,19 @@
 - [ ] clarify append merge mode. 1 item for each branch, returns 2 items.
 	- for combine, return 1 item
 - [ ] generate mock data for output data based on schema
-- [ ] for webhoook path should not use placeholder
+- [ ] for webhook path should not use placeholder
 - [ ] remove agent check in req
 - [ ] get nodes should fail if search was not done for the same node type
-
+- [ ] "Workflow generated" -> to something else if code building
 
 ## clean up
-- [ ] token calcualtion / iterationCount/ dos / donts from evaluations
 - [ ] maybe don't write to .n8n folder? move to /tmp/
+- [ ] extract thinking only if codeBuilder is enabled
+- [ ] remove workflow settings
+- [ ] wrap prompt sectinos in xml?
 
 ## ready to release
-- [ ] Refactor & Review PR
-- [ ] Get it reviewed
+- [ ] Get PR reviewed
 
 - [ ] rerun evals comparing - Fri
 - [ ] legal concerns around templates
@@ -63,13 +64,9 @@
 - [ ] Test more of the template library
 - [ ] update workflow() to support object init { id, settings }
 - [ ] move generated test files for committed workflows to same folder.
-- [] Fallback model in agent? how to represent that effectively. builderHint to true.
-- [] Make the nodes search more fuzzy
-{
-  toolCallId: 'toolu_01RGtGMG78Wb6jX9HDpqHpvq',
-  args: { queries: [ 'vector store insert', 'vector store load' ] }
-}
-- [] Support switch case fallback connection (.onFallback)
+- [ ] Fallback model in agent? how to represent that effectively. builderHint to true.
+- [ ] Make the nodes search more fuzzy { queries: [ 'vector store insert', 'vector store load' ] }
+- [ ] Support switch case fallback connection (.onFallback)
 - [ ] Add more error branch workflows tests [maybe-later]
 - [ ] merge() abstraction? or split out merge into separate functions? so its easier to understand [maybe-later]- [ ] create custom node parameter discriminators by output type (simplify in gmail node) [maybe-later] for now use builder hint
 - [ ] Support switch case fallback connection (.onFallback) [maybe-later]
