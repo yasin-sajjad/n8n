@@ -66,7 +66,20 @@ export class SessionManagerService {
 		this.pendingHitlByThreadId.delete(threadId);
 	}
 
+	/**
+	 * Atomically get and clear the pending HITL value for a thread.
+	 * Prevents TOCTOU races between separate get + clear calls.
+	 */
+	getAndClearPendingHitl(threadId: string): HITLInterruptValue | undefined {
+		const value = this.getPendingHitl(threadId);
+		if (value) {
+			this.pendingHitlByThreadId.delete(threadId);
+		}
+		return value;
+	}
+
 	getPendingHitl(threadId: string): HITLInterruptValue | undefined {
+		this.evictExpiredHitl();
 		const entry = this.pendingHitlByThreadId.get(threadId);
 		if (!entry) return undefined;
 		if (Date.now() > entry.expiresAt) {

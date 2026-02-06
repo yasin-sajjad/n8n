@@ -110,6 +110,8 @@ export class WorkflowBuilderAgent {
 	private runMetadata?: Record<string, unknown>;
 	private onGenerationSuccess?: () => Promise<void>;
 	private resourceLocatorCallback?: ResourceLocatorCallback;
+	/** Feature flags stored from the first chat call to ensure consistency across a session */
+	private sessionFeatureFlags?: BuilderFeatureFlags;
 
 	constructor(config: WorkflowBuilderAgentConfig) {
 		this.parsedNodeTypes = config.parsedNodeTypes;
@@ -199,7 +201,12 @@ export class WorkflowBuilderAgent {
 		abortSignal?: AbortSignal,
 		externalCallbacks?: Callbacks,
 	) {
-		const agent = this.createWorkflow(payload.featureFlags);
+		// Store feature flags from the first call; reuse for all subsequent calls
+		// to prevent mid-session flag changes from causing inconsistency
+		if (!this.sessionFeatureFlags && payload.featureFlags) {
+			this.sessionFeatureFlags = payload.featureFlags;
+		}
+		const agent = this.createWorkflow(this.sessionFeatureFlags ?? payload.featureFlags);
 		const workflowId = payload.workflowContext?.currentWorkflow?.id;
 		// Generate thread ID from workflowId and userId
 		// This ensures one session per workflow per user

@@ -215,13 +215,21 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 		return variant === true || variant === AI_BUILDER_PLAN_MODE_EXPERIMENT.variant;
 	});
 
+	/**
+	 * Finds the last interrupt message (questions or plan) by searching backwards.
+	 * This is more robust than checking only the last message, because error messages
+	 * or other messages can be appended after an interrupt.
+	 */
 	const pendingInterruptMessage = computed(() => {
-		const lastMessage = chatMessages.value[chatMessages.value.length - 1];
-		if (!lastMessage) return null;
-
-		return isPlanModeQuestionsMessage(lastMessage) || isPlanModePlanMessage(lastMessage)
-			? lastMessage
-			: null;
+		for (let i = chatMessages.value.length - 1; i >= 0; i--) {
+			const msg = chatMessages.value[i];
+			if (isPlanModeQuestionsMessage(msg) || isPlanModePlanMessage(msg)) {
+				return msg;
+			}
+			// Stop searching if we hit a user message — any interrupt before that is already resolved
+			if (msg.role === 'user') break;
+		}
+		return null;
 	});
 
 	const isInterrupted = computed(() => pendingInterruptMessage.value !== null);
@@ -231,8 +239,8 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 	 * Unlike questions, users can still type in chat when a plan is pending.
 	 */
 	const hasPendingPlan = computed(() => {
-		const lastMessage = chatMessages.value[chatMessages.value.length - 1];
-		return lastMessage ? isPlanModePlanMessage(lastMessage) : false;
+		const msg = pendingInterruptMessage.value;
+		return msg ? isPlanModePlanMessage(msg) : false;
 	});
 
 	/**
@@ -241,8 +249,8 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 	 * Plans allow chat input (typing a message means modifying the plan).
 	 */
 	const shouldDisableChatInput = computed(() => {
-		const lastMessage = chatMessages.value[chatMessages.value.length - 1];
-		return lastMessage ? isPlanModeQuestionsMessage(lastMessage) : false;
+		const msg = pendingInterruptMessage.value;
+		return msg ? isPlanModeQuestionsMessage(msg) : false;
 	});
 
 	// Chat management functions
@@ -835,6 +843,17 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 					.filter((msg) => msg.type !== 'workflow-updated');
 
 				chatMessages.value = convertedMessages;
+
+				// Restore builderMode from loaded messages:
+				// If any plan-mode interrupt is present, the user was in plan mode
+				const hasPlanModeMessages = convertedMessages.some(
+					(msg) =>
+						msg.role === 'assistant' &&
+						(isPlanModeQuestionsMessage(msg) || isPlanModePlanMessage(msg)),
+				);
+				if (hasPlanModeMessages) {
+					builderMode.value = 'plan';
+				}
 
 				// Restore lastUserMessageId from the loaded session for telemetry tracking
 				const lastUserMsg = [...convertedMessages]

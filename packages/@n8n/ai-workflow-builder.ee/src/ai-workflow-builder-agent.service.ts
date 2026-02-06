@@ -9,15 +9,13 @@ import assert from 'assert';
 import { Client as TracingClient } from 'langsmith';
 import type { IUser, INodeTypeDescription, ITelemetryTrackProperties } from 'n8n-workflow';
 
+import { z } from 'zod';
+
 import { LLMServiceError } from '@/errors';
 import { anthropicClaudeSonnet45 } from '@/llm-config';
 import { SessionManagerService } from '@/session-manager.service';
 import type { ResourceLocatorCallbackFactory } from '@/types/callbacks';
-import type {
-	HITLInterruptValue,
-	PlanInterruptValue,
-	QuestionsInterruptValue,
-} from '@/types/planning';
+import type { HITLInterruptValue } from '@/types/planning';
 import {
 	BuilderFeatureFlags,
 	WorkflowBuilderAgent,
@@ -246,12 +244,8 @@ export class AiWorkflowBuilderService {
 		const threadId = SessionManagerService.generateThreadId(workflowId, userId);
 
 		const resumeInterrupt = payload.resumeData
-			? this.sessionManager.getPendingHitl(threadId)
+			? this.sessionManager.getAndClearPendingHitl(threadId)
 			: undefined;
-
-		if (payload.resumeData) {
-			this.sessionManager.clearPendingHitl(threadId);
-		}
 
 		const agentPayload = resumeInterrupt ? { ...payload, resumeInterrupt } : payload;
 
@@ -356,6 +350,36 @@ export class AiWorkflowBuilderService {
 		return await this.sessionManager.truncateMessagesAfter(workflowId, user.id, messageId);
 	}
 
+	private static readonly questionsInterruptSchema = z.object({
+		type: z.literal('questions'),
+		introMessage: z.string().optional(),
+		questions: z.array(
+			z.object({
+				id: z.string(),
+				question: z.string(),
+				type: z.enum(['single', 'multi', 'text']),
+				options: z.array(z.string()).optional(),
+				allowCustom: z.boolean().optional(),
+			}),
+		),
+	});
+
+	private static readonly planInterruptSchema = z.object({
+		type: z.literal('plan'),
+		plan: z.object({
+			summary: z.string(),
+			trigger: z.string(),
+			steps: z.array(
+				z.object({
+					description: z.string(),
+					subSteps: z.array(z.string()).optional(),
+					suggestedNodes: z.array(z.string()).optional(),
+				}),
+			),
+			additionalSpecs: z.array(z.string()).optional(),
+		}),
+	});
+
 	private extractHitlFromStreamOutput(output: unknown): HITLInterruptValue | null {
 		if (typeof output !== 'object' || output === null) return null;
 		if (!('messages' in output)) return null;
@@ -366,19 +390,23 @@ export class AiWorkflowBuilderService {
 		for (const message of messages) {
 			if (typeof message !== 'object' || message === null) continue;
 			const m = message as Record<string, unknown>;
-			if (m.type === 'questions' && Array.isArray(m.questions)) {
-				const introMessage = typeof m.introMessage === 'string' ? m.introMessage : undefined;
-				return {
-					type: 'questions',
-					questions: m.questions as QuestionsInterruptValue['questions'],
-					...(introMessage ? { introMessage } : {}),
-				};
+
+			if (m.type === 'questions') {
+				const parsed = AiWorkflowBuilderService.questionsInterruptSchema.safeParse(m);
+				if (parsed.success) return parsed.data;
+				this.logger?.warn('[HITL] Invalid questions interrupt data', {
+					errors: parsed.error.errors,
+				});
+				continue;
 			}
-			if (m.type === 'plan' && typeof m.plan === 'object' && m.plan !== null) {
-				return {
-					type: 'plan',
-					plan: m.plan as PlanInterruptValue['plan'],
-				};
+
+			if (m.type === 'plan') {
+				const parsed = AiWorkflowBuilderService.planInterruptSchema.safeParse(m);
+				if (parsed.success) return parsed.data;
+				this.logger?.warn('[HITL] Invalid plan interrupt data', {
+					errors: parsed.error.errors,
+				});
+				continue;
 			}
 		}
 
