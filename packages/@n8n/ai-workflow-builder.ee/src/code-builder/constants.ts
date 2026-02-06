@@ -19,7 +19,7 @@ Use <thinking> to analyze the error, then act:
 2. Use search_nodes and get_node_types to look up the correct node schema (if not already fetched)
 3. Use str_replace or insert to fix the code
 4. Call validate_workflow to verify
-Do NOT output explanations — just fix the code. When done, write one sentence summarizing the fix.`;
+Do NOT output explanations — just fix the code.`;
 
 /** Native Anthropic text editor tool configuration */
 export const TEXT_EDITOR_TOOL = {
