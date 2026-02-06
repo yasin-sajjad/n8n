@@ -33,6 +33,7 @@
     "eval:pairwise": "tsx evaluations/cli/index.ts --suite pairwise",
     "eval:pairwise:langsmith": "tsx evaluations/cli/index.ts --suite pairwise --backend langsmith",
     "eval:questions": "tsx evaluations/question-quality/index.ts",
+    "eval:plans": "tsx evaluations/plan-quality/index.ts",
     "workflow:mermaid": "tsx scripts/workflow-to-mermaid.ts",
     "python:check": "cd evaluations/programmatic/python && just check",
     "python:test": "cd evaluations/programmatic/python && just test",
