@@ -407,6 +407,8 @@ ${'='.repeat(50)}
 				textEditorHandler,
 				textEditorToolHandler,
 				abortSignal,
+				payload,
+				previousMessages: historyContext?.userMessages ?? [],
 			});
 
 			const { workflow, parseDuration, sourceCode } = loopResult;
@@ -542,6 +544,8 @@ ${'='.repeat(50)}
 			textEditorHandler,
 			textEditorToolHandler,
 			abortSignal,
+			payload,
+			previousMessages,
 		} = params;
 
 		this.debugLog('CHAT', 'Starting agentic loop...');
@@ -565,19 +569,23 @@ ${'='.repeat(50)}
 		);
 		let parentRunManager: CallbackManagerForChainRun | undefined;
 		if (callbackManager) {
-			const lastUserMessage = [...messages].reverse().find((m) => m._getType() === 'human');
-			const rawContent =
-				typeof lastUserMessage?.content === 'string' ? lastUserMessage.content : '';
-			const tagMatch = rawContent.match(/<user_request>([\s\S]*?)<\/user_request>/);
-			const inputPreview = (tagMatch?.[1]?.trim() ?? rawContent).slice(0, 200);
+			const isFirstGeneration = !payload.workflowContext?.currentWorkflow?.nodes?.length;
+			const isFirstMessage = previousMessages.length === 0;
 
 			parentRunManager = await callbackManager.handleChainStart(
 				{ lc: 1, type: 'not_implemented' as const, id: ['CodeBuilderAgent'] },
-				{ input: inputPreview ?? '', messageCount: messages.length },
+				{
+					payload,
+					previousMessages,
+				},
 				undefined,
 				undefined,
 				undefined,
-				this.iterationHandler.getRunMetadata(),
+				{
+					...this.iterationHandler.getRunMetadata(),
+					first_generation: isFirstGeneration,
+					first_message: isFirstMessage,
+				},
 				'CodeBuilderAgentLoop',
 			);
 		}
@@ -854,6 +862,8 @@ interface AgenticLoopParams {
 	textEditorHandler?: TextEditorHandler;
 	textEditorToolHandler?: TextEditorToolHandler;
 	abortSignal?: AbortSignal;
+	payload: ChatPayload;
+	previousMessages: string[];
 }
 
 /**
