@@ -606,3 +606,26 @@ export const chatHubMessageWithButtonsSchema = z.object({
 });
 
 export type ChatHubMessageWithButtons = z.infer<typeof chatHubMessageWithButtonsSchema>;
+
+/**
+ * DTO for a configured chat hub tool
+ */
+export interface ChatHubToolDto {
+	definition: INode;
+	enabled: boolean;
+}
+
+/**
+ * Request schema for creating a chat hub tool
+ */
+export class ChatHubCreateToolRequest extends Z.class({
+	definition: INodeSchema,
+}) {}
+
+/**
+ * Request schema for updating a chat hub tool
+ */
+export class ChatHubUpdateToolRequest extends Z.class({
+	definition: INodeSchema.optional(),
+	enabled: z.boolean().optional(),
+}) {}
