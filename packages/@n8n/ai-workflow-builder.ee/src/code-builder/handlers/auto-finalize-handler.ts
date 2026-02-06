@@ -193,17 +193,18 @@ export class AutoFinalizeHandler {
 
 	/**
 	 * Push validation feedback as a synthetic tool call result.
-	 * Injects an AIMessage with a validate_workflow tool call followed by a ToolMessage
-	 * with the result, so the LLM sees automated feedback rather than a user message.
+	 * Injects a validate_workflow tool call into the last AIMessage in the array
+	 * and appends a ToolMessage with the result, avoiding consecutive AIMessages.
 	 */
 	private pushValidationFeedback(messages: BaseMessage[], content: string): void {
 		const toolCallId = `auto-validate-${Date.now()}`;
-		messages.push(
-			new AIMessage({
-				content: '',
-				tool_calls: [{ id: toolCallId, name: 'validate_workflow', args: {} }],
-			}),
-		);
+		const lastMessage = messages[messages.length - 1];
+		if (lastMessage instanceof AIMessage) {
+			lastMessage.tool_calls = [
+				...(lastMessage.tool_calls ?? []),
+				{ id: toolCallId, name: 'validate_workflow', args: {} },
+			];
+		}
 		messages.push(
 			new ToolMessage({
 				tool_call_id: toolCallId,

@@ -29,7 +29,8 @@ describe('FinalResponseHandler', () => {
 
 		it('should return success with workflow when validation passes', async () => {
 			const handler = createHandler();
-			const messages: BaseMessage[] = [];
+			const response = createResponse('```typescript\nconst workflow = {};\n```');
+			const messages: BaseMessage[] = [response];
 			const warningTracker = new WarningTracker();
 
 			const mockNode: NodeJSON = {
@@ -52,7 +53,7 @@ describe('FinalResponseHandler', () => {
 			});
 
 			const result = await handler.process({
-				response: createResponse('```typescript\nconst workflow = {};\n```'),
+				response,
 				currentWorkflow: undefined,
 				messages,
 				warningTracker,
@@ -60,16 +61,18 @@ describe('FinalResponseHandler', () => {
 
 			expect(result.success).toBe(true);
 			expect(result.workflow).toEqual(mockWorkflow);
-			expect(messages).toHaveLength(0);
+			// Only the original response AIMessage, no feedback added
+			expect(messages).toHaveLength(1);
 		});
 
-		it('should inject synthetic AIMessage+ToolMessage when structured output cannot be parsed', async () => {
+		it('should inject tool_call into existing AIMessage when structured output cannot be parsed', async () => {
 			const handler = createHandler();
-			const messages: BaseMessage[] = [];
+			const response = createResponse('Here is some text without code blocks');
+			const messages: BaseMessage[] = [response];
 			const warningTracker = new WarningTracker();
 
 			const result = await handler.process({
-				response: createResponse('Here is some text without code blocks'),
+				response,
 				currentWorkflow: undefined,
 				messages,
 				warningTracker,
@@ -77,18 +80,19 @@ describe('FinalResponseHandler', () => {
 
 			expect(result.success).toBe(false);
 			expect(result.isParseError).toBe(true);
-			// Should inject synthetic AIMessage + ToolMessage pair
+			// Should inject tool_call into existing AIMessage + append ToolMessage
 			expect(messages).toHaveLength(2);
-			expect(messages[0]).toBeInstanceOf(AIMessage);
+			expect(messages[0]).toBe(response);
 			expect((messages[0] as AIMessage).tool_calls).toHaveLength(1);
 			expect((messages[0] as AIMessage).tool_calls![0].name).toBe('validate_workflow');
 			expect(messages[1]).toBeInstanceOf(ToolMessage);
 			expect((messages[1] as ToolMessage).content).toContain('Could not parse');
 		});
 
-		it('should inject synthetic AIMessage+ToolMessage when validation has warnings', async () => {
+		it('should inject tool_call into existing AIMessage when validation has warnings', async () => {
 			const handler = createHandler();
-			const messages: BaseMessage[] = [];
+			const response = createResponse('```typescript\nconst workflow = {};\n```');
+			const messages: BaseMessage[] = [response];
 			const warningTracker = new WarningTracker();
 
 			const mockWorkflow: WorkflowJSON = {
@@ -104,31 +108,32 @@ describe('FinalResponseHandler', () => {
 			});
 
 			const result = await handler.process({
-				response: createResponse('```typescript\nconst workflow = {};\n```'),
+				response,
 				currentWorkflow: undefined,
 				messages,
 				warningTracker,
 			});
 
 			expect(result.success).toBe(false);
-			// Should inject synthetic AIMessage + ToolMessage pair
+			// Should inject tool_call into existing AIMessage + append ToolMessage
 			expect(messages).toHaveLength(2);
-			expect(messages[0]).toBeInstanceOf(AIMessage);
+			expect(messages[0]).toBe(response);
 			expect((messages[0] as AIMessage).tool_calls).toHaveLength(1);
 			expect((messages[0] as AIMessage).tool_calls![0].name).toBe('validate_workflow');
 			expect(messages[1]).toBeInstanceOf(ToolMessage);
 			expect((messages[1] as ToolMessage).content).toContain('W001');
 		});
 
-		it('should inject synthetic AIMessage+ToolMessage when parsing fails', async () => {
+		it('should inject tool_call into existing AIMessage when parsing fails', async () => {
 			const handler = createHandler();
-			const messages: BaseMessage[] = [];
+			const response = createResponse('```typescript\nconst workflow = {};\n```');
+			const messages: BaseMessage[] = [response];
 			const warningTracker = new WarningTracker();
 
 			mockParseAndValidate.mockRejectedValue(new Error('Parse failed'));
 
 			const result = await handler.process({
-				response: createResponse('```typescript\nconst workflow = {};\n```'),
+				response,
 				currentWorkflow: undefined,
 				messages,
 				warningTracker,
@@ -136,9 +141,9 @@ describe('FinalResponseHandler', () => {
 
 			expect(result.success).toBe(false);
 			expect(result.isParseError).toBe(true);
-			// Should inject synthetic AIMessage + ToolMessage pair
+			// Should inject tool_call into existing AIMessage + append ToolMessage
 			expect(messages).toHaveLength(2);
-			expect(messages[0]).toBeInstanceOf(AIMessage);
+			expect(messages[0]).toBe(response);
 			expect((messages[0] as AIMessage).tool_calls).toHaveLength(1);
 			expect((messages[0] as AIMessage).tool_calls![0].name).toBe('validate_workflow');
 			expect(messages[1]).toBeInstanceOf(ToolMessage);

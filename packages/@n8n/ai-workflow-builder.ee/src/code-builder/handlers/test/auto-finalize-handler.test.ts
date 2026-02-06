@@ -30,7 +30,8 @@ describe('AutoFinalizeHandler', () => {
 	describe('execute', () => {
 		it('should prompt for code creation when no code exists', async () => {
 			const handler = createHandler();
-			const messages: BaseMessage[] = [];
+			const existingAiMessage = new AIMessage({ content: 'Some response text' });
+			const messages: BaseMessage[] = [existingAiMessage];
 
 			const gen = handler.execute({
 				code: null,
@@ -42,9 +43,9 @@ describe('AutoFinalizeHandler', () => {
 
 			expect(result.success).toBe(false);
 			expect(result.promptedForCode).toBe(true);
-			// Should inject synthetic AIMessage with validate_workflow tool call + ToolMessage
+			// Should inject tool_call into existing AIMessage + append ToolMessage
 			expect(messages).toHaveLength(2);
-			expect(messages[0]).toBeInstanceOf(AIMessage);
+			expect(messages[0]).toBe(existingAiMessage);
 			expect((messages[0] as AIMessage).tool_calls).toHaveLength(1);
 			expect((messages[0] as AIMessage).tool_calls![0].name).toBe('validate_workflow');
 			expect(messages[1]).toBeInstanceOf(ToolMessage);
@@ -89,7 +90,8 @@ describe('AutoFinalizeHandler', () => {
 
 		it('should return failure with feedback when validation has warnings', async () => {
 			const handler = createHandler();
-			const messages: BaseMessage[] = [];
+			const existingAiMessage = new AIMessage({ content: 'Some response text' });
+			const messages: BaseMessage[] = [existingAiMessage];
 
 			const mockWorkflow: WorkflowJSON = {
 				id: 'test',
@@ -113,16 +115,19 @@ describe('AutoFinalizeHandler', () => {
 
 			expect(result.success).toBe(false);
 			expect(result.workflow).toBeUndefined();
-			// Should inject synthetic AIMessage + ToolMessage pair
+			// Should inject tool_call into existing AIMessage + append ToolMessage
 			expect(messages).toHaveLength(2);
-			expect(messages[0]).toBeInstanceOf(AIMessage);
+			expect(messages[0]).toBe(existingAiMessage);
+			expect((messages[0] as AIMessage).tool_calls).toHaveLength(1);
+			expect((messages[0] as AIMessage).tool_calls![0].name).toBe('validate_workflow');
 			expect(messages[1]).toBeInstanceOf(ToolMessage);
 			expect((messages[1] as ToolMessage).content).toContain('Validation warnings');
 		});
 
 		it('should return failure with feedback when parsing fails', async () => {
 			const handler = createHandler();
-			const messages: BaseMessage[] = [];
+			const existingAiMessage = new AIMessage({ content: 'Some response text' });
+			const messages: BaseMessage[] = [existingAiMessage];
 
 			mockParseAndValidate.mockRejectedValue(new Error('Parse failed'));
 
@@ -136,16 +141,18 @@ describe('AutoFinalizeHandler', () => {
 
 			expect(result.success).toBe(false);
 			expect(result.workflow).toBeUndefined();
-			// Should inject synthetic AIMessage + ToolMessage pair
+			// Should inject tool_call into existing AIMessage + append ToolMessage
 			expect(messages).toHaveLength(2);
-			expect(messages[0]).toBeInstanceOf(AIMessage);
+			expect(messages[0]).toBe(existingAiMessage);
+			expect((messages[0] as AIMessage).tool_calls).toHaveLength(1);
+			expect((messages[0] as AIMessage).tool_calls![0].name).toBe('validate_workflow');
 			expect(messages[1]).toBeInstanceOf(ToolMessage);
 			expect((messages[1] as ToolMessage).content).toContain('Parse error');
 		});
 
 		it('should track parse duration on failure', async () => {
 			const handler = createHandler();
-			const messages: BaseMessage[] = [];
+			const messages: BaseMessage[] = [new AIMessage({ content: 'response' })];
 
 			mockParseAndValidate.mockImplementation(async () => {
 				await new Promise((resolve) => setTimeout(resolve, 10));
@@ -165,7 +172,8 @@ describe('AutoFinalizeHandler', () => {
 
 		it('should send only new warnings and mark them as seen via warningTracker', async () => {
 			const handler = createHandler();
-			const messages: BaseMessage[] = [];
+			const existingAiMessage = new AIMessage({ content: 'response' });
+			const messages: BaseMessage[] = [existingAiMessage];
 			const warningTracker = new WarningTracker();
 
 			const mockWorkflow: WorkflowJSON = {
@@ -196,9 +204,11 @@ describe('AutoFinalizeHandler', () => {
 			const result = await consumeGenerator(gen);
 
 			expect(result.success).toBe(false);
-			// Should inject synthetic AIMessage + ToolMessage with only new warning
+			// Should inject tool_call into existing AIMessage + append ToolMessage
 			expect(messages).toHaveLength(2);
-			expect(messages[0]).toBeInstanceOf(AIMessage);
+			expect(messages[0]).toBe(existingAiMessage);
+			expect((messages[0] as AIMessage).tool_calls).toHaveLength(1);
+			expect((messages[0] as AIMessage).tool_calls![0].name).toBe('validate_workflow');
 			expect(messages[1]).toBeInstanceOf(ToolMessage);
 			expect((messages[1] as ToolMessage).content).toContain('W002');
 			expect((messages[1] as ToolMessage).content).not.toContain('W001');
