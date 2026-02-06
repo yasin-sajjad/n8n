@@ -159,13 +159,13 @@ export const useNodeTypesStore = defineStore(STORES.NODE_TYPES, () => {
 			if (!workflow.nodes[node.name]) {
 				return false;
 			}
-			const nodeType = getNodeType.value(nodeTypeName);
+			const nodeType =
+				getNodeType.value(nodeTypeName) ?? communityNodeType.value(nodeTypeName)?.nodeDescription;
 			if (!nodeType) {
 				return false;
 			}
 			const outputs = NodeHelpers.getNodeOutputs(workflow, node, nodeType);
 			const outputTypes = NodeHelpers.getConnectionTypes(outputs);
-
 			return outputTypes
 				? outputTypes.filter((output) => output !== NodeConnectionTypes.Main).length > 0
 				: false;
@@ -356,7 +356,6 @@ export const useNodeTypesStore = defineStore(STORES.NODE_TYPES, () => {
 
 	const getNodeTypes = async () => {
 		const nodeTypes = await nodeTypesApi.getNodeTypes(rootStore.baseUrl);
-
 		if (nodeTypes.length) {
 			setNodeTypes(nodeTypes);
 		}
@@ -438,8 +437,10 @@ export const useNodeTypesStore = defineStore(STORES.NODE_TYPES, () => {
 
 	const getIsNodeInstalled = computed(() => {
 		return (nodeTypeName: string) => {
+			const cleanedNodeTypeName = removePreviewToken(nodeTypeName);
 			return (
-				!!getNodeType.value(nodeTypeName) || !!communityNodeType.value(nodeTypeName)?.isInstalled
+				!!getNodeType.value(cleanedNodeTypeName) ||
+				!!communityNodeType.value(cleanedNodeTypeName)?.isInstalled
 			);
 		};
 	});
