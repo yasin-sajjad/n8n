@@ -284,7 +284,6 @@ export namespace PlanMode {
 		question: string;
 		type: QuestionType;
 		options?: string[];
-		allowCustom?: boolean;
 	}
 
 	export interface QuestionResponse {

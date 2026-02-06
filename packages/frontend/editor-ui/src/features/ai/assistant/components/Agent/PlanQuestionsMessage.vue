@@ -9,6 +9,7 @@ import { ref, computed, watch } from 'vue';
 
 import { N8nButton, N8nCheckbox, N8nInput, N8nText } from '@n8n/design-system';
 import { useI18n } from '@n8n/i18n';
+import { ElRadio } from 'element-plus';
 
 import type { PlanMode } from '../../assistant.types';
 
@@ -38,10 +39,11 @@ const currentQuestion = computed(() => props.questions[currentIndex.value]);
 const isFirstQuestion = computed(() => currentIndex.value === 0);
 const isLastQuestion = computed(() => currentIndex.value === props.questions.length - 1);
 
-// Filter out "Other" from LLM-provided options since we render our own "Other" option
+// Filter out "Other" variants from LLM-provided options since we render our own "Other" option.
+// Catches "Other", "Other source", "Other service", etc.
 const filteredOptions = computed(() => {
 	const options = currentQuestion.value.options ?? [];
-	return options.filter((opt) => opt.toLowerCase() !== 'other');
+	return options.filter((opt) => !opt.toLowerCase().trim().startsWith('other'));
 });
 
 // Eagerly initialize answer for the current question when the index changes
@@ -85,11 +87,19 @@ const hasValidAnswer = computed(() => {
 	if (currentQuestion.value?.type === 'text') {
 		return !!answer.customText?.trim();
 	}
+	// If "Other" radio is selected, require custom text
+	if (answer.selectedOptions.includes('__other__')) {
+		return !!answer.customText?.trim();
+	}
 	return answer.selectedOptions.length > 0 || !!answer.customText?.trim();
 });
 
 function onSingleSelect(option: string) {
 	currentAnswer.value.selectedOptions = [option];
+	// Clear custom text when selecting a regular option (not "Other")
+	if (option !== '__other__') {
+		currentAnswer.value.customText = '';
+	}
 	currentAnswer.value.skipped = false;
 }
 
@@ -119,15 +129,20 @@ function submitAnswers() {
 
 	const allAnswers = props.questions.map((q) => {
 		const answer = answers.value.get(q.id);
-		return (
-			answer ?? {
+		if (!answer) {
+			return {
 				questionId: q.id,
 				question: q.question,
 				selectedOptions: [],
 				customText: '',
 				skipped: true,
-			}
-		);
+			};
+		}
+		// Replace __other__ sentinel with the custom text value
+		return {
+			...answer,
+			selectedOptions: answer.selectedOptions.filter((o) => o !== '__other__'),
+		};
 	});
 	emit('submit', allAnswers);
 }
@@ -163,24 +178,16 @@ function goToNext() {
 
 				<!-- Single choice (radio) -->
 				<div v-if="currentQuestion.type === 'single'" :class="$style.options">
-					<label
+					<ElRadio
 						v-for="option in filteredOptions"
 						:key="option"
-						:class="[
-							$style.radioOption,
-							{ [$style.selected]: currentAnswer.selectedOptions.includes(option) },
-						]"
+						:model-value="currentAnswer.selectedOptions[0]"
+						:label="option"
+						:disabled="disabled"
+						@update:model-value="() => onSingleSelect(option)"
 					>
-						<input
-							type="radio"
-							:name="`question-${currentQuestion.id}`"
-							:checked="currentAnswer.selectedOptions.includes(option)"
-							:disabled="disabled"
-							:class="$style.radioInput"
-							@change="() => onSingleSelect(option)"
-						/>
-						<span :class="$style.optionLabel">{{ option }}</span>
-					</label>
+						{{ option }}
+					</ElRadio>
 				</div>
 
 				<!-- Multi choice (checkbox) -->
@@ -214,11 +221,27 @@ function goToNext() {
 					/>
 				</div>
 
-				<!-- "Other" option for single/multi - inline with input -->
-				<div
-					v-if="currentQuestion.type !== 'text' && currentQuestion.allowCustom !== false"
-					:class="$style.otherOption"
-				>
+				<!-- "Other" option for single/multi — always shown, matches question type -->
+				<div v-if="currentQuestion.type === 'single'" :class="$style.otherOption">
+					<ElRadio
+						:model-value="currentAnswer.selectedOptions[0]"
+						label="__other__"
+						:disabled="disabled"
+						@update:model-value="() => onSingleSelect('__other__')"
+					>
+						<N8nInput
+							:model-value="currentAnswer.customText"
+							:disabled="disabled"
+							:placeholder="i18n.baseText('aiAssistant.builder.planMode.questions.other')"
+							size="small"
+							:class="$style.otherInput"
+							@update:model-value="onCustomTextChange"
+							@focus="() => onSingleSelect('__other__')"
+						/>
+					</ElRadio>
+				</div>
+
+				<div v-else-if="currentQuestion.type === 'multi'" :class="$style.otherOption">
 					<N8nCheckbox
 						:model-value="!!currentAnswer.customText?.trim()"
 						:disabled="disabled"
@@ -310,9 +333,23 @@ function goToNext() {
 .options {
 	display: flex;
 	flex-direction: column;
+	gap: var(--spacing--4xs);
+
+	// Override ElRadio defaults: display block, allow text wrapping, remove inline margin
+	:global(.el-radio) {
+		display: flex;
+		align-items: flex-start;
+		white-space: normal;
+		margin-right: 0;
+		height: auto;
+	}
+
+	:global(.el-radio__label) {
+		white-space: normal;
+		line-height: var(--line-height--xl);
+	}
 }
 
-.radioOption,
 .checkboxOption {
 	display: flex;
 	align-items: center;
@@ -331,14 +368,6 @@ function goToNext() {
 	}
 }
 
-.radioInput {
-	width: var(--spacing--sm);
-	height: var(--spacing--sm);
-	accent-color: var(--color--primary);
-	cursor: pointer;
-	margin: 0;
-}
-
 .optionLabel {
 	color: var(--color--text);
 	font-size: var(--font-size--sm);
@@ -354,6 +383,14 @@ function goToNext() {
 	gap: var(--spacing--2xs);
 	margin-top: var(--spacing--3xs);
 	padding: var(--spacing--3xs) 0;
+
+	:global(.el-radio) {
+		display: flex;
+		align-items: center;
+		white-space: normal;
+		margin-right: 0;
+		height: auto;
+	}
 }
 
 .otherInput {

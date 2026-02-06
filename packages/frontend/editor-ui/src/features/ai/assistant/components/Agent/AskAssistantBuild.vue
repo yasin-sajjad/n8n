@@ -200,11 +200,16 @@ function isQuestionsAnswered(questionsMessage: { id?: string }): boolean {
 }
 
 /**
- * Check if this plan message is the last one (to show actions only on the latest)
+ * Check if this plan message is the last one and nothing has been sent after it.
+ * Only the latest plan with no subsequent messages should show the "Implement" button,
+ * because the HITL interrupt only works for the pending plan.
  */
 function isLastPlanMessage(message: PlanMode.PlanMessage): boolean {
-	const planMessages = builderStore.chatMessages.filter(isPlanModePlanMessage);
-	return planMessages[planMessages.length - 1]?.id === message.id;
+	const messages = builderStore.chatMessages;
+	const idx = messages.findLastIndex((m) => m.id === message.id);
+	if (idx === -1) return false;
+	// Check that no user message or other content exists after this plan
+	return !messages.slice(idx + 1).some((m) => m.role === 'user');
 }
 
 async function onUserMessage(content: string) {

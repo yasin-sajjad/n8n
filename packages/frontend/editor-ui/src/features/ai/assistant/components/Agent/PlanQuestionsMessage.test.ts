@@ -60,16 +60,17 @@ describe('PlanQuestionsMessage', () => {
 		expect(getByText('SendGrid')).toBeTruthy();
 	});
 
-	it('filters out "Other" from LLM-provided options', () => {
+	it('filters out LLM "Other" option and renders frontend "Other" radio instead', () => {
 		const questionWithOther: PlanMode.PlannerQuestion = {
 			...singleQuestion,
 			options: ['Gmail', 'Outlook', 'Other'],
 		};
 		const { getAllByRole } = render({ questions: [questionWithOther] });
 
-		// "Other" option from LLM is filtered — only Gmail and Outlook rendered as radios
+		// LLM's "Other" is filtered out, but frontend always adds its own "Other" radio
+		// So: Gmail + Outlook + frontend Other = 3 radios
 		const radios = getAllByRole('radio');
-		expect(radios).toHaveLength(2);
+		expect(radios).toHaveLength(3);
 	});
 
 	it('shows submit button on last question', () => {
