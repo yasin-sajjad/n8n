@@ -125,6 +125,7 @@ jobs:
           docker system prune -f || true
 
       - name: Delete images from GHCR
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_ORG: ${{ github.repository_owner }}
