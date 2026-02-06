@@ -143,7 +143,6 @@ function createTargetFunction(deps: TargetDeps) {
 		const finalState = await graph.getState(config);
 		const messages: BaseMessage[] = (finalState.values?.messages as BaseMessage[]) ?? [];
 		const nodesFound = (finalState.values?.nodesFound as Array<{ nodeName: string }>) ?? [];
-		const bestPractices = finalState.values?.bestPractices as string | undefined;
 
 		// If we still don't have a plan, check one more time
 		if (!plan) {
@@ -161,7 +160,6 @@ function createTargetFunction(deps: TargetDeps) {
 			expectedTriggerKeywords,
 			expectedStepKeywords,
 			nodesFound,
-			bestPractices,
 		});
 
 		return {

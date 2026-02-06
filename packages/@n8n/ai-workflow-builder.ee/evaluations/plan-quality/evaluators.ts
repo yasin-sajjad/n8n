@@ -54,7 +54,6 @@ export interface MetricsInput {
 	expectedTriggerKeywords: string[];
 	expectedStepKeywords: string[];
 	nodesFound: Array<{ nodeName: string }>;
-	bestPractices: string | undefined;
 }
 
 export interface ComputedMetrics {
@@ -72,7 +71,7 @@ export interface ComputedMetrics {
 	summary_length: number;
 	notes_count: number;
 	suggested_nodes_count: number;
-	best_practices_fetched: number;
+	techniques_fetched: number;
 	nodes_found_count: number;
 }
 
@@ -97,8 +96,7 @@ export function computeMetrics(input: MetricsInput): ComputedMetrics {
 		summary_length: plan?.summary.length ?? 0,
 		notes_count: (plan?.additionalSpecs ?? []).length,
 		suggested_nodes_count: computeSuggestedNodesCount(plan),
-		best_practices_fetched:
-			countToolCalls(messages, 'get_documentation') || (input.bestPractices ? 1 : 0),
+		techniques_fetched: countTechniquesFetched(messages),
 		nodes_found_count: input.nodesFound.length,
 	};
 }
@@ -206,15 +204,28 @@ function computeSuggestedNodesCount(plan: PlanOutput | null): number {
 }
 
 /**
- * Count AIMessages with tool_calls containing a specific tool name.
+ * Count total techniques requested across all get_documentation tool calls.
+ * Each call can request multiple techniques (e.g., ["trigger", "ai_agent", "http_request"]).
  */
-function countToolCalls(messages: BaseMessage[], toolName: string): number {
+function countTechniquesFetched(messages: BaseMessage[]): number {
 	let count = 0;
 	for (const msg of messages) {
 		if (isAIMessage(msg) && msg.tool_calls) {
 			for (const tc of msg.tool_calls) {
-				if (tc.name === toolName) {
-					count++;
+				if (tc.name === 'get_documentation' && tc.args?.requests) {
+					const requests = tc.args.requests as Array<{
+						type: string;
+						techniques?: string[];
+						categories?: string[];
+					}>;
+					for (const req of requests) {
+						if (req.type === 'best_practices' && req.techniques) {
+							count += req.techniques.length;
+						}
+						if (req.type === 'node_recommendations' && req.categories) {
+							count += req.categories.length;
+						}
+					}
 				}
 			}
 		}
