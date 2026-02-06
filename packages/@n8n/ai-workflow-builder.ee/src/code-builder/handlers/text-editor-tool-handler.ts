@@ -276,7 +276,7 @@ export class TextEditorToolHandler {
 		command: string,
 		toolCallId: string,
 	): StreamOutput {
-		const displayTitle = command === 'view' ? 'Viewing Workflow' : 'Editing Workflow';
+		const displayTitle = command === 'view' ? 'Viewing workflow' : 'Editing workflow';
 		return {
 			messages: [
 				{

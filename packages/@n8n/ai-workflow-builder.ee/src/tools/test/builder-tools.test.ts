@@ -133,7 +133,7 @@ jest.mock('../get-node-context.tool', () => ({
 jest.mock('@/code-builder/constants', () => ({
 	CODE_BUILDER_TEXT_EDITOR_TOOL: {
 		toolName: 'str_replace_based_edit_tool',
-		displayTitle: 'Editing code',
+		displayTitle: 'Editing workflow',
 	},
 	CODE_BUILDER_VALIDATE_TOOL: {
 		toolName: 'validate_workflow',
@@ -141,15 +141,15 @@ jest.mock('@/code-builder/constants', () => ({
 	},
 	CODE_BUILDER_SEARCH_NODES_TOOL: {
 		toolName: 'search_nodes',
-		displayTitle: 'Search Nodes',
+		displayTitle: 'Searching nodes',
 	},
 	CODE_BUILDER_GET_NODE_TYPES_TOOL: {
 		toolName: 'get_node_types',
-		displayTitle: 'Get Node Definitions',
+		displayTitle: 'Getting node definitions',
 	},
 	CODE_BUILDER_GET_SUGGESTED_NODES_TOOL: {
 		toolName: 'get_suggested_nodes',
-		displayTitle: 'Get Suggested Nodes',
+		displayTitle: 'Getting suggested nodes',
 	},
 }));
 

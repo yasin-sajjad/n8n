@@ -52,7 +52,7 @@ export const VALIDATE_TOOL = {
  */
 export const CODE_BUILDER_TEXT_EDITOR_TOOL: BuilderToolBase = {
 	toolName: 'str_replace_based_edit_tool',
-	displayTitle: 'Editing Workflow',
+	displayTitle: 'Editing workflow',
 };
 
 export const CODE_BUILDER_VALIDATE_TOOL: BuilderToolBase = {
@@ -62,15 +62,15 @@ export const CODE_BUILDER_VALIDATE_TOOL: BuilderToolBase = {
 
 export const CODE_BUILDER_SEARCH_NODES_TOOL: BuilderToolBase = {
 	toolName: 'search_nodes',
-	displayTitle: 'Search Nodes',
+	displayTitle: 'Searching nodes',
 };
 
 export const CODE_BUILDER_GET_NODE_TYPES_TOOL: BuilderToolBase = {
 	toolName: 'get_node_types',
-	displayTitle: 'Get Node Definitions',
+	displayTitle: 'Getting node definitions',
 };
 
 export const CODE_BUILDER_GET_SUGGESTED_NODES_TOOL: BuilderToolBase = {
 	toolName: 'get_suggested_nodes',
-	displayTitle: 'Get Suggested Nodes',
+	displayTitle: 'Getting suggested nodes',
 };

@@ -125,7 +125,7 @@ describe('ToolDispatchHandler', () => {
 				invoke: jest.fn().mockResolvedValue('result'),
 			} as unknown as StructuredToolInterface;
 
-			const toolDisplayTitles = new Map([['get_node_types', 'Get Node Definitions']]);
+			const toolDisplayTitles = new Map([['get_node_types', 'Getting node definitions']]);
 			const handler = createHandler(new Map([['get_node_types', mockTool]]), toolDisplayTitles);
 			const warningTracker = new WarningTracker();
 
@@ -145,7 +145,7 @@ describe('ToolDispatchHandler', () => {
 
 			// All tool progress chunks should include displayTitle
 			for (const chunk of toolChunks) {
-				expect(chunk.displayTitle).toBe('Get Node Definitions');
+				expect(chunk.displayTitle).toBe('Getting node definitions');
 			}
 		});
 
@@ -183,7 +183,7 @@ describe('ToolDispatchHandler', () => {
 				invoke: jest.fn().mockRejectedValue(new Error('Search failed')),
 			} as unknown as StructuredToolInterface;
 
-			const toolDisplayTitles = new Map([['search_nodes', 'Search Nodes']]);
+			const toolDisplayTitles = new Map([['search_nodes', 'Searching nodes']]);
 			const handler = createHandler(new Map([['search_nodes', mockTool]]), toolDisplayTitles);
 			const warningTracker = new WarningTracker();
 
@@ -202,7 +202,7 @@ describe('ToolDispatchHandler', () => {
 			const toolChunks = chunks.flatMap((c) => c.messages ?? []).filter(isToolProgressChunk);
 
 			for (const chunk of toolChunks) {
-				expect(chunk.displayTitle).toBe('Search Nodes');
+				expect(chunk.displayTitle).toBe('Searching nodes');
 			}
 		});
 
