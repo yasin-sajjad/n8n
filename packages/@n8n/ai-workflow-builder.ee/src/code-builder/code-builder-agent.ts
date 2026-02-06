@@ -613,6 +613,9 @@ ${'='.repeat(50)}
 			await parentRunManager?.handleChainEnd({
 				iterations: state.iteration,
 				hasWorkflow: !!state.workflow,
+				output: state.workflow
+					? { code: state.sourceCode, workflow: JSON.stringify(state.workflow) }
+					: null,
 			});
 		} catch (error) {
 			await parentRunManager?.handleChainError(error);
@@ -787,9 +790,7 @@ ${'='.repeat(50)}
 		if (autoFinalizeResult.success && autoFinalizeResult.workflow) {
 			state.workflow = autoFinalizeResult.workflow;
 			state.parseDuration = autoFinalizeResult.parseDuration ?? 0;
-			if (this.evalLogger) {
-				state.sourceCode = textEditorHandler.getWorkflowCode() ?? null;
-			}
+			state.sourceCode = textEditorHandler.getWorkflowCode() ?? null;
 			return { shouldBreak: true };
 		}
 
@@ -827,7 +828,7 @@ ${'='.repeat(50)}
 
 		if (finalResult.success && finalResult.workflow) {
 			state.workflow = finalResult.workflow;
-			if (this.evalLogger && finalResult.sourceCode) {
+			if (finalResult.sourceCode) {
 				state.sourceCode = finalResult.sourceCode;
 			}
 			return { shouldBreak: true };
