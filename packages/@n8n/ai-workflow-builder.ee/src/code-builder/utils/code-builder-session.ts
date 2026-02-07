@@ -233,6 +233,7 @@ export async function saveSessionMessages(
 	userId: string,
 	messages: unknown[],
 	versionId?: string,
+	userMessageId?: string,
 ): Promise<void> {
 	const threadId = SessionManagerService.generateThreadId(workflowId, userId, 'code-builder');
 
@@ -250,8 +251,8 @@ export async function saveSessionMessages(
 	const existingMessages: unknown[] =
 		(existingCheckpoint?.channel_values?.messages as unknown[]) ?? [];
 
-	// Generate unique messageId for the first HumanMessage (used for truncation support)
-	const messageId = crypto.randomUUID();
+	// Use frontend's messageId if provided, otherwise generate a new one (for truncation support)
+	const messageId = userMessageId ?? crypto.randomUUID();
 
 	// Find the index of the first HumanMessage in the batch
 	// (may not be at index 0 if SystemMessage comes first, e.g., in code-builder)

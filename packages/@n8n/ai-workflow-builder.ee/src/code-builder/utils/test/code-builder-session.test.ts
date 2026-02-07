@@ -492,6 +492,32 @@ describe('code-builder-session', () => {
 			expect(firstMessageId).not.toBe(secondMessageId);
 		});
 
+		it('should use provided userMessageId instead of generating a random one', async () => {
+			const checkpointer = new MemorySaver();
+			const workflowId = 'workflow-123';
+			const userId = 'user-456';
+
+			const messages = [new HumanMessage('Create a workflow'), new AIMessage('Done')];
+
+			await saveSessionMessages(
+				checkpointer,
+				workflowId,
+				userId,
+				messages,
+				undefined, // versionId
+				'frontend-id-123', // userMessageId
+			);
+
+			const threadId = SessionManagerService.generateThreadId(workflowId, userId, 'code-builder');
+			const config = { configurable: { thread_id: threadId } };
+			const tuple = await checkpointer.getTuple(config);
+
+			const savedMessages = tuple?.checkpoint.channel_values?.messages as Array<
+				HumanMessage | AIMessage
+			>;
+			expect(savedMessages[0].additional_kwargs?.messageId).toBe('frontend-id-123');
+		});
+
 		it('should add versionId to first HumanMessage when SystemMessage is at index 0', async () => {
 			const checkpointer = new MemorySaver();
 			const workflowId = 'workflow-123';

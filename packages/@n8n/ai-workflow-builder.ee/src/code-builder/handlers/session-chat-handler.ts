@@ -186,6 +186,7 @@ export class SessionChatHandler {
 				userId,
 				sessionMessages,
 				payload.versionId,
+				payload.id,
 			);
 
 			this.logger?.debug('Saved session messages to SessionManager thread', {
