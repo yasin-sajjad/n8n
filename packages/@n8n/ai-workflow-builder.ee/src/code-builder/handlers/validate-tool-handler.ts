@@ -13,6 +13,7 @@ import type { StreamOutput, ToolProgressChunk, WorkflowUpdateChunk } from '../..
 import { FIX_VALIDATION_ERRORS_INSTRUCTION } from '../constants';
 import type { WarningTracker } from '../state/warning-tracker';
 import type { ParseAndValidateResult } from '../types';
+import { formatWarnings } from '../utils/format-warnings';
 
 /**
  * Debug log callback type
@@ -147,7 +148,7 @@ export class ValidateToolHandler {
 					// Track new warnings
 					warningTracker.markAsSeen(newWarnings);
 
-					const warningText = newWarnings.map((w) => `- [${w.code}] ${w.message}`).join('\n');
+					const warningText = formatWarnings(newWarnings, warningTracker);
 					const errorContext = this.getErrorContext(code, newWarnings[0].message);
 
 					messages.push(

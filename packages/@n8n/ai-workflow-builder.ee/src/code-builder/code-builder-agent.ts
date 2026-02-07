@@ -580,6 +580,23 @@ ${'='.repeat(50)}
 			outputTrace: [],
 		};
 
+		// Pre-validate existing workflow to discover pre-existing warnings
+		if (currentWorkflow) {
+			try {
+				const preExisting = this.parseValidateHandler.validateExistingWorkflow(currentWorkflow);
+				if (preExisting.length > 0) {
+					state.warningTracker.markAsPreExisting(preExisting);
+					this.debugLog('PRE_VALIDATE', 'Marked pre-existing warnings', {
+						count: preExisting.length,
+					});
+				}
+			} catch (error) {
+				this.debugLog('PRE_VALIDATE', 'Pre-validation failed (non-fatal)', {
+					error: error instanceof Error ? error.message : String(error),
+				});
+			}
+		}
+
 		// Create a parent run to group all LLM invocations under a single trace
 		const callbackManager = CallbackManager.configure(
 			this.iterationHandler.getCallbacks(),

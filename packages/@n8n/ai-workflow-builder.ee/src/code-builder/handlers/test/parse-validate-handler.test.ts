@@ -2,7 +2,7 @@
  * Tests for ParseValidateHandler
  */
 
-import { parseWorkflowCodeToBuilder, validateWorkflow } from '@n8n/workflow-sdk';
+import { parseWorkflowCodeToBuilder, validateWorkflow, workflow } from '@n8n/workflow-sdk';
 
 import type { ParseAndValidateResult } from '../../types';
 import { ParseValidateHandler } from '../parse-validate-handler';
@@ -11,12 +11,14 @@ import { ParseValidateHandler } from '../parse-validate-handler';
 jest.mock('@n8n/workflow-sdk', () => ({
 	parseWorkflowCodeToBuilder: jest.fn(),
 	validateWorkflow: jest.fn(),
+	workflow: { fromJSON: jest.fn() },
 	stripImportStatements: jest.fn((code: string) => code),
 }));
 
 // Typed mock references
 const mockParseWorkflowCodeToBuilder = parseWorkflowCodeToBuilder as jest.Mock;
 const mockValidateWorkflow = validateWorkflow as jest.Mock;
+const mockFromJSON = workflow.fromJSON as jest.Mock;
 
 describe('ParseValidateHandler', () => {
 	let handler: ParseValidateHandler;
@@ -308,6 +310,81 @@ describe('ParseValidateHandler', () => {
 
 			expect(context).toContain('1:');
 			expect(context).toContain('line1');
+		});
+	});
+
+	describe('validateExistingWorkflow', () => {
+		it('should return warnings from an existing workflow JSON', () => {
+			const inputJson = { id: 'test', name: 'Test', nodes: [], connections: {} };
+
+			const mockBuilder = {
+				validate: jest.fn().mockReturnValue({
+					valid: true,
+					errors: [],
+					warnings: [{ code: 'WARN001', message: 'Existing warning', nodeName: 'Node1' }],
+				}),
+				toJSON: jest.fn().mockReturnValue(inputJson),
+			};
+
+			mockFromJSON.mockReturnValue(mockBuilder);
+			mockValidateWorkflow.mockReturnValue({ valid: true, errors: [], warnings: [] });
+
+			const result = handler.validateExistingWorkflow(inputJson);
+
+			expect(mockFromJSON).toHaveBeenCalledWith(inputJson);
+			expect(mockBuilder.validate).toHaveBeenCalled();
+			expect(result).toHaveLength(1);
+			expect(result[0]).toEqual({
+				code: 'WARN001',
+				message: 'Existing warning',
+				nodeName: 'Node1',
+			});
+		});
+
+		it('should return empty array when no warnings', () => {
+			const inputJson = { id: 'test', name: 'Test', nodes: [], connections: {} };
+
+			const mockBuilder = {
+				validate: jest.fn().mockReturnValue({ valid: true, errors: [], warnings: [] }),
+				toJSON: jest.fn().mockReturnValue(inputJson),
+			};
+
+			mockFromJSON.mockReturnValue(mockBuilder);
+			mockValidateWorkflow.mockReturnValue({ valid: true, errors: [], warnings: [] });
+
+			const result = handler.validateExistingWorkflow(inputJson);
+
+			expect(result).toHaveLength(0);
+		});
+
+		it('should collect both graph and JSON validation issues', () => {
+			const inputJson = { id: 'test', name: 'Test', nodes: [], connections: {} };
+
+			const mockBuilder = {
+				validate: jest.fn().mockReturnValue({
+					valid: false,
+					errors: [{ code: 'GRAPH_ERR', message: 'Graph error' }],
+					warnings: [{ code: 'GRAPH_WARN', message: 'Graph warning' }],
+				}),
+				toJSON: jest.fn().mockReturnValue(inputJson),
+			};
+
+			mockFromJSON.mockReturnValue(mockBuilder);
+			mockValidateWorkflow.mockReturnValue({
+				valid: false,
+				errors: [{ code: 'JSON_ERR', message: 'JSON error' }],
+				warnings: [{ code: 'JSON_WARN', message: 'JSON warning' }],
+			});
+
+			const result = handler.validateExistingWorkflow(inputJson);
+
+			expect(result).toHaveLength(4);
+			expect(result.map((w) => w.code)).toEqual([
+				'GRAPH_ERR',
+				'GRAPH_WARN',
+				'JSON_ERR',
+				'JSON_WARN',
+			]);
 		});
 	});
 });

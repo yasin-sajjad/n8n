@@ -13,6 +13,7 @@ import type { WarningTracker } from '../state/warning-tracker';
 import type { ParseAndValidateResult, WorkflowCodeOutput, ValidationWarning } from '../types';
 import { extractTextContent, pushValidationFeedback } from '../utils/content-extractors';
 import { extractWorkflowCode } from '../utils/extract-code';
+import { formatWarnings } from '../utils/format-warnings';
 
 /**
  * Debug log callback type
@@ -159,10 +160,7 @@ export class FinalResponseHandler {
 				warningTracker.markAsSeen(newWarnings);
 
 				// Format warnings
-				const warningMessages = newWarnings
-					.slice(0, 5)
-					.map((w) => `- [${w.code}] ${w.message}`)
-					.join('\n');
+				const warningMessages = formatWarnings(newWarnings.slice(0, 5), warningTracker);
 
 				// Log warnings
 				this.evalLogger?.logWarnings('CODE-BUILDER:VALIDATION', newWarnings);

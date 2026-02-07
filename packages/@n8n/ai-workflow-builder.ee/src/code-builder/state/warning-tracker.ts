@@ -57,6 +57,30 @@ function getWarningKey(warning: ValidationWarning): string {
 export class WarningTracker {
 	private seenWarnings = new Set<string>();
 	private trackedWarnings = new Map<string, TrackedWarning>();
+	private preExistingKeys = new Set<string>();
+
+	/**
+	 * Mark warnings as pre-existing (discovered before the agent starts editing).
+	 * Pre-existing warnings are annotated when shown to the agent so it can
+	 * distinguish them from warnings caused by its own changes.
+	 *
+	 * @param warnings - Array of warnings found in the existing workflow
+	 */
+	markAsPreExisting(warnings: ValidationWarning[]): void {
+		for (const w of warnings) {
+			this.preExistingKeys.add(getWarningKey(w));
+		}
+	}
+
+	/**
+	 * Check whether a warning was pre-existing in the workflow before the agent edited it.
+	 *
+	 * @param warning - The warning to check
+	 * @returns true if the warning was marked as pre-existing
+	 */
+	isPreExisting(warning: ValidationWarning): boolean {
+		return this.preExistingKeys.has(getWarningKey(warning));
+	}
 
 	/**
 	 * Filter warnings to only include those that haven't been seen before.

@@ -13,6 +13,7 @@ import { FIX_VALIDATION_ERRORS_INSTRUCTION } from '../constants';
 import type { WarningTracker } from '../state/warning-tracker';
 import type { ParseAndValidateResult } from '../types';
 import { pushValidationFeedback } from '../utils/content-extractors';
+import { formatWarnings } from '../utils/format-warnings';
 
 /**
  * Debug log callback type
@@ -144,7 +145,7 @@ export class AutoFinalizeHandler {
 						warningTracker.markAsSeen(newWarnings);
 					}
 
-					const warningText = newWarnings.map((w) => `- [${w.code}] ${w.message}`).join('\n');
+					const warningText = formatWarnings(newWarnings, warningTracker);
 					const errorContext = this.getErrorContext(code, newWarnings[0].message);
 
 					// Send only new warnings back to agent for correction

@@ -296,6 +296,81 @@ describe('WarningTracker', () => {
 		});
 	});
 
+	describe('markAsPreExisting', () => {
+		it('should mark warnings as pre-existing', () => {
+			const warning: ValidationWarning = { code: 'WARN001', message: 'Warning', nodeName: 'Node1' };
+
+			tracker.markAsPreExisting([warning]);
+
+			expect(tracker.isPreExisting(warning)).toBe(true);
+		});
+
+		it('should mark multiple warnings as pre-existing', () => {
+			const warnings: ValidationWarning[] = [
+				{ code: 'WARN001', message: 'Warning 1' },
+				{ code: 'WARN002', message: 'Warning 2' },
+			];
+
+			tracker.markAsPreExisting(warnings);
+
+			expect(tracker.isPreExisting(warnings[0])).toBe(true);
+			expect(tracker.isPreExisting(warnings[1])).toBe(true);
+		});
+
+		it('should handle empty array', () => {
+			tracker.markAsPreExisting([]);
+
+			const warning: ValidationWarning = { code: 'WARN001', message: 'Warning' };
+			expect(tracker.isPreExisting(warning)).toBe(false);
+		});
+	});
+
+	describe('isPreExisting', () => {
+		it('should return false for warnings not marked as pre-existing', () => {
+			const warning: ValidationWarning = { code: 'WARN001', message: 'Warning' };
+
+			expect(tracker.isPreExisting(warning)).toBe(false);
+		});
+
+		it('should match by key (code|nodeName|parameterPath), not message', () => {
+			const original: ValidationWarning = {
+				code: 'WARN001',
+				message: 'Old message',
+				nodeName: 'Node1',
+				parameterPath: 'path.to.param',
+			};
+
+			tracker.markAsPreExisting([original]);
+
+			const sameKey: ValidationWarning = {
+				code: 'WARN001',
+				message: 'Different message',
+				nodeName: 'Node1',
+				parameterPath: 'path.to.param',
+			};
+
+			expect(tracker.isPreExisting(sameKey)).toBe(true);
+		});
+
+		it('should not match warnings with different nodeName', () => {
+			const warning1: ValidationWarning = {
+				code: 'WARN001',
+				message: 'Warning',
+				nodeName: 'Node1',
+			};
+
+			tracker.markAsPreExisting([warning1]);
+
+			const warning2: ValidationWarning = {
+				code: 'WARN001',
+				message: 'Warning',
+				nodeName: 'Node2',
+			};
+
+			expect(tracker.isPreExisting(warning2)).toBe(false);
+		});
+	});
+
 	describe('getIssuesWithResolutionStatus', () => {
 		it('should include nodeName in output', () => {
 			const warning: ValidationWarning = {
