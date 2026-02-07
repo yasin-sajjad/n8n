@@ -262,7 +262,7 @@ describe('TextEditorHandler', () => {
 				command: 'insert',
 				path: '/workflow.js',
 				insert_line: 0,
-				new_str: 'line0',
+				insert_text: 'line0',
 			});
 
 			expect(result).toBe('Text inserted successfully.');
@@ -276,7 +276,7 @@ describe('TextEditorHandler', () => {
 				command: 'insert',
 				path: '/workflow.js',
 				insert_line: 1,
-				new_str: 'line2',
+				insert_text: 'line2',
 			});
 
 			expect(handler.getWorkflowCode()).toBe('line1\nline2\nline3');
@@ -289,7 +289,7 @@ describe('TextEditorHandler', () => {
 				command: 'insert',
 				path: '/workflow.js',
 				insert_line: 2,
-				new_str: 'line3',
+				insert_text: 'line3',
 			});
 
 			expect(handler.getWorkflowCode()).toBe('line1\nline2\nline3');
@@ -303,7 +303,7 @@ describe('TextEditorHandler', () => {
 					command: 'insert',
 					path: '/workflow.js',
 					insert_line: -1,
-					new_str: 'new',
+					insert_text: 'new',
 				}),
 			).toThrow(InvalidLineNumberError);
 		});
@@ -316,7 +316,7 @@ describe('TextEditorHandler', () => {
 					command: 'insert',
 					path: '/workflow.js',
 					insert_line: 5,
-					new_str: 'new',
+					insert_text: 'new',
 				}),
 			).toThrow(InvalidLineNumberError);
 		});
@@ -327,7 +327,7 @@ describe('TextEditorHandler', () => {
 					command: 'insert',
 					path: '/workflow.js',
 					insert_line: 0,
-					new_str: 'new',
+					insert_text: 'new',
 				}),
 			).toThrow(FileNotFoundError);
 		});

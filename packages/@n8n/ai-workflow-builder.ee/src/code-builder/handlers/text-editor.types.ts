@@ -42,7 +42,7 @@ export interface InsertCommand {
 	path: string;
 	/** Line number after which to insert (0 = beginning of file) */
 	insert_line: number;
-	new_str: string;
+	insert_text: string;
 }
 
 /**

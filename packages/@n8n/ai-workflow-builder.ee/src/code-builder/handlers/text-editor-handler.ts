@@ -215,8 +215,8 @@ export class TextEditorHandler {
 	private handleInsert(command: InsertCommand): string {
 		this.debugLog('INSERT', 'Handling insert command', {
 			insertLine: command.insert_line,
-			newStrLength: command.new_str.length,
-			newStrPreview: command.new_str.substring(0, 100),
+			insertTextLength: command.insert_text.length,
+			insertTextPreview: command.insert_text.substring(0, 100),
 		});
 
 		if (this.code === null) {
@@ -224,7 +224,7 @@ export class TextEditorHandler {
 			throw new FileNotFoundError();
 		}
 
-		const { insert_line, new_str } = command;
+		const { insert_line, insert_text } = command;
 		const lines = this.code.split('\n');
 
 		// Validate line number (0 = beginning, 1-n = after that line)
@@ -238,7 +238,7 @@ export class TextEditorHandler {
 
 		// Insert at the specified position
 		const oldLineCount = lines.length;
-		lines.splice(insert_line, 0, new_str);
+		lines.splice(insert_line, 0, insert_text);
 		this.code = lines.join('\n');
 
 		this.debugLog('INSERT', 'Text inserted successfully', {
