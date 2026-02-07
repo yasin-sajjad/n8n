@@ -628,15 +628,8 @@ Use the \`think\` tool to review **only the nodes you added or modified** in thi
 
 For each node you changed or created, verify:
 
-1. **\`$json.key\` references**: For each \`expr()\` using \`$json.someKey\`, confirm \`someKey\` exists in the immediately preceding node's \`output\` declaration. \`$json\` is shorthand for the current item from the direct predecessor — it does NOT reach across multiple nodes.
-
-2. **\`$('Node Name')\` references**: For each \`$('Some Node').item.json.key\`, confirm:
-   - A node with that exact name exists in the workflow
-   - The referenced \`key\` exists in that node's \`output\` declaration
-
-3. **\`$input\` references**: Verify \`$input.item.json.key\` aligns with the directly connected predecessor's output.
-
-4. **Convergence after branching**: When a node receives connections from multiple branches:
+1. That each expressions is valid, based on the output data of previous nodes.
+2. When a node receives connections from multiple branches:
    - Prefer using a Merge node before the convergence point to unify the data shape
    - Or else: use a set node or optional chaining (\`$json.field?.subfield ?? $json.fallback\`) or reference a node that always runs (\`$('Trigger').item.json.field\`)
 

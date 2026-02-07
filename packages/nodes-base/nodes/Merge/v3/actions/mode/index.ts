@@ -22,7 +22,7 @@ export const description: INodeProperties[] = [
 				description: 'Output items of each input, one after the other',
 				builderHint: {
 					message:
-						'Do you need to collect items from multiple sources into a single list without modifying them? Use Append to concatenate items sequentially. Waits for all connected inputs. Supports any number of inputs. @example 2 items from Input A + 3 items from Input B → 5 items total. Next node will execute 5 times with 5 different items.',
+						'Append items from multiple branches into a single list sequentially. Waits for all running branches. Supports any number of inputs. @example input1: [{ x }] [{ y }] input2: [{ z }]. Output: [{ x }, { y }, { z }]. Next node will execute 3 times with each item. Set executeOnce on next node to execute once.',
 				},
 			},
 			{
@@ -31,7 +31,7 @@ export const description: INodeProperties[] = [
 				description: 'Merge matching items together',
 				builderHint: {
 					message:
-						'Do you need to combine items from exactly 2 inputs? Use Combine to join items by position or by a specific key. Only accepts 2 inputs. Waits for both. \n @example 2 users + 2 profiles matched by userId → 2 enriched user records (not 4). Next node will execute 2 times with 2 different items.',
+						'Combines items from 2 branches. Waits for both to have input data. @example **combine by position** input1: [{ x }, { y }] input2: [{ z }] output: [{ x, y }, { x: undefined, y: undefined, z }] @example **combine by key** input1: [{ id: 1, x }, { id: 2, y }] input2: [{ id: 1, z }] output: [{ id: 1, x, z }, { id: 2, y }]',
 				},
 			},
 			{
@@ -40,7 +40,7 @@ export const description: INodeProperties[] = [
 				description: 'Write a query to do the merge',
 				builderHint: {
 					message:
-						'Do you need complex merge logic using SQL syntax to filter, join, or transform data? Use SQL Query for advanced operations. Waits for all inputs. @example Results depend on query - can filter, join, aggregate',
+						'Need to combine more than 2 branches? Use SQL Query for advanced operations. Waits for all inputs. @example Results depend on query - can filter, join, aggregate',
 				},
 			},
 			{
