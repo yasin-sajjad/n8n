@@ -7,7 +7,6 @@ import {
 	extractSplitInBatchesBuilder,
 	isSwitchCaseComposite,
 	isIfElseComposite,
-	isNodeInstanceShape,
 } from './type-guards';
 
 describe('isSplitInBatchesBuilder', () => {
@@ -145,35 +144,5 @@ describe('isIfElseComposite', () => {
 
 	it('returns false for object missing trueBranch', () => {
 		expect(isIfElseComposite({ ifNode: {} })).toBe(false);
-	});
-});
-
-describe('isNodeInstanceShape', () => {
-	it('returns true for object with type, version, config, and to function', () => {
-		const node = {
-			type: 'n8n-nodes-base.set',
-			version: '1',
-			config: {},
-			to: () => {},
-		};
-		expect(isNodeInstanceShape(node)).toBe(true);
-	});
-
-	it('returns false for null', () => {
-		expect(isNodeInstanceShape(null)).toBe(false);
-	});
-
-	it('returns false for non-object', () => {
-		expect(isNodeInstanceShape('string')).toBe(false);
-	});
-
-	it('returns false for object missing type', () => {
-		const node = { version: '1', config: {}, then: () => {} };
-		expect(isNodeInstanceShape(node)).toBe(false);
-	});
-
-	it('returns false for object where then is not a function', () => {
-		const node = { type: 'test', version: '1', config: {}, then: 'not a function' };
-		expect(isNodeInstanceShape(node)).toBe(false);
 	});
 });

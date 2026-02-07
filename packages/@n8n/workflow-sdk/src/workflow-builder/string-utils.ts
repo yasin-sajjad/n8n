@@ -139,7 +139,7 @@ export function normalizeResourceLocators(params: unknown): unknown {
  * Check if a '/' at position i could be the start of a regex literal.
  * Uses heuristic based on preceding non-whitespace character.
  */
-export function couldBeRegexStart(code: string, i: number): boolean {
+function couldBeRegexStart(code: string, i: number): boolean {
 	// Find the previous non-whitespace character
 	let j = i - 1;
 	while (j >= 0 && /\s/.test(code[j])) {

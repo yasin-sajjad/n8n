@@ -728,26 +728,6 @@ class SwitchCaseBuilderImpl<TOutput = unknown> implements SwitchCaseBuilder<TOut
 }
 
 /**
- * Create an IfElseBuilder for an IF node.
- * This is called internally when .onTrue() or .onFalse() is called on an IF node.
- */
-export function createIfElseBuilder<TOutput>(
-	ifNode: NodeInstance<'n8n-nodes-base.if', string, TOutput>,
-): IfElseBuilder<TOutput> {
-	return new IfElseBuilderImpl(ifNode);
-}
-
-/**
- * Create a SwitchCaseBuilder for a Switch node.
- * This is called internally when .onCase() is called on a Switch node.
- */
-export function createSwitchCaseBuilder<TOutput>(
-	switchNode: NodeInstance<'n8n-nodes-base.switch', string, TOutput>,
-): SwitchCaseBuilder<TOutput> {
-	return new SwitchCaseBuilderImpl(switchNode);
-}
-
-/**
  * Create a node instance
  *
  * @param input - Node input with type, version, and config
@@ -1159,31 +1139,6 @@ class NewCredentialImpl implements NewCredentialValue {
  */
 export function newCredential(name: string): NewCredentialValue {
 	return new NewCredentialImpl(name);
-}
-
-/**
- * Create a NodeChain with additional nodes prepended to allNodes.
- * This is used to ensure branch nodes are included when .to() is called.
- *
- * @param baseChain - The base chain
- * @param additionalNodes - Additional nodes to prepend to allNodes
- * @returns A new chain with the additional nodes included
- */
-export function createChainWithAdditionalNodes<
-	THead extends NodeInstance<string, string, unknown>,
-	TTail extends NodeInstance<string, string, unknown>,
->(
-	baseChain: NodeChain<THead, TTail>,
-	additionalNodes: Array<NodeInstance<string, string, unknown>>,
-): NodeChain<THead, TTail> {
-	// Filter out nodes that are already in allNodes to avoid duplicates
-	const existingNames = new Set(baseChain.allNodes.map((n) => n.name));
-	const newNodes = additionalNodes.filter((n) => !existingNames.has(n.name));
-
-	// Create a new chain with the additional nodes prepended
-	const allNodes = [...newNodes, ...baseChain.allNodes];
-
-	return new NodeChainImpl(baseChain.head, baseChain.tail, allNodes);
 }
 
 /**

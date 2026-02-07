@@ -7,7 +7,6 @@ import {
 	isPlaceholderValue,
 	isResourceLocatorLike,
 	normalizeResourceLocators,
-	couldBeRegexStart,
 	escapeNewlinesInStringLiterals,
 	escapeNewlinesInExpressionStrings,
 	generateDeterministicNodeId,
@@ -164,27 +163,6 @@ describe('workflow-builder/string-utils', () => {
 			expect(normalizeResourceLocators('test')).toBe('test');
 			expect(normalizeResourceLocators(123)).toBe(123);
 			expect(normalizeResourceLocators(null)).toBe(null);
-		});
-	});
-
-	describe('couldBeRegexStart', () => {
-		it('returns true at start of string', () => {
-			expect(couldBeRegexStart('/pattern/', 0)).toBe(true);
-		});
-
-		it('returns true after regex preceders', () => {
-			expect(couldBeRegexStart('(/pattern/', 1)).toBe(true);
-			expect(couldBeRegexStart(',/pattern/', 1)).toBe(true);
-			expect(couldBeRegexStart('=/pattern/', 1)).toBe(true);
-			expect(couldBeRegexStart('!/pattern/', 1)).toBe(true);
-		});
-
-		it('returns false after identifier char', () => {
-			expect(couldBeRegexStart('a/b', 1)).toBe(false);
-		});
-
-		it('returns false after closing paren', () => {
-			expect(couldBeRegexStart(')/pattern/', 1)).toBe(false);
 		});
 	});
 

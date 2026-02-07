@@ -93,17 +93,3 @@ export function isIfElseComposite(value: unknown): boolean {
 	if (value === null || typeof value !== 'object') return false;
 	return 'ifNode' in value && 'trueBranch' in value;
 }
-
-/**
- * Check if value has the shape of a NodeInstance (has type, version, config, to method)
- * Renamed to avoid conflict with similar checks that use different criteria
- */
-export function isNodeInstanceShape(value: unknown): boolean {
-	if (value === null || typeof value !== 'object') return false;
-	if (!('type' in value && 'version' in value && 'config' in value && 'to' in value)) {
-		return false;
-	}
-	// After 'in' checks, safely access the to property
-	const toProp: unknown = getObjectProperty(value, 'to');
-	return typeof toProp === 'function';
-}

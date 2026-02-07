@@ -22,10 +22,3 @@ export {
 	hasErrorOutput,
 	getErrorOutputTargets,
 } from './build-utils';
-
-// Composite handlers
-export { buildIfElseComposite } from './if-else-handler';
-export { buildSwitchCaseComposite } from './switch-case-handler';
-export { buildMergeComposite } from './merge-handler';
-export { buildSplitInBatchesComposite } from './sib-handler';
-export { buildErrorHandler } from './error-handler';
