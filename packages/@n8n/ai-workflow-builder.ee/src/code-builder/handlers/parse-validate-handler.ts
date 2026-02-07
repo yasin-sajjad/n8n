@@ -8,7 +8,7 @@
 
 import type { Logger } from '@n8n/backend-common';
 import { parseWorkflowCodeToBuilder, validateWorkflow, workflow } from '@n8n/workflow-sdk';
-import type { WorkflowJSON, WorkflowBuilder } from '@n8n/workflow-sdk';
+import type { WorkflowJSON } from '@n8n/workflow-sdk';
 
 import { FIX_VALIDATION_ERRORS_INSTRUCTION } from '../constants';
 import type { ParseAndValidateResult, ValidationWarning } from '../types';
@@ -106,89 +106,34 @@ export class ParseValidateHandler {
 	}
 
 	/**
-	 * Run graph + JSON validation on a WorkflowBuilder, collecting all issues.
-	 *
-	 * Shared between `parseAndValidate` (from code) and `validateExistingWorkflow` (from JSON).
-	 */
-	private validateBuilder(builder: WorkflowBuilder): ValidationWarning[] {
-		const allWarnings: ValidationWarning[] = [];
-
-		// Validate the graph structure BEFORE converting to JSON
-		this.debugLog('PARSE_VALIDATE', 'Validating graph structure...');
-		const graphValidateStartTime = Date.now();
-		const graphValidation = builder.validate();
-		const graphValidateDuration = Date.now() - graphValidateStartTime;
-
-		this.debugLog('PARSE_VALIDATE', 'Graph validation complete', {
-			validateDurationMs: graphValidateDuration,
-			isValid: graphValidation.valid,
-			errorCount: graphValidation.errors.length,
-			warningCount: graphValidation.warnings.length,
-		});
-
-		// Collect graph validation errors as warnings for agent self-correction
-		this.collectValidationIssues(
-			graphValidation.errors,
-			allWarnings,
-			'GRAPH VALIDATION ERRORS',
-			'warn',
-		);
-
-		// Collect graph validation warnings
-		this.collectValidationIssues(
-			graphValidation.warnings,
-			allWarnings,
-			'GRAPH VALIDATION WARNINGS',
-			'info',
-		);
-
-		// Convert to JSON for JSON-based validation
-		const json = builder.toJSON();
-
-		// Run JSON-based validation for additional checks
-		this.debugLog('PARSE_VALIDATE', 'Running JSON validation...');
-		const validateStartTime = Date.now();
-		const validationResult = validateWorkflow(json);
-		const validateDuration = Date.now() - validateStartTime;
-
-		this.debugLog('PARSE_VALIDATE', 'JSON validation complete', {
-			validateDurationMs: validateDuration,
-			isValid: validationResult.valid,
-			errorCount: validationResult.errors.length,
-			warningCount: validationResult.warnings.length,
-		});
-
-		// Collect JSON validation errors as warnings for agent self-correction
-		this.collectValidationIssues(
-			validationResult.errors,
-			allWarnings,
-			'JSON VALIDATION ERRORS',
-			'warn',
-		);
-
-		// Collect JSON validation warnings
-		this.collectValidationIssues(
-			validationResult.warnings,
-			allWarnings,
-			'JSON VALIDATION WARNINGS',
-			'info',
-		);
-
-		return allWarnings;
-	}
-
-	/**
-	 * Validate an existing workflow (from JSON) using the same pipeline as `parseAndValidate`.
+	 * Validate an existing workflow (from JSON) using graph validation only.
 	 *
 	 * Used to discover pre-existing warnings before the agent starts editing,
 	 * so those warnings can be annotated as [pre-existing] when shown to the agent.
+	 *
+	 * Skips JSON validation since we already have the JSON — graph validation
+	 * alone is sufficient for discovering pre-existing warnings.
 	 *
 	 * @param json - The existing workflow JSON to validate
 	 * @returns Array of validation warnings found in the existing workflow
 	 */
 	validateExistingWorkflow(json: WorkflowJSON): ValidationWarning[] {
 		const builder = workflow.fromJSON(json);
-		return this.validateBuilder(builder);
+		const allWarnings: ValidationWarning[] = [];
+		const graphValidation = builder.validate();
+		this.collectValidationIssues(
+			graphValidation.errors,
+			allWarnings,
+			'GRAPH VALIDATION ERRORS',
+			'warn',
+		);
+		this.collectValidationIssues(
+			graphValidation.warnings,
+			allWarnings,
+			'GRAPH VALIDATION WARNINGS',
+			'info',
+		);
+		return allWarnings;
 	}
 
 	/**
@@ -233,8 +178,69 @@ export class ParseValidateHandler {
 			builder.regenerateNodeIds();
 			this.debugLog('PARSE_VALIDATE', 'Node IDs regenerated deterministically');
 
-			// Run shared validation (graph + JSON)
-			const allWarnings = this.validateBuilder(builder);
+			// Run graph + JSON validation
+			const allWarnings: ValidationWarning[] = [];
+
+			// Validate the graph structure BEFORE converting to JSON
+			this.debugLog('PARSE_VALIDATE', 'Validating graph structure...');
+			const graphValidateStartTime = Date.now();
+			const graphValidation = builder.validate();
+			const graphValidateDuration = Date.now() - graphValidateStartTime;
+
+			this.debugLog('PARSE_VALIDATE', 'Graph validation complete', {
+				validateDurationMs: graphValidateDuration,
+				isValid: graphValidation.valid,
+				errorCount: graphValidation.errors.length,
+				warningCount: graphValidation.warnings.length,
+			});
+
+			// Collect graph validation errors as warnings for agent self-correction
+			this.collectValidationIssues(
+				graphValidation.errors,
+				allWarnings,
+				'GRAPH VALIDATION ERRORS',
+				'warn',
+			);
+
+			// Collect graph validation warnings
+			this.collectValidationIssues(
+				graphValidation.warnings,
+				allWarnings,
+				'GRAPH VALIDATION WARNINGS',
+				'info',
+			);
+
+			// Convert to JSON for JSON-based validation
+			const json = builder.toJSON();
+
+			// Run JSON-based validation for additional checks
+			this.debugLog('PARSE_VALIDATE', 'Running JSON validation...');
+			const validateStartTime = Date.now();
+			const validationResult = validateWorkflow(json);
+			const validateDuration = Date.now() - validateStartTime;
+
+			this.debugLog('PARSE_VALIDATE', 'JSON validation complete', {
+				validateDurationMs: validateDuration,
+				isValid: validationResult.valid,
+				errorCount: validationResult.errors.length,
+				warningCount: validationResult.warnings.length,
+			});
+
+			// Collect JSON validation errors as warnings for agent self-correction
+			this.collectValidationIssues(
+				validationResult.errors,
+				allWarnings,
+				'JSON VALIDATION ERRORS',
+				'warn',
+			);
+
+			// Collect JSON validation warnings
+			this.collectValidationIssues(
+				validationResult.warnings,
+				allWarnings,
+				'JSON VALIDATION WARNINGS',
+				'info',
+			);
 
 			// Generate pin data for new nodes only (nodes not in currentWorkflow)
 			builder.generatePinData({ beforeWorkflow: currentWorkflow });
