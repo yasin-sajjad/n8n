@@ -124,6 +124,44 @@ describe('FinalResponseHandler', () => {
 			expect((messages[1] as ToolMessage).content).toContain('W001');
 		});
 
+		it('should inject tool_use into content array when AIMessage has array content (extended thinking)', async () => {
+			const handler = createHandler();
+			const response = new AIMessage({
+				content: [
+					{ type: 'thinking', thinking: 'Planning...' },
+					{ type: 'text', text: '```typescript\nconst workflow = {};\n```' },
+				],
+			});
+			const messages: BaseMessage[] = [response];
+			const warningTracker = new WarningTracker();
+
+			mockParseAndValidate.mockRejectedValue(new Error('Parse failed'));
+
+			const result = await handler.process({
+				response,
+				currentWorkflow: undefined,
+				messages,
+				warningTracker,
+			});
+
+			expect(result.success).toBe(false);
+			expect(result.isParseError).toBe(true);
+			// tool_calls should be set
+			expect((messages[0] as AIMessage).tool_calls).toHaveLength(1);
+			expect((messages[0] as AIMessage).tool_calls![0].name).toBe('validate_workflow');
+			// Content array should have tool_use block appended
+			const content = (messages[0] as AIMessage).content as Array<Record<string, unknown>>;
+			expect(content).toHaveLength(3);
+			expect(content[2]).toMatchObject({
+				type: 'tool_use',
+				name: 'validate_workflow',
+				input: {},
+			});
+			// ToolMessage should reference same ID
+			const toolMessage = messages[1] as ToolMessage;
+			expect(toolMessage.tool_call_id).toBe(content[2].id);
+		});
+
 		it('should inject tool_call into existing AIMessage when parsing fails', async () => {
 			const handler = createHandler();
 			const response = createResponse('```typescript\nconst workflow = {};\n```');

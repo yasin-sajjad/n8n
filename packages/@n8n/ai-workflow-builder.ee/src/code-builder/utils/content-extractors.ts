@@ -4,7 +4,8 @@
  * Utilities for extracting text and thinking content from AI messages.
  */
 
-import type { AIMessage } from '@langchain/core/messages';
+import type { BaseMessage } from '@langchain/core/messages';
+import { AIMessage, ToolMessage } from '@langchain/core/messages';
 
 /**
  * Content block type for text content
@@ -113,4 +114,47 @@ export function extractThinkingContent(message: AIMessage): string | null {
 	}
 
 	return null;
+}
+
+/**
+ * Push validation feedback as a synthetic tool call result.
+ *
+ * Injects a validate_workflow tool call into the last AIMessage and appends
+ * a ToolMessage with the result, avoiding consecutive AIMessages.
+ *
+ * When content is an array (e.g. extended thinking), also injects a tool_use
+ * block directly into the content array. LangChain's Anthropic adapter ignores
+ * the tool_calls property when content is an array but correctly serializes
+ * tool_use content blocks.
+ */
+export function pushValidationFeedback(messages: BaseMessage[], content: string): void {
+	const toolCallId = `auto-validate-${Date.now()}`;
+	const lastMessage = messages[messages.length - 1];
+
+	if (lastMessage instanceof AIMessage) {
+		lastMessage.tool_calls = [
+			...(lastMessage.tool_calls ?? []),
+			{ id: toolCallId, name: 'validate_workflow', args: {} },
+		];
+
+		// When content is an array (e.g. extended thinking), LangChain's Anthropic
+		// adapter ignores tool_calls but serializes tool_use blocks from the content
+		// array. We cast because LangChain's TS types use "tool_call" while the
+		// Anthropic adapter expects "tool_use" at runtime.
+		if (Array.isArray(lastMessage.content)) {
+			(lastMessage.content as Array<Record<string, unknown>>).push({
+				type: 'tool_use',
+				id: toolCallId,
+				name: 'validate_workflow',
+				input: {},
+			});
+		}
+	}
+
+	messages.push(
+		new ToolMessage({
+			tool_call_id: toolCallId,
+			content,
+		}),
+	);
 }

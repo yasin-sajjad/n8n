@@ -6,12 +6,12 @@
  */
 
 import type { BaseMessage } from '@langchain/core/messages';
-import { AIMessage, ToolMessage } from '@langchain/core/messages';
+import { AIMessage } from '@langchain/core/messages';
 import type { WorkflowJSON } from '@n8n/workflow-sdk';
 
 import type { WarningTracker } from '../state/warning-tracker';
 import type { ParseAndValidateResult, WorkflowCodeOutput, ValidationWarning } from '../types';
-import { extractTextContent } from '../utils/content-extractors';
+import { extractTextContent, pushValidationFeedback } from '../utils/content-extractors';
 import { extractWorkflowCode } from '../utils/extract-code';
 
 /**
@@ -116,7 +116,7 @@ export class FinalResponseHandler {
 			});
 
 			// Add follow-up message with error
-			FinalResponseHandler.pushValidationFeedback(
+			pushValidationFeedback(
 				messages,
 				`Could not parse your response: ${parseResult.error}\n\nPlease provide your workflow code in a \`\`\`typescript code block.`,
 			);
@@ -168,7 +168,7 @@ export class FinalResponseHandler {
 				this.evalLogger?.logWarnings('CODE-BUILDER:VALIDATION', newWarnings);
 
 				// Send feedback to agent
-				FinalResponseHandler.pushValidationFeedback(
+				pushValidationFeedback(
 					messages,
 					`The workflow code has validation warnings that should be addressed:\n\n${warningMessages}\n\nPlease fix these issues and provide the corrected version in a \`\`\`typescript code block.`,
 				);
@@ -205,7 +205,7 @@ export class FinalResponseHandler {
 			this.evalLogger?.logError('CODE-BUILDER:PARSE', errorMessage, undefined, errorStack);
 
 			// Send feedback to agent
-			FinalResponseHandler.pushValidationFeedback(
+			pushValidationFeedback(
 				messages,
 				`The workflow code you generated has a parsing error:\n\n${errorMessage}\n\nPlease fix the code and provide the corrected version in a \`\`\`typescript code block.`,
 			);
@@ -255,27 +255,5 @@ export class FinalResponseHandler {
 		});
 
 		return { result: { workflowCode }, error: null };
-	}
-
-	/**
-	 * Push validation feedback as a synthetic tool call result.
-	 * Injects a validate_workflow tool call into the last AIMessage in the array
-	 * and appends a ToolMessage with the result, avoiding consecutive AIMessages.
-	 */
-	private static pushValidationFeedback(messages: BaseMessage[], content: string): void {
-		const toolCallId = `auto-validate-${Date.now()}`;
-		const lastMessage = messages[messages.length - 1];
-		if (lastMessage instanceof AIMessage) {
-			lastMessage.tool_calls = [
-				...(lastMessage.tool_calls ?? []),
-				{ id: toolCallId, name: 'validate_workflow', args: {} },
-			];
-		}
-		messages.push(
-			new ToolMessage({
-				tool_call_id: toolCallId,
-				content,
-			}),
-		);
 	}
 }

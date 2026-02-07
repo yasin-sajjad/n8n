@@ -2,18 +2,24 @@
  * Tests for content extractor utilities
  */
 
-import type { AIMessage } from '@langchain/core/messages';
+import type { BaseMessage } from '@langchain/core/messages';
+import { AIMessage, ToolMessage } from '@langchain/core/messages';
+import type { AIMessage as AIMessageType } from '@langchain/core/messages';
 
-import { extractTextContent, extractThinkingContent } from '../content-extractors';
+import {
+	extractTextContent,
+	extractThinkingContent,
+	pushValidationFeedback,
+} from '../content-extractors';
 
-// Helper to create mock AIMessage
+// Helper to create mock AIMessage (for extractText/Thinking tests that don't need instanceof)
 function createMockMessage(
 	content: string | Array<{ type: string; text?: string; thinking?: string }>,
-): AIMessage {
+): AIMessageType {
 	return {
 		content,
 		_getType: () => 'ai',
-	} as unknown as AIMessage;
+	} as unknown as AIMessageType;
 }
 
 describe('extractTextContent', () => {
@@ -85,5 +91,77 @@ describe('extractThinkingContent', () => {
 	it('should return null for empty content', () => {
 		const message = createMockMessage('');
 		expect(extractThinkingContent(message)).toBeNull();
+	});
+});
+
+describe('pushValidationFeedback', () => {
+	it('should inject tool_call and append ToolMessage when AIMessage has string content', () => {
+		const aiMessage = new AIMessage({ content: 'Some response' });
+		const messages: BaseMessage[] = [aiMessage];
+
+		pushValidationFeedback(messages, 'Validation feedback');
+
+		expect(messages).toHaveLength(2);
+		expect((messages[0] as AIMessage).tool_calls).toHaveLength(1);
+		expect((messages[0] as AIMessage).tool_calls![0].name).toBe('validate_workflow');
+		expect(messages[1]).toBeInstanceOf(ToolMessage);
+		expect((messages[1] as ToolMessage).content).toBe('Validation feedback');
+		// String content should NOT be modified
+		expect(typeof (messages[0] as AIMessage).content).toBe('string');
+	});
+
+	it('should inject tool_use block into content array when AIMessage has array content', () => {
+		const aiMessage = new AIMessage({
+			content: [
+				{ type: 'thinking', thinking: 'some thought' },
+				{ type: 'text', text: 'Some response' },
+			],
+		});
+		const messages: BaseMessage[] = [aiMessage];
+
+		pushValidationFeedback(messages, 'Validation feedback');
+
+		expect(messages).toHaveLength(2);
+		// Should have tool_calls set
+		expect((messages[0] as AIMessage).tool_calls).toHaveLength(1);
+		expect((messages[0] as AIMessage).tool_calls![0].name).toBe('validate_workflow');
+		// Should have tool_use block in content array
+		const content = (messages[0] as AIMessage).content as Array<Record<string, unknown>>;
+		expect(content).toHaveLength(3);
+		expect(content[2]).toMatchObject({
+			type: 'tool_use',
+			name: 'validate_workflow',
+			input: {},
+		});
+		expect(content[2].id).toMatch(/^auto-validate-/);
+		// ToolMessage should reference same ID
+		const toolMessage = messages[1] as ToolMessage;
+		expect(toolMessage.tool_call_id).toBe(content[2].id);
+	});
+
+	it('should append ToolMessage even when last message is not AIMessage', () => {
+		const toolMsg = new ToolMessage({
+			tool_call_id: 'existing',
+			content: 'previous result',
+		});
+		const messages: BaseMessage[] = [toolMsg];
+
+		pushValidationFeedback(messages, 'Validation feedback');
+
+		expect(messages).toHaveLength(2);
+		expect(messages[1]).toBeInstanceOf(ToolMessage);
+		expect((messages[1] as ToolMessage).content).toBe('Validation feedback');
+	});
+
+	it('should append to existing tool_calls when AIMessage already has tool_calls', () => {
+		const aiMessage = new AIMessage({ content: 'response' });
+		aiMessage.tool_calls = [{ id: 'existing-id', name: 'some_tool', args: {} }];
+		const messages: BaseMessage[] = [aiMessage];
+
+		pushValidationFeedback(messages, 'feedback');
+
+		expect((messages[0] as AIMessage).tool_calls).toHaveLength(2);
+		expect((messages[0] as AIMessage).tool_calls![0].name).toBe('some_tool');
+		expect((messages[0] as AIMessage).tool_calls![1].name).toBe('validate_workflow');
 	});
 });

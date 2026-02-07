@@ -6,13 +6,13 @@
  */
 
 import type { BaseMessage } from '@langchain/core/messages';
-import { AIMessage, ToolMessage } from '@langchain/core/messages';
 import type { WorkflowJSON } from '@n8n/workflow-sdk';
 
 import type { StreamOutput } from '../../types/streaming';
 import { FIX_VALIDATION_ERRORS_INSTRUCTION } from '../constants';
 import type { WarningTracker } from '../state/warning-tracker';
 import type { ParseAndValidateResult } from '../types';
+import { pushValidationFeedback } from '../utils/content-extractors';
 
 /**
  * Debug log callback type
@@ -104,7 +104,7 @@ export class AutoFinalizeHandler {
 		// No code yet - prompt to create
 		if (!code) {
 			this.debugLog('AUTO_FINALIZE', 'No code exists, prompting to create');
-			this.pushValidationFeedback(
+			pushValidationFeedback(
 				messages,
 				'Please use the text editor tool to edit the workflow code.',
 			);
@@ -148,7 +148,7 @@ export class AutoFinalizeHandler {
 					const errorContext = this.getErrorContext(code, newWarnings[0].message);
 
 					// Send only new warnings back to agent for correction
-					this.pushValidationFeedback(
+					pushValidationFeedback(
 						messages,
 						`Validation warnings:\n${warningText}\n\n${errorContext}\n\n${FIX_VALIDATION_ERRORS_INSTRUCTION}`,
 					);
@@ -182,34 +182,12 @@ export class AutoFinalizeHandler {
 			});
 
 			// Send error back to agent for correction
-			this.pushValidationFeedback(
+			pushValidationFeedback(
 				messages,
 				`Parse error: ${errorMessage}\n\n${errorContext}\n\n${FIX_VALIDATION_ERRORS_INSTRUCTION}`,
 			);
 
 			return { success: false, parseDuration };
 		}
-	}
-
-	/**
-	 * Push validation feedback as a synthetic tool call result.
-	 * Injects a validate_workflow tool call into the last AIMessage in the array
-	 * and appends a ToolMessage with the result, avoiding consecutive AIMessages.
-	 */
-	private pushValidationFeedback(messages: BaseMessage[], content: string): void {
-		const toolCallId = `auto-validate-${Date.now()}`;
-		const lastMessage = messages[messages.length - 1];
-		if (lastMessage instanceof AIMessage) {
-			lastMessage.tool_calls = [
-				...(lastMessage.tool_calls ?? []),
-				{ id: toolCallId, name: 'validate_workflow', args: {} },
-			];
-		}
-		messages.push(
-			new ToolMessage({
-				tool_call_id: toolCallId,
-				content,
-			}),
-		);
 	}
 }

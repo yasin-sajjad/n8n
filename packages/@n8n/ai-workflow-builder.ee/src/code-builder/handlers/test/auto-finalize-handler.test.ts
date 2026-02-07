@@ -216,6 +216,44 @@ describe('AutoFinalizeHandler', () => {
 			expect(warningTracker.allSeen([newWarning])).toBe(true);
 		});
 
+		it('should inject tool_use into content array when AIMessage has array content (extended thinking)', async () => {
+			const handler = createHandler();
+			const existingAiMessage = new AIMessage({
+				content: [
+					{ type: 'thinking', thinking: 'Let me think...' },
+					{ type: 'text', text: 'Some response' },
+				],
+			});
+			const messages: BaseMessage[] = [existingAiMessage];
+
+			mockParseAndValidate.mockRejectedValue(new Error('Parse failed'));
+
+			const gen = handler.execute({
+				code: 'invalid code',
+				currentWorkflow: undefined,
+				messages,
+			});
+
+			const result = await consumeGenerator(gen);
+
+			expect(result.success).toBe(false);
+			expect(messages).toHaveLength(2);
+			// tool_calls should be set
+			expect((messages[0] as AIMessage).tool_calls).toHaveLength(1);
+			expect((messages[0] as AIMessage).tool_calls![0].name).toBe('validate_workflow');
+			// Content array should have tool_use block appended
+			const content = (messages[0] as AIMessage).content as Array<Record<string, unknown>>;
+			expect(content).toHaveLength(3);
+			expect(content[2]).toMatchObject({
+				type: 'tool_use',
+				name: 'validate_workflow',
+				input: {},
+			});
+			// ToolMessage should reference same ID
+			const toolMessage = messages[1] as ToolMessage;
+			expect(toolMessage.tool_call_id).toBe(content[2].id);
+		});
+
 		it('should treat all-repeated warnings as success', async () => {
 			const handler = createHandler();
 			const messages: BaseMessage[] = [];
