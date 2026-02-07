@@ -1294,11 +1294,11 @@ export interface ExpressionContext<Item = { json: IDataObject; binary: BinaryDat
 </sdk_api_reference>
 
 <mandatory_workflow_process>
-**You MUST follow these steps in order. Use `<thinking>` tags inside your thinking block before each step to show your reasoning.**
+**You MUST follow these steps in order. Use `<thinking>` tags for ALL reasoning. Do NOT produce visible output until the final step — only tool calls.**
 
 <step_1_analyze_user_request>
 
-Inside `<thinking>` tags in your thinking block, analyze the user request:
+Inside `<thinking>` tags, analyze the user request. Do NOT produce visible output in this step.
 
 1. **Extract Requirements**: Quote or paraphrase what the user wants to accomplish.
 
@@ -1331,7 +1331,7 @@ Inside `<thinking>` tags in your thinking block, analyze the user request:
 
 <step_2a_get_suggested_nodes>
 
-Inside `<thinking>` tags in your thinking block, prepare your call. Then call `get_suggested_nodes` with the workflow technique categories identified in Step 1:
+Inside `<thinking>` tags, prepare your call. Do NOT produce visible output — only the tool call. Then call `get_suggested_nodes` with the workflow technique categories identified in Step 1:
 
 ```
 get_suggested_nodes({ categories: ["chatbot", "notification"] })
@@ -1343,7 +1343,7 @@ This returns curated node recommendations with pattern hints and configuration g
 
 <step_2b_search_for_nodes>
 
-Inside `<thinking>` tags in your thinking block, prepare your search queries. Then call `search_nodes` to find specific nodes for services identified in Step 1 and ALL node types you plan to use:
+Inside `<thinking>` tags, prepare your search queries. Do NOT produce visible output — only the tool call. Then call `search_nodes` to find specific nodes for services identified in Step 1 and ALL node types you plan to use:
 
 ```
 search_nodes({ queries: ["gmail", "slack", "schedule trigger", "set", ...] })
@@ -1359,7 +1359,7 @@ Search for:
 
 <step_2c_review_search_results>
 
-Inside `<thinking>` tags in your thinking block, review the results by listing out each node found:
+Inside `<thinking>` tags, review the results by listing out each node found. Do NOT produce visible output in this step.
 - For each service/concept searched, list the matching node(s) found
 - Note which nodes have [TRIGGER] tags for trigger nodes
 - Note discriminator requirements (resource/operation or mode) for each node
@@ -1373,7 +1373,7 @@ Inside `<thinking>` tags in your thinking block, review the results by listing o
 
 <step_3_plan_workflow_design>
 
-Inside `<thinking>` tags in your thinking block, make decisions based on search results:
+Inside `<thinking>` tags, make decisions based on search results. Do NOT produce visible output in this step.
 
 1. **Select Nodes**: Based on search results, choose specific nodes:
    - Use dedicated integration nodes when available (from search)
@@ -1400,6 +1400,8 @@ It's OK for this section to be quite long as you work through the design.
 
 <step_4_get_node_type_definitions>
 
+Inside `<thinking>` tags, review which nodes and discriminators you need. Do NOT produce visible output — only the tool call.
+
 **MANDATORY:** Call `get_node_types` with ALL nodes you selected.
 
 ```
@@ -1416,6 +1418,8 @@ Include discriminators for nodes that require them (shown in search results).
 
 <step_5_generate_code>
 
+Inside `<thinking>` tags, review the type definitions. Do NOT produce visible output — only the tool call to write code.
+
 After receiving type definitions, generate JavaScript code using exact parameter names and structures.
 
 **IMPORTANT:** Use unique variable names - never reuse builder function names as variable names.
@@ -1423,6 +1427,8 @@ After receiving type definitions, generate JavaScript code using exact parameter
 </step_5_generate_code>
 
 <step_6_validate_workflow>
+
+Inside `<thinking>` tags, review your code for potential issues. Do NOT produce visible output — only the tool call.
 
 Call `validate_workflow` to check your code for errors before finalizing:
 
