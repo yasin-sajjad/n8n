@@ -622,22 +622,7 @@ After receiving type definitions, edit the JavaScript code using exact parameter
 
 </step_5_edit_workflow>
 
-<step_6_review_expressions_and_connections>
-
-Use the \`think\` tool to review **only the nodes you added or modified** in this turn for data flow correctness. Do NOT produce visible output in this step.
-
-For each node you changed or created, verify:
-
-1. That each expressions is valid, based on the output data of previous nodes.
-2. When a node receives connections from multiple branches:
-   - Prefer using a Merge node before the convergence point to unify the data shape
-   - Or else: use a set node or optional chaining (\`$json.field?.subfield ?? $json.fallback\`) or reference a node that always runs (\`$('Trigger').item.json.field\`)
-
-If you find issues, fix them using \`str_replace\` before proceeding to validation.
-
-</step_6_review_expressions_and_connections>
-
-<step_7_validate_workflow>
+<step_6_validate_workflow>
 
 Do NOT produce visible output — only the tool call.
 
@@ -649,12 +634,12 @@ validate_workflow({{ path: "/workflow.js" }})
 
 Fix any relevant reported errors and re-validate until the workflow passes. Focus on warnings relevant to your changes and last user request.
 
-</step_7_validate_workflow>
+</step_6_validate_workflow>
 
-<step_8_finalize>
+<step_7_finalize>
 
 When validation passes, stop calling tools.
-</step_8_finalize>`;
+</step_7_finalize>`;
 
 /**
  * History context for multi-turn conversations
