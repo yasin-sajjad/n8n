@@ -53,6 +53,7 @@ import { createThinkTool } from './tools/think.tool';
 import type { CodeBuilderAgentConfig, TokenUsage } from './types';
 export type { CodeBuilderAgentConfig } from './types';
 import { sanitizeLlmErrorMessage } from '../utils/error-sanitizer';
+import { pushValidationFeedback } from './utils/content-extractors';
 import type { EvaluationLogger } from './utils/evaluation-logger';
 import { calculateNodeChanges } from './utils/node-diff';
 import { NodeTypeParser } from './utils/node-type-parser';
@@ -578,6 +579,7 @@ ${'='.repeat(50)}
 			textEditorValidateAttempts: 0,
 			warningTracker: new WarningTracker(),
 			outputTrace: [],
+			hasUnvalidatedEdits: false,
 		};
 
 		// Pre-validate existing workflow to discover pre-existing warnings
@@ -793,6 +795,9 @@ ${'='.repeat(50)}
 		});
 
 		// Update state from dispatch result
+		if (dispatchResult.hasUnvalidatedEdits !== undefined) {
+			state.hasUnvalidatedEdits = dispatchResult.hasUnvalidatedEdits;
+		}
 		if (dispatchResult.workflow) {
 			state.workflow = dispatchResult.workflow;
 		}
@@ -847,11 +852,25 @@ ${'='.repeat(50)}
 	}): AsyncGenerator<StreamOutput, { shouldBreak: boolean }, unknown> {
 		const { textEditorHandler, currentWorkflow, messages, state } = params;
 
+		const code = textEditorHandler.getWorkflowCode();
+
+		// Skip validation if code exists but no edits since last validation
+		if (!state.hasUnvalidatedEdits && code) {
+			this.debugLog('CHAT', 'Text editor mode: no unvalidated edits, skipping re-validation');
+			if (state.workflow) {
+				state.sourceCode = code;
+				return { shouldBreak: true };
+			}
+			pushValidationFeedback(messages, 'Please use the text editor to fix the validation errors.');
+			return { shouldBreak: false };
+		}
+
 		this.debugLog('CHAT', 'Text editor mode: no tool calls, auto-finalizing');
 		state.textEditorValidateAttempts++;
+		state.hasUnvalidatedEdits = false;
 
 		const autoFinalizeResult = yield* this.autoFinalizeHandler.execute({
-			code: textEditorHandler.getWorkflowCode(),
+			code,
 			currentWorkflow,
 			messages,
 			warningTracker: state.warningTracker,
@@ -952,4 +971,6 @@ interface AgenticLoopState {
 	textEditorValidateAttempts: number;
 	warningTracker: WarningTracker;
 	outputTrace: TraceEntry[];
+	/** Whether the agent has made code edits that haven't been followed by validation */
+	hasUnvalidatedEdits: boolean;
 }

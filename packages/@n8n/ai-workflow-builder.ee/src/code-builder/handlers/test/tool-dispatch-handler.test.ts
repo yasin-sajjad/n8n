@@ -2,7 +2,9 @@ import type { StructuredToolInterface } from '@langchain/core/tools';
 
 import type { StreamOutput, ToolProgressChunk } from '../../../types/streaming';
 import { WarningTracker } from '../../state/warning-tracker';
-import { ToolDispatchHandler } from '../tool-dispatch-handler';
+import type { TextEditorHandler } from '../text-editor-handler';
+import type { TextEditorToolHandler } from '../text-editor-tool-handler';
+import { ToolDispatchHandler, type ToolDispatchResult } from '../tool-dispatch-handler';
 import type { ValidateToolHandler } from '../validate-tool-handler';
 
 /** Type guard for ToolProgressChunk */
@@ -238,6 +240,264 @@ describe('ToolDispatchHandler', () => {
 			expect(errorChunk).toBeDefined();
 			expect(errorChunk?.toolName).toBe('nonexistent_tool');
 			expect(errorChunk?.error).toContain('not found');
+		});
+	});
+
+	describe('hasUnvalidatedEdits tracking', () => {
+		/**
+		 * Helper: drain an async generator and return its final return value.
+		 */
+		async function drainGenerator(
+			gen: AsyncGenerator<StreamOutput, ToolDispatchResult, unknown>,
+		): Promise<ToolDispatchResult> {
+			let result = await gen.next();
+			while (!result.done) {
+				result = await gen.next();
+			}
+			return result.value;
+		}
+
+		/** Create a mock TextEditorToolHandler whose execute() yields nothing and returns empty */
+		function createMockTextEditorToolHandler(): TextEditorToolHandler {
+			return {
+				execute: jest.fn().mockImplementation(async function* () {
+					return undefined;
+				}),
+			} as unknown as TextEditorToolHandler;
+		}
+
+		/** Create a mock TextEditorHandler */
+		function createMockTextEditorHandler(): TextEditorHandler {
+			return {
+				getWorkflowCode: jest.fn().mockReturnValue('const wf = {};'),
+			} as unknown as TextEditorHandler;
+		}
+
+		/** Create a mock ValidateToolHandler whose execute() yields nothing and returns a result */
+		function createMockValidateToolHandler(workflowReady = false): ValidateToolHandler {
+			return {
+				execute: jest.fn().mockImplementation(async function* () {
+					return { workflowReady, parseDuration: 10 };
+				}),
+			} as unknown as ValidateToolHandler;
+		}
+
+		it('should set hasUnvalidatedEdits to true after str_replace command', async () => {
+			const mockTextEditorToolHandler = createMockTextEditorToolHandler();
+			const handler = new ToolDispatchHandler({
+				toolsMap: new Map(),
+				validateToolHandler: mockValidateToolHandler,
+				debugLog: mockDebugLog,
+			});
+
+			const result = await drainGenerator(
+				handler.dispatch({
+					toolCalls: [
+						{
+							id: 'call-1',
+							name: 'str_replace_based_edit_tool',
+							args: { command: 'str_replace' },
+						},
+					],
+					messages: [],
+					iteration: 1,
+					warningTracker: new WarningTracker(),
+					textEditorToolHandler: mockTextEditorToolHandler,
+				}),
+			);
+
+			expect(result.hasUnvalidatedEdits).toBe(true);
+		});
+
+		it('should set hasUnvalidatedEdits to true after insert command', async () => {
+			const mockTextEditorToolHandler = createMockTextEditorToolHandler();
+			const handler = new ToolDispatchHandler({
+				toolsMap: new Map(),
+				validateToolHandler: mockValidateToolHandler,
+				debugLog: mockDebugLog,
+			});
+
+			const result = await drainGenerator(
+				handler.dispatch({
+					toolCalls: [
+						{
+							id: 'call-2',
+							name: 'str_replace_based_edit_tool',
+							args: { command: 'insert' },
+						},
+					],
+					messages: [],
+					iteration: 1,
+					warningTracker: new WarningTracker(),
+					textEditorToolHandler: mockTextEditorToolHandler,
+				}),
+			);
+
+			expect(result.hasUnvalidatedEdits).toBe(true);
+		});
+
+		it('should set hasUnvalidatedEdits to false after create command (auto-validates)', async () => {
+			const mockTextEditorToolHandler = createMockTextEditorToolHandler();
+			const handler = new ToolDispatchHandler({
+				toolsMap: new Map(),
+				validateToolHandler: mockValidateToolHandler,
+				debugLog: mockDebugLog,
+			});
+
+			const result = await drainGenerator(
+				handler.dispatch({
+					toolCalls: [
+						{
+							id: 'call-3',
+							name: 'str_replace_based_edit_tool',
+							args: { command: 'create' },
+						},
+					],
+					messages: [],
+					iteration: 1,
+					warningTracker: new WarningTracker(),
+					textEditorToolHandler: mockTextEditorToolHandler,
+				}),
+			);
+
+			expect(result.hasUnvalidatedEdits).toBe(false);
+		});
+
+		it('should set hasUnvalidatedEdits to false after validate_workflow tool', async () => {
+			const mockValidate = createMockValidateToolHandler();
+			const mockTextEditorToolHandler = createMockTextEditorToolHandler();
+			const mockTextEditorHandler = createMockTextEditorHandler();
+			const handler = new ToolDispatchHandler({
+				toolsMap: new Map(),
+				validateToolHandler: mockValidate,
+				debugLog: mockDebugLog,
+			});
+
+			const result = await drainGenerator(
+				handler.dispatch({
+					toolCalls: [{ id: 'call-4', name: 'validate_workflow', args: {} }],
+					messages: [],
+					iteration: 1,
+					warningTracker: new WarningTracker(),
+					textEditorToolHandler: mockTextEditorToolHandler,
+					textEditorHandler: mockTextEditorHandler,
+				}),
+			);
+
+			expect(result.hasUnvalidatedEdits).toBe(false);
+		});
+
+		it('should leave hasUnvalidatedEdits undefined after view command', async () => {
+			const mockTextEditorToolHandler = createMockTextEditorToolHandler();
+			const handler = new ToolDispatchHandler({
+				toolsMap: new Map(),
+				validateToolHandler: mockValidateToolHandler,
+				debugLog: mockDebugLog,
+			});
+
+			const result = await drainGenerator(
+				handler.dispatch({
+					toolCalls: [
+						{
+							id: 'call-5',
+							name: 'str_replace_based_edit_tool',
+							args: { command: 'view' },
+						},
+					],
+					messages: [],
+					iteration: 1,
+					warningTracker: new WarningTracker(),
+					textEditorToolHandler: mockTextEditorToolHandler,
+				}),
+			);
+
+			expect(result.hasUnvalidatedEdits).toBeUndefined();
+		});
+
+		it('should set hasUnvalidatedEdits to false when str_replace is followed by validate_workflow', async () => {
+			const mockValidate = createMockValidateToolHandler();
+			const mockTextEditorToolHandler = createMockTextEditorToolHandler();
+			const mockTextEditorHandler = createMockTextEditorHandler();
+			const handler = new ToolDispatchHandler({
+				toolsMap: new Map(),
+				validateToolHandler: mockValidate,
+				debugLog: mockDebugLog,
+			});
+
+			const result = await drainGenerator(
+				handler.dispatch({
+					toolCalls: [
+						{
+							id: 'call-6a',
+							name: 'str_replace_based_edit_tool',
+							args: { command: 'str_replace' },
+						},
+						{ id: 'call-6b', name: 'validate_workflow', args: {} },
+					],
+					messages: [],
+					iteration: 1,
+					warningTracker: new WarningTracker(),
+					textEditorToolHandler: mockTextEditorToolHandler,
+					textEditorHandler: mockTextEditorHandler,
+				}),
+			);
+
+			expect(result.hasUnvalidatedEdits).toBe(false);
+		});
+
+		it('should set hasUnvalidatedEdits to true when validate_workflow is followed by str_replace', async () => {
+			const mockValidate = createMockValidateToolHandler();
+			const mockTextEditorToolHandler = createMockTextEditorToolHandler();
+			const mockTextEditorHandler = createMockTextEditorHandler();
+			const handler = new ToolDispatchHandler({
+				toolsMap: new Map(),
+				validateToolHandler: mockValidate,
+				debugLog: mockDebugLog,
+			});
+
+			const result = await drainGenerator(
+				handler.dispatch({
+					toolCalls: [
+						{ id: 'call-7a', name: 'validate_workflow', args: {} },
+						{
+							id: 'call-7b',
+							name: 'str_replace_based_edit_tool',
+							args: { command: 'str_replace' },
+						},
+					],
+					messages: [],
+					iteration: 1,
+					warningTracker: new WarningTracker(),
+					textEditorToolHandler: mockTextEditorToolHandler,
+					textEditorHandler: mockTextEditorHandler,
+				}),
+			);
+
+			expect(result.hasUnvalidatedEdits).toBe(true);
+		});
+
+		it('should leave hasUnvalidatedEdits undefined for general tools', async () => {
+			const mockTool = {
+				name: 'search_nodes',
+				invoke: jest.fn().mockResolvedValue('result'),
+			} as unknown as StructuredToolInterface;
+
+			const handler = new ToolDispatchHandler({
+				toolsMap: new Map([['search_nodes', mockTool]]),
+				validateToolHandler: mockValidateToolHandler,
+				debugLog: mockDebugLog,
+			});
+
+			const result = await drainGenerator(
+				handler.dispatch({
+					toolCalls: [{ id: 'call-8', name: 'search_nodes', args: {} }],
+					messages: [],
+					iteration: 1,
+					warningTracker: new WarningTracker(),
+				}),
+			);
+
+			expect(result.hasUnvalidatedEdits).toBeUndefined();
 		});
 	});
 });

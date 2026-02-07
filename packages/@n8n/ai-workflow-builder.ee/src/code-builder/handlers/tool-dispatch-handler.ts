@@ -64,6 +64,8 @@ export interface ToolDispatchResult {
 	sourceCode?: string;
 	parseDuration?: number;
 	validatePassedThisIteration: boolean;
+	/** undefined = no edits or validations this iteration */
+	hasUnvalidatedEdits?: boolean;
 }
 
 /**
@@ -115,6 +117,7 @@ export class ToolDispatchHandler {
 		let sourceCode: string | undefined;
 		let parseDuration: number | undefined;
 		let validatePassedThisIteration = false;
+		let hasUnvalidatedEdits: boolean | undefined;
 
 		this.debugLog('TOOL_DISPATCH', 'Processing tool calls...', {
 			toolCalls: toolCalls.map((tc) => ({
@@ -139,6 +142,19 @@ export class ToolDispatchHandler {
 				textEditorToolHandler,
 				warningTracker,
 			});
+
+			// Track hasUnvalidatedEdits based on tool call type
+			if (toolCall.name === 'str_replace_based_edit_tool') {
+				const command = toolCall.args.command as string;
+				if (command === 'create') {
+					hasUnvalidatedEdits = false; // create auto-validates
+				} else if (command !== 'view') {
+					hasUnvalidatedEdits = true; // str_replace, insert modify code
+				}
+			}
+			if (toolCall.name === 'validate_workflow') {
+				hasUnvalidatedEdits = false;
+			}
 
 			// Update state from result
 			if (result.workflow) {
@@ -166,6 +182,7 @@ export class ToolDispatchHandler {
 			sourceCode,
 			parseDuration,
 			validatePassedThisIteration,
+			hasUnvalidatedEdits,
 		};
 	}
 
