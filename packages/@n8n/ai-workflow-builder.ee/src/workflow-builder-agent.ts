@@ -214,6 +214,7 @@ export class WorkflowBuilderAgent {
 				runMetadata: {
 					...this.runMetadata,
 					userMessageId: payload.id,
+					workflowId: payload.workflowContext?.currentWorkflow?.id,
 				},
 				onTelemetryEvent: this.onTelemetryEvent,
 				onTokenUsage: (usage) => {
