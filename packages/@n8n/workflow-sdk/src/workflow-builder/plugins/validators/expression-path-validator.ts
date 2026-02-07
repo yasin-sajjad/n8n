@@ -5,7 +5,7 @@
  * that exist in predecessor node outputs.
  */
 
-import type { GraphNode, NodeInstance } from '../../../types/base';
+import { isNodeChain, type GraphNode, type NodeInstance } from '../../../types/base';
 import { filterMethodsFromPath } from '../../string-utils';
 import { extractExpressions, parseExpression, hasPath } from '../../validation-helpers';
 import type { ValidatorPlugin, ValidationIssue, PluginContext } from '../types';
@@ -25,6 +25,11 @@ function resolveTargetNodeName(target: unknown): string | undefined {
 	) {
 		const nodeTarget = (target as { node: { name?: string } }).node;
 		return nodeTarget?.name;
+	}
+
+	// NodeChain - resolve to head node (the actual direct connection target)
+	if (isNodeChain(target)) {
+		return target.head.name;
 	}
 
 	// Direct NodeInstance shape
@@ -66,7 +71,7 @@ function findPredecessors(nodeName: string, nodes: ReadonlyMap<string, GraphNode
 		}
 	}
 
-	return predecessors;
+	return [...new Set(predecessors)];
 }
 
 /**

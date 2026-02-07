@@ -212,6 +212,103 @@ describe('expressionPathValidator', () => {
 			);
 		});
 
+		it('does not produce false positive when chain target resolves via getConnections()', () => {
+			// Simulates: nodeA.to(nodeB.to(nodeC))
+			// nodeA stores a NodeChain target whose .name = tail (nodeC)
+			// The validator should resolve to head (nodeB), not tail (nodeC)
+			//
+			// Chain: NodeA → NodeB → NodeC
+			// NodeC uses $json.caption which only exists in NodeB's output
+			// NodeA outputs { data: 'value' } (no caption)
+			// NodeB outputs { caption: 'hello' }
+
+			// NodeB connects to NodeC via graphNode.connections (correctly resolved)
+			const nodeB = createMockNode('n8n-nodes-base.set', 'NodeB', {
+				output: [{ caption: 'hello' }],
+			});
+			const nodeBConns = new Map<string, Map<number, ConnectionTarget[]>>();
+			nodeBConns.set('main', new Map([[0, [conn('NodeC', 0)]]]));
+
+			// NodeA has a getConnections() that returns a NodeChain target pointing to NodeB→NodeC chain
+			// The chain's .name = 'NodeC' (tail), but head = 'NodeB'
+			const nodeA = createMockNode('n8n-nodes-base.set', 'NodeA', {
+				output: [{ data: 'value' }],
+			});
+			// Mock getConnections to return a chain-like target
+			const chainTarget = {
+				_isChain: true,
+				head: { name: 'NodeB' },
+				tail: { name: 'NodeC' },
+				name: 'NodeC', // NodeChain proxies .name to tail
+			};
+			(nodeA as unknown as Record<string, unknown>).getConnections = () => [
+				{ target: chainTarget, outputIndex: 0 },
+			];
+
+			const nodeC = createMockNode('n8n-nodes-base.set', 'NodeC', {
+				parameters: { value: '={{ $json.caption }}' },
+			});
+
+			const nodes = new Map<string, GraphNode>();
+			nodes.set('NodeA', createGraphNode(nodeA));
+			nodes.set('NodeB', createGraphNode(nodeB, nodeBConns));
+			nodes.set('NodeC', createGraphNode(nodeC));
+
+			const ctx = createMockPluginContext(nodes);
+			const issues = expressionPathValidator.validateWorkflow!(ctx);
+
+			// Should produce NO warnings - $json.caption exists in NodeB (the direct predecessor)
+			// Bug: without fix, NodeA is incorrectly identified as predecessor of NodeC
+			// (because chain.name = 'NodeC'), causing a false PARTIAL_EXPRESSION_PATH warning
+			expect(issues).toHaveLength(0);
+		});
+
+		it('deduplicates predecessors found from both connections map and getConnections()', () => {
+			// When a connection exists in BOTH graphNode.connections AND getConnections(),
+			// the predecessor should only be counted once in PARTIAL messages.
+			// Setup: NodeA (has field) connects to NodeC via both paths,
+			// NodeB (no field) also connects to NodeC → triggers PARTIAL
+
+			const nodeA = createMockNode('n8n-nodes-base.set', 'NodeA', {
+				output: [{ caption: 'hello' }],
+			});
+			// Connection in graphNode.connections
+			const nodeAConns = new Map<string, Map<number, ConnectionTarget[]>>();
+			nodeAConns.set('main', new Map([[0, [conn('NodeC', 0)]]]));
+			// Also returned by getConnections() as a direct NodeInstance target
+			(nodeA as unknown as Record<string, unknown>).getConnections = () => [
+				{ target: { name: 'NodeC' }, outputIndex: 0 },
+			];
+
+			const nodeB = createMockNode('n8n-nodes-base.set', 'NodeB', {
+				output: [{ other: 'value' }],
+			});
+			const nodeBConns = new Map<string, Map<number, ConnectionTarget[]>>();
+			nodeBConns.set('main', new Map([[0, [conn('NodeC', 0)]]]));
+
+			const nodeC = createMockNode('n8n-nodes-base.set', 'NodeC', {
+				parameters: { value: '={{ $json.caption }}' },
+			});
+
+			const nodes = new Map<string, GraphNode>();
+			nodes.set('NodeA', createGraphNode(nodeA, nodeAConns));
+			nodes.set('NodeB', createGraphNode(nodeB, nodeBConns));
+			nodes.set('NodeC', createGraphNode(nodeC));
+
+			const ctx = createMockPluginContext(nodes);
+			const issues = expressionPathValidator.validateWorkflow!(ctx);
+
+			// Should have one PARTIAL warning with NodeA appearing exactly once
+			expect(issues).toHaveLength(1);
+			expect(issues[0]).toMatchObject({
+				code: 'PARTIAL_EXPRESSION_PATH',
+				severity: 'warning',
+			});
+			// Bug: without dedup, NodeA appears twice: "exists in [NodeA, NodeA]"
+			const nodeAOccurrences = (issues[0].message.match(/NodeA/g) ?? []).length;
+			expect(nodeAOccurrences).toBe(1);
+		});
+
 		it('returns PARTIAL_EXPRESSION_PATH when field exists in some but not all predecessors', () => {
 			// Two predecessors connecting directly to Consumer (like after branching)
 			const node1 = createMockNode('n8n-nodes-base.set', 'Set1');
