@@ -577,6 +577,7 @@ ${'='.repeat(50)}
 			sourceCode: null,
 			textEditorValidateAttempts: 0,
 			warningTracker: new WarningTracker(),
+			outputTrace: [],
 		};
 
 		// Create a parent run to group all LLM invocations under a single trace
@@ -627,6 +628,16 @@ ${'='.repeat(50)}
 					callbacks: childCallbacks,
 				});
 
+				// Accumulate output trace entries for the parent LangSmith trace
+				if (llmResult.textContent) {
+					state.outputTrace.push({ type: 'text', text: llmResult.textContent });
+				}
+				if (llmResult.hasToolCalls && llmResult.response.tool_calls) {
+					for (const toolCall of llmResult.response.tool_calls) {
+						state.outputTrace.push({ type: 'tool-call', toolName: toolCall.name });
+					}
+				}
+
 				const iterationResult = yield* this.processIteration({
 					llmResult,
 					messages,
@@ -645,6 +656,7 @@ ${'='.repeat(50)}
 			await parentRunManager?.handleChainEnd({
 				iterations: state.iteration,
 				hasWorkflow: !!state.workflow,
+				outputTrace: state.outputTrace,
 				output: state.workflow
 					? { code: state.sourceCode, workflow: JSON.stringify(state.workflow) }
 					: null,
@@ -906,6 +918,12 @@ interface AgenticLoopResult {
 }
 
 /**
+ * A single entry in the output trace — either user-facing text or a tool call name.
+ * Args/results are available in child runs, so only the name is captured here.
+ */
+type TraceEntry = { type: 'text'; text: string } | { type: 'tool-call'; toolName: string };
+
+/**
  * Mutable state for the agentic loop
  */
 interface AgenticLoopState {
@@ -916,4 +934,5 @@ interface AgenticLoopState {
 	sourceCode: string | null;
 	textEditorValidateAttempts: number;
 	warningTracker: WarningTracker;
+	outputTrace: TraceEntry[];
 }

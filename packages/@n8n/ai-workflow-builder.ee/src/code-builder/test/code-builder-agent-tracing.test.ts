@@ -121,11 +121,85 @@ describe('CodeBuilderAgent tracing', () => {
 		expect(parentOutput).toMatchObject({
 			iterations: expect.any(Number),
 			hasWorkflow: true,
+			outputTrace: expect.arrayContaining([
+				expect.objectContaining({ type: 'text', text: expect.any(String) }),
+			]),
 			output: {
 				code: expect.any(String),
 				workflow: JSON.stringify(MOCK_WORKFLOW),
 			},
 		});
+	});
+
+	it('should capture interleaved text and tool-call entries in outputTrace', async () => {
+		// Iteration 1: LLM returns text + two tool calls (search_nodes, get_node_types)
+		const toolCallResponse = new AIMessage({
+			content: 'Let me search for the right nodes...',
+			tool_calls: [
+				{ name: 'search_nodes', args: { query: 'http' }, id: 'tc-1', type: 'tool_call' as const },
+				{
+					name: 'get_node_types',
+					args: { nodeTypes: ['n8n-nodes-base.httpRequest'] },
+					id: 'tc-2',
+					type: 'tool_call' as const,
+				},
+			],
+			response_metadata: { usage: { input_tokens: 100, output_tokens: 50 } },
+		});
+
+		// Iteration 2: LLM returns text with code block (final response)
+		const codeResponse = new AIMessage({
+			content: 'Here is your workflow:\n```typescript\nconst workflow = builder.addNode(...);\n```',
+			tool_calls: [],
+			response_metadata: { usage: { input_tokens: 200, output_tokens: 100 } },
+		});
+
+		let callCount = 0;
+		const mockLlm = {
+			bindTools: jest.fn().mockReturnValue({
+				invoke: jest.fn().mockImplementation(() => {
+					callCount++;
+					return callCount === 1 ? toolCallResponse : codeResponse;
+				}),
+			}),
+		} as unknown as BaseChatModel;
+
+		const tracker = new ChainEndTracker();
+
+		const agent = new CodeBuilderAgent({
+			llm: mockLlm,
+			nodeTypes: [],
+			callbacks: [tracker],
+			enableTextEditor: false,
+		});
+
+		const chunks = [];
+		for await (const chunk of agent.chat(
+			{ id: 'msg-3', message: 'Create an HTTP request workflow' },
+			'user-1',
+		)) {
+			chunks.push(chunk);
+		}
+
+		const parentOutput = tracker.chainEndOutputs.find((o) => 'iterations' in o);
+		expect(parentOutput).toBeDefined();
+		expect(parentOutput!.hasWorkflow).toBe(true);
+
+		// Verify the outputTrace has the correct interleaved order
+		const trace = parentOutput!.outputTrace as Array<{
+			type: string;
+			text?: string;
+			toolName?: string;
+		}>;
+		expect(trace).toEqual([
+			{ type: 'text', text: 'Let me search for the right nodes...' },
+			{ type: 'tool-call', toolName: 'search_nodes' },
+			{ type: 'tool-call', toolName: 'get_node_types' },
+			{
+				type: 'text',
+				text: 'Here is your workflow:\n```typescript\nconst workflow = builder.addNode(...);\n```',
+			},
+		]);
 	});
 
 	it('should set output to null when no workflow is produced', async () => {
