@@ -25,7 +25,7 @@ interface ContentBlock {
 }
 
 interface DictPromptTemplate {
-	template: ContentBlock;
+	template: ContentBlock | string;
 }
 
 interface PromptMessage {
@@ -39,18 +39,20 @@ let output = '# Code Builder Agent Prompt\n\n';
 
 // Extract system message - prompt[0].template is { type: 'text', text: '...' }
 const systemMessage = messages[0];
-if (systemMessage.prompt?.[0]?.template?.text) {
-	output += unescapeCurlyBrackets(systemMessage.prompt[0].template.text);
+const systemTemplate = systemMessage.prompt?.[0]?.template;
+const systemText = typeof systemTemplate === 'string' ? systemTemplate : systemTemplate?.text;
+if (systemText) {
+	output += unescapeCurlyBrackets(systemText);
 	output += '\n\n';
 }
 
 // Extract human message template
 const humanMessage = messages[1];
-if (humanMessage.prompt?.template) {
+if (humanMessage.prompt?.[0]?.template) {
 	const template =
-		typeof humanMessage.prompt.template === 'string'
-			? humanMessage.prompt.template
-			: ((humanMessage.prompt.template as unknown as ContentBlock).text ?? '');
+		typeof humanMessage.prompt[0].template === 'string'
+			? humanMessage.prompt[0].template
+			: (humanMessage.prompt[0].template.text ?? '');
 	if (template) {
 		output += '---\n\n## USER MESSAGE\n\n';
 		output += unescapeCurlyBrackets(template);
