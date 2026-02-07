@@ -697,7 +697,11 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 
 		isLoadingSessions.value = true;
 		try {
-			const response = await getAiSessions(rootStore.restApiContext, workflowId);
+			const response = await getAiSessions(
+				rootStore.restApiContext,
+				workflowId,
+				isCodeBuilder.value,
+			);
 			loadedSessionsForWorkflowId.value = workflowId;
 			const sessions = response.sessions || [];
 
