@@ -392,8 +392,7 @@ const set_Data = node({
 });
 
 return workflow('test-id', 'Test Workflow')
-  .add(manual_Trigger)
-  .to(set_Data)
+  .add(manual_Trigger.to(set_Data))
 `;
 			const json = parseWorkflowCode(code);
 			const result = validateWorkflow(json);
@@ -423,8 +422,7 @@ const set_Data = node({
 });
 
 return workflow('test-id', 'Test Workflow')
-  .add(manual_Trigger)
-  .to(set_Data)
+  .add(manual_Trigger.to(set_Data))
 `;
 			const json = parseWorkflowCode(code);
 			const result = validateWorkflow(json);
@@ -456,8 +454,7 @@ const set_Data = node({
 });
 
 return workflow('test-id', 'Test Workflow')
-  .add(manual_Trigger)
-  .to(set_Data)
+  .add(manual_Trigger.to(set_Data))
 `;
 			const json = parseWorkflowCode(code);
 			const result = validateWorkflow(json);

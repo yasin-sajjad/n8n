@@ -95,10 +95,9 @@ describe('Switch Case fluent API', () => {
 			});
 
 			// Fluent syntax in workflow
-			const wf = workflow('test-id', 'Test')
-				.add(t)
-				.to(switchNode.onCase!(0, case0).onCase(1, case1).onCase(2, case2))
-				.to(downstream);
+			const wf = workflow('test-id', 'Test').add(
+				t.to(switchNode.onCase!(0, case0).onCase(1, case1).onCase(2, case2)).to(downstream),
+			);
 
 			const json = wf.toJSON();
 
@@ -136,9 +135,9 @@ describe('Switch Case fluent API', () => {
 			});
 
 			// Fluent syntax with sparse cases (skip case1)
-			const wf = workflow('test-id', 'Test')
-				.add(t)
-				.to(switchNode.onCase!(0, case0).onCase(2, case2));
+			const wf = workflow('test-id', 'Test').add(
+				t.to(switchNode.onCase!(0, case0).onCase(2, case2)),
+			);
 
 			const json = wf.toJSON();
 
@@ -181,9 +180,9 @@ describe('Switch Case fluent API', () => {
 			});
 
 			// Fluent syntax with plain array for fan-out
-			const wf = workflow('test-id', 'Test')
-				.add(t)
-				.to(switchNode.onCase!(0, [targetA, targetB]).onCase(1, targetC));
+			const wf = workflow('test-id', 'Test').add(
+				t.to(switchNode.onCase!(0, [targetA, targetB]).onCase(1, targetC)),
+			);
 
 			const json = wf.toJSON();
 

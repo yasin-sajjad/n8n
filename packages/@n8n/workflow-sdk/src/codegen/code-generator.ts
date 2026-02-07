@@ -1125,23 +1125,37 @@ function flattenToWorkflowCalls(
 			]);
 		}
 	} else if (root.kind === 'chain') {
-		// Chain: first node is .add(), rest are .to()
+		// Chain: accumulate node-level .to() chains and emit single .add() calls
+		// e.g. [A, B, C] => .add(A.to(B).to(C))
 		// Special handling when chain contains a multiOutput node
 		const nestedMultiOutputsInChain: MultiOutputNode[] = [];
+		let pendingChain: string[] = [];
+
+		const flushPending = () => {
+			if (pendingChain.length === 0) return;
+			const chainCode =
+				pendingChain[0] +
+				pendingChain
+					.slice(1)
+					.map((c) => `.to(${c})`)
+					.join('');
+			calls.push(['add', chainCode]);
+			pendingChain = [];
+		};
 
 		for (let i = 0; i < root.nodes.length; i++) {
 			const node = root.nodes[i];
 
 			if (node.kind === 'multiOutput') {
 				// When encountering a multiOutput node in a chain:
-				// 1. Generate .to(sourceNode) to connect the previous node to the multi-output source
+				// 1. Add sourceNode to pending chain, then flush as single .add()
 				// 2. Then generate separate .add() calls for each output
 				const multiOutput = node;
 				const sourceVarName = getVarName(multiOutput.sourceNode.name, ctx);
 
-				// Connect to the multi-output source node
-				const method = i === 0 ? 'add' : 'to';
-				calls.push([method, sourceVarName]);
+				// Add source to pending chain and flush
+				pendingChain.push(sourceVarName);
+				flushPending();
 
 				// Generate .add(sourceNode.output(n).to(target)) for each output
 				const sortedOutputs = [...multiOutput.outputTargets.entries()].sort((a, b) => a[0] - b[0]);
@@ -1151,14 +1165,16 @@ function flattenToWorkflowCalls(
 					calls.push(['add', `${sourceVarName}.output(${outputIndex}).to(${targetCode})`]);
 				}
 			} else {
-				const method = i === 0 ? 'add' : 'to';
 				const code = generateComposite(node, ctx);
-				calls.push([method, code]);
+				pendingChain.push(code);
 
 				// Check for nested multiOutput nodes inside this composite (e.g., inside splitInBatches)
 				collectNestedMultiOutputs(node, nestedMultiOutputsInChain);
 			}
 		}
+
+		// Flush any remaining pending nodes
+		flushPending();
 
 		// Generate output connections for any nested multiOutput nodes found in the chain
 		for (const multiOutput of nestedMultiOutputsInChain) {

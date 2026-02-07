@@ -412,6 +412,27 @@ export interface NodeInstance<TType extends string, TVersion extends string, TOu
 		outputIndex?: number,
 	): NodeChain<NodeInstance<TType, TVersion, TOutput>, T>;
 
+	to<T>(
+		target: IfElseBuilder<T>,
+		outputIndex?: number,
+	): NodeChain<
+		NodeInstance<TType, TVersion, TOutput>,
+		NodeInstance<'n8n-nodes-base.if', string, T>
+	>;
+
+	to<T>(
+		target: SwitchCaseBuilder<T>,
+		outputIndex?: number,
+	): NodeChain<
+		NodeInstance<TType, TVersion, TOutput>,
+		NodeInstance<'n8n-nodes-base.switch', string, T>
+	>;
+
+	to<T>(
+		target: SplitInBatchesBuilder<T>,
+		outputIndex?: number,
+	): NodeChain<NodeInstance<TType, TVersion, TOutput>, NodeInstance<TType, TVersion, TOutput>>;
+
 	/**
 	 * Create a terminal input target for connecting to a specific input index.
 	 * Use this to connect a node to a specific input of a multi-input node like Merge.
@@ -488,6 +509,16 @@ export interface NodeChain<
 		target: T | T[] | InputTarget,
 		outputIndex?: number,
 	): NodeChain<THead, T>;
+
+	to<T>(
+		target: IfElseBuilder<T>,
+		outputIndex?: number,
+	): NodeChain<THead, NodeInstance<'n8n-nodes-base.if', string, T>>;
+
+	to<T>(
+		target: SwitchCaseBuilder<T>,
+		outputIndex?: number,
+	): NodeChain<THead, NodeInstance<'n8n-nodes-base.switch', string, T>>;
 
 	to<T>(target: SplitInBatchesBuilder<T>, outputIndex?: number): NodeChain<THead, TTail>;
 }
@@ -862,14 +893,11 @@ export interface WorkflowBuilder {
 			| SwitchCaseBuilder<unknown>,
 	>(node: N): WorkflowBuilder;
 
-	to<N extends NodeInstance<string, string, unknown>>(node: N): WorkflowBuilder;
-	to(ifElse: IfElseComposite): WorkflowBuilder;
-	to(switchCase: SwitchCaseComposite): WorkflowBuilder;
-	to<T>(splitInBatches: SplitInBatchesBuilder<T>): WorkflowBuilder;
-	to<T>(ifElseBuilder: IfElseBuilder<T>): WorkflowBuilder;
-	to<T>(switchCaseBuilder: SwitchCaseBuilder<T>): WorkflowBuilder;
-	/** Connect to multiple outputs (branching). Each array element connects to incrementing output index. Use null to skip an output. */
-	to(nodes: Array<NodeInstance<string, string, unknown> | NodeChain | null>): WorkflowBuilder;
+	/**
+	 * @deprecated WorkflowBuilder.to() is not supported. Use node-level .to() instead:
+	 * `workflow(...).add(nodeA.to(nodeB))` instead of `workflow(...).add(nodeA).to(nodeB)`
+	 */
+	to(...args: unknown[]): never;
 
 	settings(settings: WorkflowSettings): WorkflowBuilder;
 

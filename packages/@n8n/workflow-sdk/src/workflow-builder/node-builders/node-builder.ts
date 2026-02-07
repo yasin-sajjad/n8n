@@ -213,7 +213,11 @@ class NodeInstanceImpl<TType extends string, TVersion extends string, TOutput = 
 	 * Use this for multi-output nodes (like text classifiers) to connect from specific outputs.
 	 */
 	output(index: number): OutputSelector<TType, TVersion, TOutput> {
-		return new OutputSelectorImpl(this, index);
+		return new OutputSelectorImpl(this, index) as unknown as OutputSelector<
+			TType,
+			TVersion,
+			TOutput
+		>;
 	}
 
 	/**
