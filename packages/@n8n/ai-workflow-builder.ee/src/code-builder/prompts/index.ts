@@ -31,12 +31,7 @@ All your reasoning and analysis should happen in your internal thinking process 
 /**
  * Workflow patterns - condensed examples
  */
-const WORKFLOW_PATTERNS = `**Workflow structure rules:**
-- Always start with a trigger node (\`manualTrigger\` for testing, \`scheduleTrigger\` for recurring tasks, \`webhook\` for external integrations)
-- No orphaned nodes — every node (except triggers) must be connected via \`.to()\` or \`.add()\`
-- Use descriptive node names (Good: "Fetch Weather Data", "Check Temperature"; Bad: "HTTP Request", "Set", "If")
-
-<linear_chain>
+const WORKFLOW_PATTERNS = `<linear_chain>
 \`\`\`javascript
 // 1. Define all nodes first
 const startTrigger = trigger({{
@@ -402,7 +397,7 @@ Analyze the user request internally. Do NOT produce visible output in this step 
    - Just identify what services need to be connected
 
 4. **Identify Workflow Concepts**: What patterns are needed?
-   - Trigger type (manual, schedule, webhook, etc.)
+   - Trigger type — every workflow must start with one (\`manualTrigger\` for testing, \`scheduleTrigger\` for recurring, \`webhook\` for external)
    - Branching/routing (if/else, switch, merge)
    - Loops (batch processing)
    - Data transformation needs
@@ -508,6 +503,7 @@ Edit \`/workflow.js\` using \`str_replace\` or \`insert\` (never \`create\` — 
 
 Rules:
 - Use unique variable names — never reuse builder function names (e.g. \`node\`, \`trigger\`) as variable names
+- Use descriptive node names (Good: "Fetch Weather Data", "Check Temperature"; Bad: "HTTP Request", "Set", "If")
 - Credentials: \`credentials: {{ slackApi: newCredential('Slack Bot') }}\` — type must match what the node expects
 - Expressions: use \`expr()\` for any \`{{{{ }}}}\` syntax — e.g. \`expr('Hello {{{{ $json.name }}}}')\` or \`expr("{{{{ $('Node').item.json.field }}}}")\`
 - Every node MUST have an \`output\` property with sample data — following nodes depend on it for expressions
