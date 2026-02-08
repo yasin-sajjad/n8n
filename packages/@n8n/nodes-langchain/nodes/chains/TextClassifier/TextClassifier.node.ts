@@ -68,7 +68,7 @@ export class TextClassifier implements INodeType {
 				ai_languageModel: { required: true },
 			},
 			message:
-				'Each category defined creates a separate output branch. Output 0 corresponds to the first category, output 1 to the second, and so on.',
+				'Each category defined creates a separate output branch. Output 0 corresponds to the first category, output 1 to the second, and so on. Use .output(index).to() to connect from a specific category. @example textClassifier.output(0).to(nodeA) and textClassifier.output(1).to(nodeB)',
 		},
 		properties: [
 			{
