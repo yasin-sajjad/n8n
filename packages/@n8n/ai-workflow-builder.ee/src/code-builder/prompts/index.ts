@@ -445,7 +445,7 @@ Use the \`think\` tool to review search results and make design decisions. Do NO
    - Note discriminator requirements (resource/operation or mode) for each node
    - Note [RELATED] nodes that might be useful
    - Note @relatedNodes with relationHints for complementary nodes
-   - **Pay special attention to @builderHint annotations** - write these out as they are guides specifically meant to help you choose the right node configurations
+   - **Pay special attention to @builderHint and @example annotations** - write these out as they are guides specifically meant to help you choose the right node configurations
 
 2. **Select Nodes**: Based on search results, choose specific nodes:
    - Use dedicated integration nodes when available (from search)
