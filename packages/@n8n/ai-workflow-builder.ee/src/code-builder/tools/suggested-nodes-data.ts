@@ -33,8 +33,8 @@ export const suggestedNodesData: Record<string, CategoryData> = {
 				name: '@n8n/n8n-nodes-langchain.memoryBufferWindow',
 				note: 'Maintains short-term conversation history',
 			},
-			{ name: 'n8n-nodes-base.slack', note: 'Use same platform for trigger and response' },
-			{ name: 'n8n-nodes-base.telegram', note: 'Use same platform for trigger and response' },
+			{ name: 'n8n-nodes-base.slack' },
+			{ name: 'n8n-nodes-base.telegram' },
 			{ name: 'n8n-nodes-base.whatsApp' },
 			{ name: 'n8n-nodes-base.discord' },
 		],
@@ -49,10 +49,13 @@ export const suggestedNodesData: Record<string, CategoryData> = {
 				name: 'n8n-nodes-base.scheduleTrigger',
 				note: 'Periodic monitoring and batch notifications',
 			},
-			{ name: 'n8n-nodes-base.gmail', note: 'Easy OAuth setup for sending emails' },
-			{ name: 'n8n-nodes-base.slack', note: 'Use channel IDs (starting with C), not names' },
-			{ name: 'n8n-nodes-base.telegram', note: 'Use chat ID for direct messages' },
-			{ name: 'n8n-nodes-base.twilio', note: 'Use international format (+1234567890)' },
+			{
+				name: 'n8n-nodes-base.gmail',
+				note: "Default to this because it's easy for users to setup",
+			},
+			{ name: 'n8n-nodes-base.slack' },
+			{ name: 'n8n-nodes-base.telegram' },
+			{ name: 'n8n-nodes-base.twilio' },
 			{
 				name: 'n8n-nodes-base.httpRequest',
 				note: 'For services without dedicated nodes (Teams, Discord)',
@@ -71,7 +74,6 @@ export const suggestedNodesData: Record<string, CategoryData> = {
 		nodes: [
 			{ name: 'n8n-nodes-base.scheduleTrigger' },
 			{ name: 'n8n-nodes-base.httpRequest' },
-			{ name: 'n8n-nodes-base.if' },
 			{ name: 'n8n-nodes-base.set' },
 			{ name: 'n8n-nodes-base.wait', note: 'Respect rate limits between API calls' },
 		],
@@ -81,11 +83,9 @@ export const suggestedNodesData: Record<string, CategoryData> = {
 		description: 'Cleaning, formatting, or restructuring data',
 		patternHint: 'Input → Filter/Map → Transform → Output',
 		nodes: [
-			{ name: 'n8n-nodes-base.set', note: '"Keep Only Set" drops fields not explicitly defined' },
+			{ name: 'n8n-nodes-base.set' },
 			{ name: 'n8n-nodes-base.if', note: 'Use early to validate inputs' },
 			{ name: 'n8n-nodes-base.filter', note: 'Use early to reduce data volume' },
-			{ name: 'n8n-nodes-base.merge', note: 'Normalize field names with Set before merging' },
-			{ name: 'n8n-nodes-base.code', note: 'Must return [{json: {...}}] format' },
 			{ name: 'n8n-nodes-base.summarize', note: 'Pivot table-style aggregations' },
 			{ name: 'n8n-nodes-base.aggregate', note: 'Combine multiple items into one' },
 			{
@@ -113,7 +113,7 @@ export const suggestedNodesData: Record<string, CategoryData> = {
 			},
 			{
 				name: 'n8n-nodes-base.airtable',
-				note: 'If relationships between tables are needed, Airtable supports them',
+				note: 'If relationships between tables are needed',
 			},
 			{ name: 'n8n-nodes-base.postgres' },
 			{ name: 'n8n-nodes-base.mySql' },
@@ -150,7 +150,6 @@ export const suggestedNodesData: Record<string, CategoryData> = {
 		nodes: [
 			{
 				name: 'n8n-nodes-base.gmailTrigger',
-				note: 'To access attachments, set Simplify=FALSE and Download Attachments=TRUE',
 			},
 			{ name: 'n8n-nodes-base.googleDriveTrigger' },
 			{
@@ -197,7 +196,7 @@ export const suggestedNodesData: Record<string, CategoryData> = {
 			{ name: 'n8n-nodes-base.httpRequest', note: 'For APIs without dedicated nodes' },
 			{ name: 'n8n-nodes-base.editImage', note: 'Resize, crop, format conversion' },
 			{ name: 'n8n-nodes-base.markdown', note: 'Convert to HTML' },
-			{ name: 'n8n-nodes-base.facebookGraphApi', note: 'Use binary data, not URLs for uploads' },
+			{ name: 'n8n-nodes-base.facebookGraphApi' },
 			{
 				name: 'n8n-nodes-base.wait',
 				note: 'Video generation is async, use wait while polling for updated',
@@ -211,7 +210,6 @@ export const suggestedNodesData: Record<string, CategoryData> = {
 		nodes: [
 			{
 				name: '@n8n/n8n-nodes-langchain.textClassifier',
-				note: 'Set "When No Clear Match" to Other branch',
 			},
 			{
 				name: '@n8n/n8n-nodes-langchain.agent',
