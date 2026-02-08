@@ -56,6 +56,28 @@ const DISCRIMINATOR_FIELDS = ['resource', 'operation', 'mode'];
 /** Custom API Call operations don't have fixed schemas - skip them */
 const CUSTOM_API_CALL_KEY = '__CUSTOM_API_CALL__';
 
+const ASSIGNMENT_TYPE_JSDOC = `/**
+ * Assignment type determines how the value is interpreted.
+ * - string: Direct string value or expression evaluating to string
+ * - number: Direct number value or expression evaluating to number
+ * - boolean: Direct boolean value or expression evaluating to boolean
+ * - array: Expression that evaluates to an array, e.g. ={{ [1, 2, 3] }} or ={{ $json.items }}
+ * - object: Expression that evaluates to a plain object (not an array — use the array type for arrays), e.g. ={{ { key: 'value' } }} or ={{ $json.data }}
+ * - binary: Property name of binary data in the input item, or expression to access binary data from previous nodes, e.g. ={{ $('Node').item.binary.data }}
+ */`;
+
+function generateFilterTypeDeclaration(exported: boolean): string {
+	const prefix = exported ? 'export type' : 'type';
+	return `${prefix} FilterValue = { conditions: Array<{ leftValue: unknown; operator: { type: string; operation: string }; rightValue: unknown }> };`;
+}
+
+function generateAssignmentTypeDeclarations(exported: boolean): string {
+	const prefix = exported ? 'export type' : 'type';
+	return `${ASSIGNMENT_TYPE_JSDOC}
+${prefix} AssignmentType = 'string' | 'number' | 'boolean' | 'array' | 'object' | 'binary';
+${prefix} AssignmentCollectionValue = { assignments: Array<{ id: string; name: string; value: unknown; type: AssignmentType }> };`;
+}
+
 function isCustomApiCall(operation: string): boolean {
 	return operation === CUSTOM_API_CALL_KEY;
 }
@@ -1982,24 +2004,10 @@ export function generateSharedFile(
 	if (needsFilter || needsAssignment) {
 		lines.push('// Helper types for special n8n fields');
 		if (needsFilter) {
-			lines.push(
-				'export type FilterValue = { conditions: Array<{ leftValue: unknown; operator: { type: string; operation: string }; rightValue: unknown }> };',
-			);
+			lines.push(generateFilterTypeDeclaration(true));
 		}
 		if (needsAssignment) {
-			lines.push(
-				`/**
- * Assignment type determines how the value is interpreted.
- * - string: Direct string value or expression evaluating to string
- * - number: Direct number value or expression evaluating to number
- * - boolean: Direct boolean value or expression evaluating to boolean
- * - array: Expression that evaluates to an array, e.g. ={{ [1, 2, 3] }} or ={{ $json.items }}
- * - object: Expression that evaluates to an object, e.g. ={{ { key: 'value' } }} or ={{ $json.data }}
- * - binary: Property name of binary data in the input item, or expression to access binary data from previous nodes, e.g. ={{ $('Node').item.binary.data }}
- */
-export type AssignmentType = 'string' | 'number' | 'boolean' | 'array' | 'object' | 'binary';
-export type AssignmentCollectionValue = { assignments: Array<{ id: string; name: string; value: unknown; type: AssignmentType }> };`,
-			);
+			lines.push(generateAssignmentTypeDeclarations(true));
 		}
 		lines.push('');
 	}
@@ -2115,24 +2123,10 @@ export function generateDiscriminatorFile(
 	if (needsFilter || needsAssignment) {
 		lines.push('// Helper types for special n8n fields');
 		if (needsFilter) {
-			lines.push(
-				'type FilterValue = { conditions: Array<{ leftValue: unknown; operator: { type: string; operation: string }; rightValue: unknown }> };',
-			);
+			lines.push(generateFilterTypeDeclaration(false));
 		}
 		if (needsAssignment) {
-			lines.push(
-				`/**
- * Assignment type determines how the value is interpreted.
- * - string: Direct string value or expression evaluating to string
- * - number: Direct number value or expression evaluating to number
- * - boolean: Direct boolean value or expression evaluating to boolean
- * - array: Expression that evaluates to an array, e.g. ={{ [1, 2, 3] }} or ={{ $json.items }}
- * - object: Expression that evaluates to an object, e.g. ={{ { key: 'value' } }} or ={{ $json.data }}
- * - binary: Property name of binary data in the input item, or expression to access binary data from previous nodes, e.g. ={{ $('Node').item.binary.data }}
- */
-type AssignmentType = 'string' | 'number' | 'boolean' | 'array' | 'object' | 'binary';
-type AssignmentCollectionValue = { assignments: Array<{ id: string; name: string; value: unknown; type: AssignmentType }> };`,
-			);
+			lines.push(generateAssignmentTypeDeclarations(false));
 		}
 		lines.push('');
 	}
@@ -2575,24 +2569,10 @@ export function generateSingleVersionTypeFile(
 	if (needsFilter || needsAssignment) {
 		lines.push('// Helper types for special n8n fields');
 		if (needsFilter) {
-			lines.push(
-				'type FilterValue = { conditions: Array<{ leftValue: unknown; operator: { type: string; operation: string }; rightValue: unknown }> };',
-			);
+			lines.push(generateFilterTypeDeclaration(false));
 		}
 		if (needsAssignment) {
-			lines.push(
-				`/**
- * Assignment type determines how the value is interpreted.
- * - string: Direct string value or expression evaluating to string
- * - number: Direct number value or expression evaluating to number
- * - boolean: Direct boolean value or expression evaluating to boolean
- * - array: Expression that evaluates to an array, e.g. ={{ [1, 2, 3] }} or ={{ $json.items }}
- * - object: Expression that evaluates to an object, e.g. ={{ { key: 'value' } }} or ={{ $json.data }}
- * - binary: Property name of binary data in the input item, or expression to access binary data from previous nodes, e.g. ={{ $('Node').item.binary.data }}
- */
-type AssignmentType = 'string' | 'number' | 'boolean' | 'array' | 'object' | 'binary';
-type AssignmentCollectionValue = { assignments: Array<{ id: string; name: string; value: unknown; type: AssignmentType }> };`,
-			);
+			lines.push(generateAssignmentTypeDeclarations(false));
 		}
 		lines.push('');
 	}
@@ -2849,24 +2829,10 @@ export function generateNodeTypeFile(nodes: NodeTypeDescription | NodeTypeDescri
 	if (needsFilter || needsAssignment) {
 		lines.push('// Helper types for special n8n fields');
 		if (needsFilter) {
-			lines.push(
-				'type FilterValue = { conditions: Array<{ leftValue: unknown; operator: { type: string; operation: string }; rightValue: unknown }> };',
-			);
+			lines.push(generateFilterTypeDeclaration(false));
 		}
 		if (needsAssignment) {
-			lines.push(
-				`/**
- * Assignment type determines how the value is interpreted.
- * - string: Direct string value or expression evaluating to string
- * - number: Direct number value or expression evaluating to number
- * - boolean: Direct boolean value or expression evaluating to boolean
- * - array: Expression that evaluates to an array, e.g. ={{ [1, 2, 3] }} or ={{ $json.items }}
- * - object: Expression that evaluates to an object, e.g. ={{ { key: 'value' } }} or ={{ $json.data }}
- * - binary: Property name of binary data in the input item, or expression to access binary data from previous nodes, e.g. ={{ $('Node').item.binary.data }}
- */
-type AssignmentType = 'string' | 'number' | 'boolean' | 'array' | 'object' | 'binary';
-type AssignmentCollectionValue = { assignments: Array<{ id: string; name: string; value: unknown; type: AssignmentType }> };`,
-			);
+			lines.push(generateAssignmentTypeDeclarations(false));
 		}
 		lines.push('');
 	}

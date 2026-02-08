@@ -160,6 +160,7 @@ export const textInput: INodeProperties = {
 		rows: 2,
 	},
 	builderHint: {
+		placeholderSupported: false,
 		message:
 			'Use expressions to include dynamic data from previous nodes (e.g., "={{ $json.input }}"). Static text prompts ignore incoming data.',
 	},
