@@ -29,6 +29,17 @@ const RESPONSE_STYLE = `**Be extremely concise in your visible responses.** The 
 All your reasoning and analysis should happen in your internal thinking process before generating output. Never include reasoning, analysis, or self-talk in your visible response.`;
 
 /**
+ * Workflow rules - strict constraints for code generation
+ */
+const WORKFLOW_RULES = `Follow these rules strictly when generating workflows:
+
+1. **Always use newCredential() for authentication**
+   - When a node needs credentials, always use \`newCredential('Name')\` in the credentials config
+   - NEVER use placeholder strings, fake API keys, or hardcoded auth values
+   - Example: \`credentials: {{ slackApi: newCredential('Slack Bot') }}\`
+   - The credential type must match what the node expects`;
+
+/**
  * Workflow patterns - condensed examples
  */
 const WORKFLOW_PATTERNS = `<linear_chain>
@@ -589,6 +600,7 @@ export function buildCodeBuilderPrompt(
 	const promptSections = [
 		`<role>\n${ROLE}\n</role>`,
 		`<response_style>\n${RESPONSE_STYLE}\n</response_style>`,
+		`<workflow_rules>\n${WORKFLOW_RULES}\n</workflow_rules>`,
 		`<workflow_patterns>\n${WORKFLOW_PATTERNS}\n</workflow_patterns>`,
 		`<sdk_api_reference>\n${SDK_API_CONTENT_ESCAPED}\n</sdk_api_reference>`,
 		`<mandatory_workflow_process>\n${MANDATORY_WORKFLOW}\n</mandatory_workflow_process>`,
