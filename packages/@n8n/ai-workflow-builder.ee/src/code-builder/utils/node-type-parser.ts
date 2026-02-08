@@ -8,7 +8,7 @@
 
 import type { INodeTypeDescription } from 'n8n-workflow';
 
-import { NodeSearchEngine } from '../../tools/engines/node-search-engine';
+import { CodeBuilderNodeSearchEngine } from '../engines/code-builder-node-search-engine';
 
 export interface ParsedNodeType {
 	id: string;
@@ -25,11 +25,11 @@ export interface ParsedNodeType {
 export class NodeTypeParser {
 	private nodeTypes: INodeTypeDescription[];
 	private nodeTypeIndex: Map<string, INodeTypeDescription[]>;
-	private searchEngine: NodeSearchEngine;
+	private searchEngine: CodeBuilderNodeSearchEngine;
 
 	constructor(nodeTypes: INodeTypeDescription[]) {
 		this.nodeTypes = nodeTypes;
-		this.searchEngine = new NodeSearchEngine(nodeTypes);
+		this.searchEngine = new CodeBuilderNodeSearchEngine(nodeTypes);
 		this.nodeTypeIndex = this.buildIndex();
 	}
 
