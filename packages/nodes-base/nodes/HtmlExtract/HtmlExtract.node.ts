@@ -58,10 +58,6 @@ export class HtmlExtract implements INodeType {
 		},
 		inputs: [NodeConnectionTypes.Main],
 		outputs: [NodeConnectionTypes.Main],
-		builderHint: {
-			message:
-				'Use to extract HTML content from http requests. Though, JS-rendered sites may return empty',
-		},
 		properties: [
 			{
 				displayName: 'Source Data',

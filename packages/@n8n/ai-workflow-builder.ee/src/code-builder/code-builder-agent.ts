@@ -29,6 +29,7 @@ import type {
 import type { ChatPayload } from '../workflow-builder-agent';
 import {
 	CODE_BUILDER_GET_NODE_TYPES_TOOL,
+	CODE_BUILDER_GET_SUGGESTED_NODES_TOOL,
 	CODE_BUILDER_SEARCH_NODES_TOOL,
 	CODE_BUILDER_THINK_TOOL,
 	MAX_AGENT_ITERATIONS,
@@ -47,6 +48,7 @@ import type { HistoryContext } from './prompts';
 import { WarningTracker } from './state/warning-tracker';
 import { createCodeBuilderGetTool } from './tools/code-builder-get.tool';
 import { createCodeBuilderSearchTool } from './tools/code-builder-search.tool';
+import { createGetSuggestedNodesTool } from './tools/get-suggested-nodes.tool';
 import { createThinkTool } from './tools/think.tool';
 import type { CodeBuilderAgentConfig, TokenUsage } from './types';
 export type { CodeBuilderAgentConfig } from './types';
@@ -154,8 +156,9 @@ export class CodeBuilderAgent {
 		// Create tools
 		const searchTool = createCodeBuilderSearchTool(this.nodeTypeParser);
 		const getTool = createCodeBuilderGetTool({ generatedTypesDir: config.generatedTypesDir });
+		const suggestedNodesTool = createGetSuggestedNodesTool(this.nodeTypeParser);
 		const thinkTool = createThinkTool();
-		this.tools = [searchTool, getTool, thinkTool];
+		this.tools = [searchTool, getTool, suggestedNodesTool, thinkTool];
 		this.toolsMap = new Map(this.tools.map((t) => [t.name, t]));
 
 		// Initialize chat setup handler
@@ -176,6 +179,10 @@ export class CodeBuilderAgent {
 			toolDisplayTitles: new Map([
 				[CODE_BUILDER_SEARCH_NODES_TOOL.toolName, CODE_BUILDER_SEARCH_NODES_TOOL.displayTitle],
 				[CODE_BUILDER_GET_NODE_TYPES_TOOL.toolName, CODE_BUILDER_GET_NODE_TYPES_TOOL.displayTitle],
+				[
+					CODE_BUILDER_GET_SUGGESTED_NODES_TOOL.toolName,
+					CODE_BUILDER_GET_SUGGESTED_NODES_TOOL.displayTitle,
+				],
 				[CODE_BUILDER_THINK_TOOL.toolName, CODE_BUILDER_THINK_TOOL.displayTitle],
 			]),
 			validateToolHandler: this.validateToolHandler,
