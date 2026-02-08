@@ -525,6 +525,8 @@ export type StickyFn = (
  * Returns an opaque PlaceholderValue object that CANNOT be concatenated or used
  * in string interpolation. Placeholders must be assigned to entire parameter values.
  *
+ * *IMPORTANT* DO NOT USE FOR AUTH VALUES. Use newCredential( always.
+ *
  * CORRECT:
  *   parameters: { url: placeholder('Full API URL (e.g., https://api.example.com/v1/users)') }
  *

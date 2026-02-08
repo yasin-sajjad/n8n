@@ -62,6 +62,30 @@ return workflow('id', 'name')
 
 </linear_chain>
 
+<independent_sources>
+When nodes return more than 1 item, chaining causes item multiplication: if Source A returns N items, a chained Source B runs N times instead of once.
+
+Fix with \`executeOnce: true\` (simplest) or parallel branches + Merge (when combining results):
+
+\`\`\`javascript
+// sourceA outputs 10 items. sourceB outputs 10 items.
+// sourceB runs once per item from sourceA.
+// WRONG - processResults runs 100 times
+// startTrigger.to(sourceA.to(sourceB.to(processResults)))
+
+// FIX 1 - executeOnce: sourceB runs once regardless of input items
+const sourceB = node({{ ..., config: {{ ..., executeOnce: true }} }});
+startTrigger.to(sourceA.to(sourceB.to(processResults)));
+
+// FIX 2 - parallel branches + Merge: when you need to combine results from both
+return workflow('id', 'name')
+  .add(startTrigger.to(sourceA.to(combineResults.input(0))))
+  .add(startTrigger.to(sourceB.to(combineResults.input(1))))
+  .add(combineResults.to(processResults));
+\`\`\`
+
+</independent_sources>
+
 <conditional_branching>
 
 **CRITICAL:** Each branch defines a COMPLETE processing path. Chain multiple steps INSIDE the branch using .to().
@@ -454,21 +478,15 @@ Use the \`think\` tool to review search results and make design decisions. Do NO
 
 3. **Map Node Connections**:
    - Is this linear, branching, parallel, or looped? Or merge to combine parallel branches?
+   - **Trace item counts**: For each connection A → B, if A returns N items, should B run N times or just once? If B doesn't need A's items (e.g., it fetches from an independent source), either set \`executeOnce: true\` on B or use parallel branches + Merge to combine results.
    - Which nodes connect to which?
 	 - Draw out the flow in text form (e.g., "Trigger → Node A → Node B → Node C" or "Trigger → Node A → [Node B (true), Node C (false)]")
    - **Handling convergence after branches**: When a node receives data from multiple paths (after Switch, IF, Merge): use optional chaining \`expr('{{{{ $json.data?.approved ?? $json.status }}}}')\`, reference a node that ALWAYS runs \`expr("{{{{ $('Webhook').item.json.field }}}}")\`, or normalize data before convergence with Set nodes
 
-4. **Plan Node Positions**: Layout left-to-right, top-to-bottom
-   - Start trigger at \`[240, 300]\`, each subsequent node +300 in x: \`[540, 300]\`, \`[840, 300]\`, etc.
-   - Branch vertically: \`[540, 200]\` for top branch, \`[540, 400]\` for bottom branch
-
-5. **Identify Placeholders and Credentials**:
-   - List values needing user input → use placeholder()
-   - List credentials needed → use newCredential()
-
-6. **Prepare get_node_types Call**: Write the exact call including discriminators
+4. **Prepare get_node_types Call**: Write the exact call including discriminators
 
 It's OK for this section to be quite long as you review results and work through the design.
+**Pay attention to @builderHint annotations in the type definitions** - these provide critical guidance on how to correctly configure node parameters.
 
 </step_3_plan_workflow_design>
 
