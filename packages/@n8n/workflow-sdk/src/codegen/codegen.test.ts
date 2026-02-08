@@ -1370,6 +1370,36 @@ return [{
 		expect(jsCode).toContain('${$now}');
 	});
 
+	it('should not double-escape already-escaped \\${{ in template literals', () => {
+		const codeWithAlreadyEscaped = `return workflow('test', 'Test')
+  .add(trigger({ type: 'n8n-nodes-base.webhook', version: 2.1, config: { parameters: { httpMethod: 'POST', path: 'test' }, position: [0, 0] }, output: [{ body: { amount: 50 } }] })
+  .to(node({
+    type: 'n8n-nodes-base.gmail',
+    version: 2.2,
+    config: {
+      name: 'Send Email',
+      parameters: {
+        resource: 'message',
+        operation: 'send',
+        sendTo: 'test@test.com',
+        subject: expr('Purchase approved'),
+        emailType: 'html',
+        message: expr(\`<p>Amount: \\\${{ $json.body.amount }}</p>\`)
+      },
+      position: [200, 0]
+    },
+    output: [{ id: 'msg1' }]
+  })))`;
+
+		const workflow = parseWorkflowCode(codeWithAlreadyEscaped);
+		const emailNode = workflow.nodes.find((n) => n.type === 'n8n-nodes-base.gmail');
+		expect(emailNode).toBeDefined();
+
+		const message = (emailNode?.parameters?.message as string) || '';
+		expect(message).toContain('${{');
+		expect(message).not.toContain('\\${{');
+	});
+
 	it('should auto-escape ${{ pattern in template literals inside expr()', () => {
 		// When expr() is used with backtick template literals containing ${{ (e.g., currency $
 		// followed by n8n expression {{ }}), JS interprets ${{ as ${...} template interpolation.
