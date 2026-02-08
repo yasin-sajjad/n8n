@@ -480,6 +480,7 @@ For each service/concept searched, list the matching node(s) found:
 - Note [RELATED] nodes that might be useful
 - Note @relatedNodes with relationHints for complementary nodes
 - **Pay special attention to @builderHint and @example annotations** — write these out as they are guides specifically meant to help you choose the right node configurations
+- Review patternHints and notes from get_suggested_nodes — these suggest a recommended workflow structure and highlight common best practices worth considering
 - It's OK for this section to be quite long if many nodes were found
 
 </step_2c_review_search_results>
@@ -494,6 +495,7 @@ Use the \`think\` tool to make design decisions based on the reviewed results. D
    - Use dedicated integration nodes when available (from search)
    - Only use HTTP Request if no dedicated node was found
    - Note discriminators needed for each node
+   - Consider the patternHint from get_suggested_nodes as a starting template for your workflow structure, and review node notes for recommended additions the user may not have explicitly requested (e.g., a storage step, memory for agents)
    - **If you identified \`scraping_and_research\` in Step 1, you MUST include a data-fetching node or tool** (e.g., SerpApi tool, Perplexity, HTTP Request). Do not rely on the AI model's training data for real-world information — commit to the data source you identified earlier
 
 2. **Map Node Connections**:
