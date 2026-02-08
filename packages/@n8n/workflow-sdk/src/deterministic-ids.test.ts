@@ -235,6 +235,128 @@ describe('Deterministic Node ID Generation', () => {
 			expect(routerOut1[0]?.node).toBe('Approval 1');
 		});
 
+		it('should produce unique deterministic IDs for auto-renamed duplicate nodes', () => {
+			const processA = node({
+				type: 'n8n-nodes-base.set',
+				version: 3.4,
+				config: { name: 'Process' },
+			});
+			const processB = node({
+				type: 'n8n-nodes-base.set',
+				version: 3.4,
+				config: { name: 'Process' }, // Will become "Process 1"
+			});
+
+			const wf = workflow('test-workflow-id', 'Test Workflow').add(
+				trigger({
+					type: 'n8n-nodes-base.manualTrigger',
+					version: 1,
+					config: { name: 'Start' },
+				})
+					.to(processA)
+					.to(processB),
+			);
+
+			wf.regenerateNodeIds();
+			const json = wf.toJSON();
+
+			const processNode = json.nodes.find((n) => n.name === 'Process');
+			const process1Node = json.nodes.find((n) => n.name === 'Process 1');
+
+			// Both nodes must exist
+			expect(processNode).toBeDefined();
+			expect(process1Node).toBeDefined();
+
+			// They must have different deterministic IDs
+			expect(processNode!.id).not.toBe(process1Node!.id);
+
+			// IDs should match what we'd expect from the map key (not instance.name)
+			expect(processNode!.id).toBe(
+				generateDeterministicNodeId('test-workflow-id', 'n8n-nodes-base.set', 'Process'),
+			);
+			expect(process1Node!.id).toBe(
+				generateDeterministicNodeId('test-workflow-id', 'n8n-nodes-base.set', 'Process 1'),
+			);
+		});
+
+		it('should produce correct connections and unique IDs when toJSON is called twice after regenerateNodeIds', () => {
+			// This test verifies that the second toJSON() call produces the same
+			// correct result as the first (staleIdToKeyMap must not be cleared)
+			const approvalA = node({
+				type: 'n8n-nodes-base.set',
+				version: 3.4,
+				config: { name: 'Approval' },
+			});
+			const approvalB = node({
+				type: 'n8n-nodes-base.set',
+				version: 3.4,
+				config: { name: 'Approval' }, // Will become "Approval 1"
+			});
+			const targetA = node({
+				type: 'n8n-nodes-base.httpRequest',
+				version: 4.2,
+				config: { name: 'Target A' },
+			});
+			const targetB = node({
+				type: 'n8n-nodes-base.httpRequest',
+				version: 4.2,
+				config: { name: 'Target B' },
+			});
+			const router = node({
+				type: 'n8n-nodes-base.set',
+				version: 3.4,
+				config: { name: 'Router' },
+			});
+
+			const wf = workflow('test-workflow-id', 'Test Workflow')
+				.add(
+					trigger({
+						type: 'n8n-nodes-base.manualTrigger',
+						version: 1,
+						config: { name: 'Start' },
+					}).to(router),
+				)
+				.add(router.output(0).to(approvalA.to(targetA)))
+				.add(router.output(1).to(approvalB.to(targetB)));
+
+			wf.regenerateNodeIds();
+
+			// Call toJSON() twice
+			const json1 = wf.toJSON();
+			const json2 = wf.toJSON();
+
+			for (const json of [json1, json2]) {
+				// Verify unique IDs for auto-renamed nodes
+				const approvalNode = json.nodes.find((n) => n.name === 'Approval');
+				const approval1Node = json.nodes.find((n) => n.name === 'Approval 1');
+				expect(approvalNode).toBeDefined();
+				expect(approval1Node).toBeDefined();
+				expect(approvalNode!.id).not.toBe(approval1Node!.id);
+
+				// "Approval" should connect ONLY to "Target A"
+				const approvalConns = json.connections['Approval']?.main?.[0] ?? [];
+				expect(approvalConns).toHaveLength(1);
+				expect(approvalConns[0]?.node).toBe('Target A');
+
+				// "Approval 1" should connect ONLY to "Target B"
+				const approval1Conns = json.connections['Approval 1']?.main?.[0] ?? [];
+				expect(approval1Conns).toHaveLength(1);
+				expect(approval1Conns[0]?.node).toBe('Target B');
+
+				// Router output 0 -> "Approval", output 1 -> "Approval 1"
+				const routerOut0 = json.connections['Router']?.main?.[0] ?? [];
+				expect(routerOut0).toHaveLength(1);
+				expect(routerOut0[0]?.node).toBe('Approval');
+
+				const routerOut1 = json.connections['Router']?.main?.[1] ?? [];
+				expect(routerOut1).toHaveLength(1);
+				expect(routerOut1[0]?.node).toBe('Approval 1');
+			}
+
+			// Both calls should produce identical JSON
+			expect(json1).toEqual(json2);
+		});
+
 		it('should replace existing random ID with deterministic ID', () => {
 			// This test verifies that regenerateNodeIds() replaces existing random IDs
 			// with deterministic ones based on workflow ID, node type, and node name

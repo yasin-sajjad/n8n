@@ -342,8 +342,6 @@ class WorkflowBuilderImpl implements WorkflowBuilder {
 				}
 			}
 		}
-		// Clear stale mapping after use — only valid for one merge cycle
-		this._staleIdToKeyMap = undefined;
 	}
 
 	/**
@@ -365,7 +363,7 @@ class WorkflowBuilderImpl implements WorkflowBuilder {
 		for (const [mapKey, graphNode] of this._nodes) {
 			const instance = graphNode.instance;
 			staleIdToKeyMap.set(instance.id, mapKey);
-			const newId = generateDeterministicNodeId(this.id, instance.type, instance.name);
+			const newId = generateDeterministicNodeId(this.id, instance.type, mapKey);
 
 			// Clone the instance with the new deterministic ID
 			const newInstance = cloneNodeWithId(instance, newId);
