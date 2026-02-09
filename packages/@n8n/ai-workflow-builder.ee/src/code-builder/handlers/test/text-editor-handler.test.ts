@@ -7,6 +7,7 @@ import {
 	FileExistsError,
 	FileNotFoundError,
 	BatchReplacementError,
+	type BatchReplaceResult,
 } from '../text-editor.types';
 
 describe('TextEditorHandler', () => {
@@ -457,31 +458,49 @@ describe('TextEditorHandler', () => {
 			expect(handler.getWorkflowCode()).toBe('const x = 10;\nconst y = 20;\nconst z = 30;');
 		});
 
-		it('should roll back all changes on NoMatchFound', () => {
+		it('should roll back all changes and return status array on NoMatchFound', () => {
 			const originalCode = 'const a = 1;\nconst b = 2;';
 			handler.setWorkflowCode(originalCode);
 
-			expect(() =>
-				handler.executeBatch([
-					{ old_str: 'const a = 1;', new_str: 'const a = 10;' },
-					{ old_str: 'const c = 3;', new_str: 'const c = 30;' }, // doesn't exist
-				]),
-			).toThrow(BatchReplacementError);
+			const result = handler.executeBatch([
+				{ old_str: 'const a = 1;', new_str: 'const a = 10;' },
+				{ old_str: 'const c = 3;', new_str: 'const c = 30;' }, // doesn't exist
+			]);
 
+			expect(Array.isArray(result)).toBe(true);
+			const statuses = result as BatchReplaceResult[];
+			expect(statuses).toEqual([
+				{ index: 0, old_str: 'const a = 1;', status: 'success' },
+				{
+					index: 1,
+					old_str: 'const c = 3;',
+					status: 'failed',
+					error: expect.stringContaining('No match found'),
+				},
+			]);
 			expect(handler.getWorkflowCode()).toBe(originalCode);
 		});
 
-		it('should roll back all changes on MultipleMatches', () => {
+		it('should roll back all changes and return status array on MultipleMatches', () => {
 			const originalCode = 'const x = 1;\nconst x = 1;\nconst y = 2;';
 			handler.setWorkflowCode(originalCode);
 
-			expect(() =>
-				handler.executeBatch([
-					{ old_str: 'const y = 2;', new_str: 'const y = 20;' },
-					{ old_str: 'const x = 1;', new_str: 'const x = 10;' }, // multiple matches
-				]),
-			).toThrow(BatchReplacementError);
+			const result = handler.executeBatch([
+				{ old_str: 'const y = 2;', new_str: 'const y = 20;' },
+				{ old_str: 'const x = 1;', new_str: 'const x = 10;' }, // multiple matches
+			]);
 
+			expect(Array.isArray(result)).toBe(true);
+			const statuses = result as BatchReplaceResult[];
+			expect(statuses).toEqual([
+				{ index: 0, old_str: 'const y = 2;', status: 'success' },
+				{
+					index: 1,
+					old_str: 'const x = 1;',
+					status: 'failed',
+					error: expect.stringContaining('matches'),
+				},
+			]);
 			expect(handler.getWorkflowCode()).toBe(originalCode);
 		});
 
@@ -523,23 +542,51 @@ describe('TextEditorHandler', () => {
 			expect(handler.getWorkflowCode()).toBe("const price = '$100';\nconst tax = '$10';");
 		});
 
-		it('should report correct failedIndex in BatchReplacementError', () => {
+		it('should mark remaining replacements as not_attempted after failure', () => {
 			handler.setWorkflowCode('const a = 1;\nconst b = 2;\nconst c = 3;');
 
-			try {
-				handler.executeBatch([
-					{ old_str: 'const a = 1;', new_str: 'const a = 10;' },
-					{ old_str: 'const b = 2;', new_str: 'const b = 20;' },
-					{ old_str: 'const d = 4;', new_str: 'const d = 40;' }, // fails at index 2
-				]);
-				fail('Should have thrown');
-			} catch (error) {
-				expect(error).toBeInstanceOf(BatchReplacementError);
-				const batchError = error as BatchReplacementError;
-				expect(batchError.failedIndex).toBe(2);
-				expect(batchError.totalCount).toBe(3);
-				expect(batchError.cause).toBeInstanceOf(NoMatchFoundError);
-			}
+			const result = handler.executeBatch([
+				{ old_str: 'const a = 1;', new_str: 'const a = 10;' },
+				{ old_str: 'const d = 4;', new_str: 'const d = 40;' }, // fails at index 1
+				{ old_str: 'const c = 3;', new_str: 'const c = 30;' }, // not attempted
+			]);
+
+			expect(Array.isArray(result)).toBe(true);
+			const statuses = result as BatchReplaceResult[];
+			expect(statuses).toEqual([
+				{ index: 0, old_str: 'const a = 1;', status: 'success' },
+				{
+					index: 1,
+					old_str: 'const d = 4;',
+					status: 'failed',
+					error: expect.stringContaining('No match found'),
+				},
+				{ index: 2, old_str: 'const c = 3;', status: 'not_attempted' },
+			]);
+			expect(handler.getWorkflowCode()).toBe('const a = 1;\nconst b = 2;\nconst c = 3;');
+		});
+
+		it('should truncate old_str in results to 80 characters', () => {
+			const longStr = 'a'.repeat(200);
+			handler.setWorkflowCode(longStr);
+
+			const result = handler.executeBatch([{ old_str: longStr, new_str: 'short' }]);
+
+			expect(result).toBe('All 1 replacements applied successfully.');
+		});
+
+		it('should truncate old_str preview in failure results', () => {
+			const longStr = 'x'.repeat(200);
+			handler.setWorkflowCode('const a = 1;');
+
+			const result = handler.executeBatch([
+				{ old_str: longStr, new_str: 'short' }, // no match, long old_str
+			]);
+
+			expect(Array.isArray(result)).toBe(true);
+			const statuses = result as BatchReplaceResult[];
+			expect(statuses[0].old_str.length).toBeLessThanOrEqual(83); // 80 + '...'
+			expect(statuses[0].old_str).toMatch(/\.\.\.$/);
 		});
 	});
 });

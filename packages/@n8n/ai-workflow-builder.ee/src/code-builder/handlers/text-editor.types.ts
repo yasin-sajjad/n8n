@@ -136,6 +136,18 @@ export interface StrReplacement {
 }
 
 /**
+ * Per-replacement result in a batch operation.
+ * Returned as an array when any replacement fails.
+ */
+export interface BatchReplaceResult {
+	index: number;
+	/** Truncated preview of old_str for context */
+	old_str: string;
+	status: 'success' | 'failed' | 'not_attempted';
+	error?: string;
+}
+
+/**
  * Error thrown when a batch replacement fails.
  * Contains the index that failed and the underlying cause.
  */

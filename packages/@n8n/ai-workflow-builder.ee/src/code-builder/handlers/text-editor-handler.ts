@@ -13,6 +13,7 @@ import type {
 	StrReplaceCommand,
 	InsertCommand,
 	StrReplacement,
+	BatchReplaceResult,
 } from './text-editor.types';
 import {
 	NoMatchFoundError,
@@ -20,11 +21,18 @@ import {
 	InvalidLineNumberError,
 	InvalidPathError,
 	FileNotFoundError,
-	BatchReplacementError,
 } from './text-editor.types';
 
 /** The only supported file path for workflow code */
 const WORKFLOW_FILE_PATH = '/workflow.js';
+
+/** Max length for old_str previews in batch results */
+const PREVIEW_MAX_LENGTH = 80;
+
+function truncatePreview(str: string): string {
+	if (str.length <= PREVIEW_MAX_LENGTH) return str;
+	return str.slice(0, PREVIEW_MAX_LENGTH) + '...';
+}
 
 /**
  * Format code with line numbers (matches view command output)
@@ -284,11 +292,10 @@ export class TextEditorHandler {
 	 * Rolls back all changes if any single replacement fails.
 	 *
 	 * @param replacements - Ordered list of replacements to apply
-	 * @returns Success message
+	 * @returns Success message string when all succeed, or BatchReplaceResult[] on failure
 	 * @throws FileNotFoundError if no code exists
-	 * @throws BatchReplacementError if any replacement fails (all changes rolled back)
 	 */
-	executeBatch(replacements: StrReplacement[]): string {
+	executeBatch(replacements: StrReplacement[]): string | BatchReplaceResult[] {
 		if (this.code === null) {
 			throw new FileNotFoundError();
 		}
@@ -298,23 +305,52 @@ export class TextEditorHandler {
 		}
 
 		const snapshot = this.code;
+		const results: BatchReplaceResult[] = [];
 
 		for (let i = 0; i < replacements.length; i++) {
 			const { old_str, new_str } = replacements[i];
+			const preview = truncatePreview(old_str);
 			const count = this.countOccurrences(this.code, old_str);
 
 			if (count === 0) {
 				this.code = snapshot;
-				throw new BatchReplacementError(i, replacements.length, new NoMatchFoundError(old_str));
+				results.push({
+					index: i,
+					old_str: preview,
+					status: 'failed',
+					error: new NoMatchFoundError(old_str).message,
+				});
+				for (let j = i + 1; j < replacements.length; j++) {
+					results.push({
+						index: j,
+						old_str: truncatePreview(replacements[j].old_str),
+						status: 'not_attempted',
+					});
+				}
+				return results;
 			}
 
 			if (count > 1) {
 				this.code = snapshot;
-				throw new BatchReplacementError(i, replacements.length, new MultipleMatchesError(count));
+				results.push({
+					index: i,
+					old_str: preview,
+					status: 'failed',
+					error: new MultipleMatchesError(count).message,
+				});
+				for (let j = i + 1; j < replacements.length; j++) {
+					results.push({
+						index: j,
+						old_str: truncatePreview(replacements[j].old_str),
+						status: 'not_attempted',
+					});
+				}
+				return results;
 			}
 
 			const escapedNewStr = new_str.replace(/\$/g, '$$$$');
 			this.code = this.code.replace(old_str, escapedNewStr);
+			results.push({ index: i, old_str: preview, status: 'success' });
 		}
 
 		this.debugLog('BATCH_REPLACE', `All ${replacements.length} replacements applied`, {

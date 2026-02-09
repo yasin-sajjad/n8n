@@ -10,7 +10,11 @@ import { WarningTracker } from '../../state/warning-tracker';
 import type { TextEditorHandler } from '../text-editor-handler';
 import type { TextEditorToolHandler } from '../text-editor-tool-handler';
 import type { PreviewParseResult } from '../text-editor-tool-handler';
-import { ToolDispatchHandler, type ToolDispatchResult } from '../tool-dispatch-handler';
+import {
+	ToolDispatchHandler,
+	parseReplacements,
+	type ToolDispatchResult,
+} from '../tool-dispatch-handler';
 import type { ValidateToolHandler } from '../validate-tool-handler';
 
 /** Type guard for ToolProgressChunk */
@@ -831,6 +835,225 @@ describe('ToolDispatchHandler', () => {
 			// Only the batch result should be in messages, no parse error appended
 			expect(messages).toHaveLength(1);
 			expect(messages[0].content).toBe('All 1 replacements applied successfully.');
+		});
+
+		it('should parse replacements when sent as JSON string', async () => {
+			const mockTextEditorHandler = {
+				executeBatch: jest.fn().mockReturnValue('All 1 replacements applied successfully.'),
+			} as unknown as TextEditorHandler;
+
+			const handler = new ToolDispatchHandler({
+				toolsMap: new Map(),
+				validateToolHandler: mockValidateToolHandler,
+				debugLog: mockDebugLog,
+			});
+
+			const messages: BaseMessage[] = [];
+			await drainGenerator(
+				handler.dispatch({
+					toolCalls: [
+						{
+							id: 'call-str-1',
+							name: 'batch_str_replace',
+							args: {
+								replacements: JSON.stringify([{ old_str: 'x', new_str: 'y' }]),
+							},
+						},
+					],
+					messages,
+					iteration: 1,
+					warningTracker: new WarningTracker(),
+					textEditorHandler: mockTextEditorHandler,
+				}),
+			);
+
+			expect(mockTextEditorHandler.executeBatch).toHaveBeenCalledWith([
+				{ old_str: 'x', new_str: 'y' },
+			]);
+			expect(messages).toHaveLength(1);
+			expect(messages[0].content).toBe('All 1 replacements applied successfully.');
+		});
+
+		it('should return error when replacements item missing old_str', async () => {
+			const mockTextEditorHandler = {
+				executeBatch: jest.fn(),
+			} as unknown as TextEditorHandler;
+
+			const handler = new ToolDispatchHandler({
+				toolsMap: new Map(),
+				validateToolHandler: mockValidateToolHandler,
+				debugLog: mockDebugLog,
+			});
+
+			const messages: BaseMessage[] = [];
+			await drainGenerator(
+				handler.dispatch({
+					toolCalls: [
+						{
+							id: 'call-missing-old',
+							name: 'batch_str_replace',
+							args: {
+								replacements: [{ new_str: 'y' }],
+							},
+						},
+					],
+					messages,
+					iteration: 1,
+					warningTracker: new WarningTracker(),
+					textEditorHandler: mockTextEditorHandler,
+				}),
+			);
+
+			expect(mockTextEditorHandler.executeBatch).not.toHaveBeenCalled();
+			expect(messages).toHaveLength(1);
+			expect(messages[0].content as string).toContain('old_str');
+		});
+
+		it('should return error when replacements item missing new_str', async () => {
+			const mockTextEditorHandler = {
+				executeBatch: jest.fn(),
+			} as unknown as TextEditorHandler;
+
+			const handler = new ToolDispatchHandler({
+				toolsMap: new Map(),
+				validateToolHandler: mockValidateToolHandler,
+				debugLog: mockDebugLog,
+			});
+
+			const messages: BaseMessage[] = [];
+			await drainGenerator(
+				handler.dispatch({
+					toolCalls: [
+						{
+							id: 'call-missing-new',
+							name: 'batch_str_replace',
+							args: {
+								replacements: [{ old_str: 'x' }],
+							},
+						},
+					],
+					messages,
+					iteration: 1,
+					warningTracker: new WarningTracker(),
+					textEditorHandler: mockTextEditorHandler,
+				}),
+			);
+
+			expect(mockTextEditorHandler.executeBatch).not.toHaveBeenCalled();
+			expect(messages).toHaveLength(1);
+			expect(messages[0].content as string).toContain('new_str');
+		});
+
+		it('should return error when replacements is not an array or string', async () => {
+			const mockTextEditorHandler = {
+				executeBatch: jest.fn(),
+			} as unknown as TextEditorHandler;
+
+			const handler = new ToolDispatchHandler({
+				toolsMap: new Map(),
+				validateToolHandler: mockValidateToolHandler,
+				debugLog: mockDebugLog,
+			});
+
+			const messages: BaseMessage[] = [];
+			await drainGenerator(
+				handler.dispatch({
+					toolCalls: [
+						{
+							id: 'call-bad-type',
+							name: 'batch_str_replace',
+							args: {
+								replacements: 123,
+							},
+						},
+					],
+					messages,
+					iteration: 1,
+					warningTracker: new WarningTracker(),
+					textEditorHandler: mockTextEditorHandler,
+				}),
+			);
+
+			expect(mockTextEditorHandler.executeBatch).not.toHaveBeenCalled();
+			expect(messages).toHaveLength(1);
+			expect(messages[0].content as string).toContain('Error');
+		});
+
+		it('should return error when replacements item has non-string old_str', async () => {
+			const mockTextEditorHandler = {
+				executeBatch: jest.fn(),
+			} as unknown as TextEditorHandler;
+
+			const handler = new ToolDispatchHandler({
+				toolsMap: new Map(),
+				validateToolHandler: mockValidateToolHandler,
+				debugLog: mockDebugLog,
+			});
+
+			const messages: BaseMessage[] = [];
+			await drainGenerator(
+				handler.dispatch({
+					toolCalls: [
+						{
+							id: 'call-non-string',
+							name: 'batch_str_replace',
+							args: {
+								replacements: [{ old_str: 123, new_str: 'y' }],
+							},
+						},
+					],
+					messages,
+					iteration: 1,
+					warningTracker: new WarningTracker(),
+					textEditorHandler: mockTextEditorHandler,
+				}),
+			);
+
+			expect(mockTextEditorHandler.executeBatch).not.toHaveBeenCalled();
+			expect(messages).toHaveLength(1);
+			expect(messages[0].content as string).toContain('old_str');
+		});
+	});
+
+	describe('parseReplacements', () => {
+		it('should pass through a valid array', () => {
+			const input = [{ old_str: 'a', new_str: 'b' }];
+			expect(parseReplacements(input)).toEqual(input);
+		});
+
+		it('should parse a JSON string into an array', () => {
+			const input = JSON.stringify([{ old_str: 'a', new_str: 'b' }]);
+			expect(parseReplacements(input)).toEqual([{ old_str: 'a', new_str: 'b' }]);
+		});
+
+		it('should throw for non-array, non-string input', () => {
+			expect(() => parseReplacements(123)).toThrow('replacements must be an array');
+		});
+
+		it('should throw for invalid JSON string', () => {
+			expect(() => parseReplacements('not valid json')).toThrow();
+		});
+
+		it('should throw for JSON string that parses to non-array', () => {
+			expect(() => parseReplacements(JSON.stringify({ old_str: 'a' }))).toThrow(
+				'replacements must be an array',
+			);
+		});
+
+		it('should throw when item missing old_str', () => {
+			expect(() => parseReplacements([{ new_str: 'b' }])).toThrow('old_str');
+		});
+
+		it('should throw when item missing new_str', () => {
+			expect(() => parseReplacements([{ old_str: 'a' }])).toThrow('new_str');
+		});
+
+		it('should throw when old_str is not a string', () => {
+			expect(() => parseReplacements([{ old_str: 123, new_str: 'b' }])).toThrow('old_str');
+		});
+
+		it('should throw when new_str is not a string', () => {
+			expect(() => parseReplacements([{ old_str: 'a', new_str: 123 }])).toThrow('new_str');
 		});
 	});
 });

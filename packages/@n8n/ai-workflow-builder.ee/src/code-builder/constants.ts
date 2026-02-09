@@ -33,7 +33,7 @@ export const BATCH_STR_REPLACE_TOOL = {
 	function: {
 		name: 'batch_str_replace',
 		description:
-			'Apply multiple str_replace operations to /workflow.js atomically. All replacements are applied in order. If any replacement fails, all changes are rolled back.',
+			'Apply multiple str_replace operations to /workflow.js atomically. All replacements are applied in order. If any replacement fails, all changes are rolled back. Example: {"replacements": [{"old_str": "foo", "new_str": "bar"}, {"old_str": "baz", "new_str": "qux"}]}',
 		parameters: {
 			type: 'object' as const,
 			properties: {

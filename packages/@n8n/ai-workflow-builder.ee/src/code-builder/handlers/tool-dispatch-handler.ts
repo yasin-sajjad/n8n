@@ -19,6 +19,46 @@ import type { WarningTracker } from '../state/warning-tracker';
 import type { EvaluationLogger } from '../utils/evaluation-logger';
 
 /**
+ * Parse and validate the `replacements` argument from LLM tool calls.
+ * Handles the case where the LLM sends a JSON string instead of an array.
+ */
+export function parseReplacements(raw: unknown): StrReplacement[] {
+	let parsed: unknown = raw;
+
+	if (typeof parsed === 'string') {
+		try {
+			parsed = JSON.parse(parsed);
+		} catch {
+			throw new Error(
+				'replacements must be a JSON array of {old_str, new_str} objects, but received an invalid JSON string.',
+			);
+		}
+	}
+
+	if (!Array.isArray(parsed)) {
+		throw new Error(
+			'replacements must be an array of {old_str, new_str} objects. Example: {"replacements": [{"old_str": "foo", "new_str": "bar"}]}',
+		);
+	}
+
+	for (let i = 0; i < parsed.length; i++) {
+		const item = parsed[i] as Record<string, unknown>;
+		if (typeof item?.old_str !== 'string') {
+			throw new Error(
+				`replacements[${i}] is missing a valid "old_str" string. Each replacement must have {old_str: string, new_str: string}.`,
+			);
+		}
+		if (typeof item?.new_str !== 'string') {
+			throw new Error(
+				`replacements[${i}] is missing a valid "new_str" string. Each replacement must have {old_str: string, new_str: string}.`,
+			);
+		}
+	}
+
+	return parsed as StrReplacement[];
+}
+
+/**
  * Debug log callback type
  */
 type DebugLogFn = (context: string, message: string, data?: Record<string, unknown>) => void;
@@ -427,18 +467,19 @@ export class ToolDispatchHandler {
 		};
 
 		try {
-			const replacements = toolCall.args.replacements as StrReplacement[];
+			const replacements = parseReplacements(toolCall.args.replacements);
 			const result = textEditorHandler.executeBatch(replacements);
+			const content = typeof result === 'string' ? result : JSON.stringify(result);
 
 			messages.push(
 				new ToolMessage({
 					tool_call_id: toolCall.id!,
-					content: result,
+					content,
 				}),
 			);
 
 			// Preview parse after successful batch edit for progressive canvas rendering
-			if (textEditorToolHandler) {
+			if (typeof result === 'string' && textEditorToolHandler) {
 				const preview = await textEditorToolHandler.tryParseForPreview(currentWorkflow);
 				if (preview.chunk) {
 					yield preview.chunk;
