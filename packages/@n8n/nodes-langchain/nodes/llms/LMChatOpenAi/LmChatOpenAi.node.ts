@@ -810,7 +810,6 @@ export class LmChatOpenAi implements INodeType {
 			providerTools,
 			reasoning,
 			topLogprobs: options.topLogprobs,
-			verbosity: options.verbosity,
 			service_tier: options.serviceTier,
 			promptCacheKey: options.promptCacheKey,
 			onFailedAttempt: openAiFailedAttemptHandler,
