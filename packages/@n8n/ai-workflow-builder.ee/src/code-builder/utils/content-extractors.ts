@@ -4,7 +4,7 @@
  * Utilities for extracting text and thinking content from AI messages.
  */
 
-import type { BaseMessage } from '@langchain/core/messages';
+import type { BaseMessage, MessageContent } from '@langchain/core/messages';
 import { AIMessage, ToolMessage } from '@langchain/core/messages';
 
 /**
@@ -132,27 +132,33 @@ export function pushValidationFeedback(messages: BaseMessage[], content: string)
 	const lastMessage = messages[messages.length - 1];
 
 	if (lastMessage instanceof AIMessage) {
-		lastMessage.tool_calls = [
-			...(lastMessage.tool_calls ?? []),
-			{ id: toolCallId, name: 'validate_workflow', args: {} },
-		];
+		// Build content array with existing content + tool_use block.
+		// Creating a NEW AIMessage (instead of mutating in-place) ensures
+		// LangChain's serialization layer sees the correct internal state.
+		type ContentBlockArray = Exclude<MessageContent, string>;
+		const existingBlocks: ContentBlockArray =
+			typeof lastMessage.content === 'string'
+				? lastMessage.content
+					? [{ type: 'text' as const, text: lastMessage.content }]
+					: []
+				: Array.isArray(lastMessage.content)
+					? [...lastMessage.content]
+					: [];
 
-		// Always ensure content is in array format so the tool_use block is
-		// present in the content array. LangChain's Anthropic adapter serializes
-		// tool_use blocks from the content array, not the tool_calls property.
-		if (typeof lastMessage.content === 'string') {
-			lastMessage.content = [
-				...(lastMessage.content ? [{ type: 'text' as const, text: lastMessage.content }] : []),
+		const newAiMessage = new AIMessage({
+			content: [
+				...existingBlocks,
 				{ type: 'tool_use', id: toolCallId, name: 'validate_workflow', input: {} },
-			];
-		} else if (Array.isArray(lastMessage.content)) {
-			(lastMessage.content as Array<Record<string, unknown>>).push({
-				type: 'tool_use',
-				id: toolCallId,
-				name: 'validate_workflow',
-				input: {},
-			});
-		}
+			] as ContentBlockArray,
+			tool_calls: [
+				...(lastMessage.tool_calls ?? []),
+				{ id: toolCallId, name: 'validate_workflow', args: {} },
+			],
+			response_metadata: lastMessage.response_metadata,
+			id: lastMessage.id,
+		});
+
+		messages[messages.length - 1] = newAiMessage;
 	}
 
 	messages.push(

@@ -43,9 +43,9 @@ describe('AutoFinalizeHandler', () => {
 
 			expect(result.success).toBe(false);
 			expect(result.promptedForCode).toBe(true);
-			// Should inject tool_call into existing AIMessage + append ToolMessage
+			// Should replace AIMessage with new one containing tool_call + append ToolMessage
 			expect(messages).toHaveLength(2);
-			expect(messages[0]).toBe(existingAiMessage);
+			expect(messages[0]).toBeInstanceOf(AIMessage);
 			expect((messages[0] as AIMessage).tool_calls).toHaveLength(1);
 			expect((messages[0] as AIMessage).tool_calls![0].name).toBe('validate_workflow');
 			expect(messages[1]).toBeInstanceOf(ToolMessage);
@@ -115,9 +115,9 @@ describe('AutoFinalizeHandler', () => {
 
 			expect(result.success).toBe(false);
 			expect(result.workflow).toBeUndefined();
-			// Should inject tool_call into existing AIMessage + append ToolMessage
+			// Should replace AIMessage with new one containing tool_call + append ToolMessage
 			expect(messages).toHaveLength(2);
-			expect(messages[0]).toBe(existingAiMessage);
+			expect(messages[0]).toBeInstanceOf(AIMessage);
 			expect((messages[0] as AIMessage).tool_calls).toHaveLength(1);
 			expect((messages[0] as AIMessage).tool_calls![0].name).toBe('validate_workflow');
 			expect(messages[1]).toBeInstanceOf(ToolMessage);
@@ -141,9 +141,9 @@ describe('AutoFinalizeHandler', () => {
 
 			expect(result.success).toBe(false);
 			expect(result.workflow).toBeUndefined();
-			// Should inject tool_call into existing AIMessage + append ToolMessage
+			// Should replace AIMessage with new one containing tool_call + append ToolMessage
 			expect(messages).toHaveLength(2);
-			expect(messages[0]).toBe(existingAiMessage);
+			expect(messages[0]).toBeInstanceOf(AIMessage);
 			expect((messages[0] as AIMessage).tool_calls).toHaveLength(1);
 			expect((messages[0] as AIMessage).tool_calls![0].name).toBe('validate_workflow');
 			expect(messages[1]).toBeInstanceOf(ToolMessage);
@@ -204,9 +204,9 @@ describe('AutoFinalizeHandler', () => {
 			const result = await consumeGenerator(gen);
 
 			expect(result.success).toBe(false);
-			// Should inject tool_call into existing AIMessage + append ToolMessage
+			// Should replace AIMessage with new one containing tool_call + append ToolMessage
 			expect(messages).toHaveLength(2);
-			expect(messages[0]).toBe(existingAiMessage);
+			expect(messages[0]).toBeInstanceOf(AIMessage);
 			expect((messages[0] as AIMessage).tool_calls).toHaveLength(1);
 			expect((messages[0] as AIMessage).tool_calls![0].name).toBe('validate_workflow');
 			expect(messages[1]).toBeInstanceOf(ToolMessage);
