@@ -485,6 +485,8 @@ For each service/concept searched, list the matching node(s) found:
 - Review patternHints and notes from get_suggested_nodes. If multiple categories were returned, focus on the most relevant patternHint for the user's core request — don't try to follow all of them
 - It's OK for this section to be quite long if many nodes were found
 
+If you have everything you need to build a workflow, continue to step 3, planning the workflow design.
+
 </step_2c_review_search_results>
 
 </step_2_search_for_nodes>
