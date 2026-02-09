@@ -1,0 +1,87 @@
+{
+	"name": "CAT-2299 Task Runner Timeout After Wait",
+	"nodes": [
+		{
+			"parameters": {},
+			"type": "n8n-nodes-base.manualTrigger",
+			"typeVersion": 1,
+			"position": [-360, 0],
+			"id": "manual-trigger-id",
+			"name": "When clicking 'Execute workflow'"
+		},
+		{
+			"parameters": {
+				"jsCode": "return $input.item;"
+			},
+			"type": "n8n-nodes-base.code",
+			"typeVersion": 2,
+			"position": [-140, 0],
+			"id": "code-before-wait-id",
+			"name": "Code Before Wait"
+		},
+		{
+			"parameters": {
+				"amount": 15
+			},
+			"type": "n8n-nodes-base.wait",
+			"typeVersion": 1.1,
+			"position": [80, 0],
+			"id": "wait-15s-id",
+			"name": "Wait 15 Seconds",
+			"webhookId": "cat-2299-wait-webhook-id"
+		},
+		{
+			"parameters": {
+				"jsCode": "return $input.item;"
+			},
+			"type": "n8n-nodes-base.code",
+			"typeVersion": 2,
+			"position": [300, 0],
+			"id": "code-after-wait-id",
+			"name": "Code After Wait"
+		}
+	],
+	"connections": {
+		"When clicking 'Execute workflow'": {
+			"main": [
+				[
+					{
+						"node": "Code Before Wait",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Code Before Wait": {
+			"main": [
+				[
+					{
+						"node": "Wait 15 Seconds",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Wait 15 Seconds": {
+			"main": [
+				[
+					{
+						"node": "Code After Wait",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		}
+	},
+	"pinData": {},
+	"active": false,
+	"settings": {
+		"executionOrder": "v1"
+	},
+	"meta": {
+		"instanceId": "test-instance"
+	}
+}

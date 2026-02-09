@@ -2,7 +2,7 @@ import { GenericContainer, Wait } from 'testcontainers';
 
 import { createSilentLogConsumer } from '../helpers/utils';
 import { TEST_CONTAINER_IMAGES } from '../test-containers';
-import type { Service, ServiceResult } from './types';
+import type { Service, ServiceResult, StartContext } from './types';
 
 export interface TaskRunnerConfig {
 	taskBrokerUri: string;
@@ -29,9 +29,19 @@ export const taskRunner: Service<TaskRunnerResult> = {
 		return { taskBrokerUri: `http://${taskBrokerHost}:5679` } as TaskRunnerConfig;
 	},
 
-	async start(network, projectName, config?: unknown): Promise<TaskRunnerResult> {
+	async start(
+		network,
+		projectName,
+		config?: unknown,
+		ctx?: StartContext,
+	): Promise<TaskRunnerResult> {
 		const { taskBrokerUri } = config as TaskRunnerConfig;
 		const { consumer, throwWithLogs } = createSilentLogConsumer();
+
+		// Forward N8N_RUNNERS_* env from test config to the runner container
+		const runnerEnvOverrides = Object.fromEntries(
+			Object.entries(ctx?.config.env ?? {}).filter(([key]) => key.startsWith('N8N_RUNNERS_')),
+		);
 
 		try {
 			const container = await new GenericContainer(TEST_CONTAINER_IMAGES.taskRunner)
@@ -44,6 +54,7 @@ export const taskRunner: Service<TaskRunnerResult> = {
 					N8N_RUNNERS_TASK_BROKER_URI: taskBrokerUri,
 					N8N_RUNNERS_MAX_CONCURRENCY: '5',
 					N8N_RUNNERS_AUTO_SHUTDOWN_TIMEOUT: '0', // Disabled in tests to prevent cold-start delays
+					...runnerEnvOverrides, // Test overrides win
 				})
 				.withWaitStrategy(Wait.forListeningPorts())
 				.withLabels({
