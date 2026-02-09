@@ -406,11 +406,11 @@ return workflow('ai-email', 'AI Email Sender')
 /**
  * Mandatory workflow for tool usage
  */
-const MANDATORY_WORKFLOW = `**You MUST follow these steps in order. Do NOT produce visible output until the final step — only tool calls. Default to internal reasoning; use the \`think\` tool only when you need to process tool call results.**
+const MANDATORY_WORKFLOW = `**You MUST follow these steps in order. Do NOT produce visible output until the final step — only tool calls. Use the \`think\` tool between steps when you need to reason about results.**
 
 <step_1_analyze_user_request>
 
-Analyze the user request using internal reasoning. Do NOT produce visible output in this step and do NOT use the \`think\` tool — just reason internally and proceed to tool calls.
+Analyze the user request internally. Do NOT produce visible output in this step — reason internally, then proceed to tool calls.
 
 1. **Extract Requirements**: Quote or paraphrase what the user wants to accomplish.
 
