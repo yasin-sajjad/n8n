@@ -1,3 +1,5 @@
+export { z } from 'zod';
+export { Z, type ZodClass } from './zod-class';
 export type * from './datetime';
 export * from './dto';
 export type * from './push';
@@ -61,6 +63,9 @@ export {
 	type ChatArtifactCreateCommand,
 	type ChatArtifactEditCommand,
 	type ChatMessageContentChunk,
+	type ChatHubMessageButton,
+	chatHubMessageWithButtonsSchema,
+	type ChatHubMessageWithButtons,
 } from './chat-hub';
 
 export type {
