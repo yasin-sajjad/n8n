@@ -61,6 +61,47 @@ describe('generate-node-defs-cli', () => {
 		expect(fs.existsSync(schemaFile)).toBe(true);
 	});
 
+	it('should prefix un-dotted node names with packageName', async () => {
+		const nodesJsonDir = path.join(tempDir, 'input-prefix');
+		const outputDir = path.join(tempDir, 'output-prefix');
+		await fs.promises.mkdir(nodesJsonDir, { recursive: true });
+
+		const minimalNodes = [
+			{
+				name: 'myNode',
+				displayName: 'My Node',
+				description: 'A node without package prefix',
+				group: ['transform'],
+				version: 1,
+				properties: [
+					{
+						name: 'value',
+						displayName: 'Value',
+						type: 'string',
+						default: '',
+					},
+				],
+				inputs: ['main'],
+				outputs: ['main'],
+			},
+		];
+		const nodesJsonPath = path.join(nodesJsonDir, 'nodes.json');
+		await fs.promises.writeFile(nodesJsonPath, JSON.stringify(minimalNodes));
+
+		await generateNodeDefinitions({
+			nodesJsonPath,
+			outputDir,
+			packageName: 'n8n-nodes-base',
+		});
+
+		// Should be generated under the package name directory
+		const tsFile = path.join(outputDir, 'nodes', 'n8n-nodes-base', 'myNode', 'v1.ts');
+		expect(fs.existsSync(tsFile)).toBe(true);
+
+		const schemaFile = path.join(outputDir, 'nodes', 'n8n-nodes-base', 'myNode', 'v1.schema.js');
+		expect(fs.existsSync(schemaFile)).toBe(true);
+	});
+
 	it('should error if nodes.json not found', async () => {
 		const nonExistentPath = path.join(tempDir, 'nonexistent', 'nodes.json');
 		const outputDir = path.join(tempDir, 'output-error');

@@ -17,6 +17,17 @@ if (!fs.existsSync(nodesJsonPath)) {
 (async () => {
 	const content = await fs.promises.readFile(nodesJsonPath, 'utf-8');
 	const nodes = JSON.parse(content);
+
+	const packageJsonPath = path.join(cwd, 'package.json');
+	const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+	const packageName = packageJson.name;
+
+	for (const node of nodes) {
+		if (!node.name.includes('.')) {
+			node.name = `${packageName}.${node.name}`;
+		}
+	}
+
 	const result = await orchestrateGeneration({ nodes, outputDir });
 	console.log(`Generated node definitions for ${result.nodeCount} nodes in ${outputDir}`);
 })().catch((error) => {

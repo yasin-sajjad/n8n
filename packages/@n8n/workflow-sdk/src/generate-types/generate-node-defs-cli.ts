@@ -20,6 +20,7 @@ import { orchestrateGeneration } from './generate-types';
 export interface GenerateNodeDefinitionsOptions {
 	nodesJsonPath: string;
 	outputDir: string;
+	packageName?: string;
 }
 
 /**
@@ -29,7 +30,7 @@ export interface GenerateNodeDefinitionsOptions {
 export async function generateNodeDefinitions(
 	options: GenerateNodeDefinitionsOptions,
 ): Promise<void> {
-	const { nodesJsonPath, outputDir } = options;
+	const { nodesJsonPath, outputDir, packageName } = options;
 
 	if (!fs.existsSync(nodesJsonPath)) {
 		throw new Error(`nodes.json not found at ${nodesJsonPath}`);
@@ -37,6 +38,14 @@ export async function generateNodeDefinitions(
 
 	const content = await fs.promises.readFile(nodesJsonPath, 'utf-8');
 	const nodes = jsonParse<NodeTypeDescription[]>(content);
+
+	if (packageName) {
+		for (const node of nodes) {
+			if (!node.name.includes('.')) {
+				node.name = `${packageName}.${node.name}`;
+			}
+		}
+	}
 
 	const result = await orchestrateGeneration({ nodes, outputDir });
 	console.log(`Generated node definitions for ${result.nodeCount} nodes in ${outputDir}`);
@@ -48,8 +57,13 @@ if (require.main === module) {
 	const nodesJsonPath = path.join(cwd, 'dist', 'types', 'nodes.json');
 	const outputDir = path.join(cwd, 'dist', 'node-definitions');
 
-	generateNodeDefinitions({ nodesJsonPath, outputDir }).catch((error) => {
-		console.error('Node definition generation failed:', error);
-		process.exit(1);
-	});
+	const packageJsonPath = path.join(cwd, 'package.json');
+	const packageJson = jsonParse<{ name: string }>(fs.readFileSync(packageJsonPath, 'utf-8'));
+
+	generateNodeDefinitions({ nodesJsonPath, outputDir, packageName: packageJson.name }).catch(
+		(error) => {
+			console.error('Node definition generation failed:', error);
+			process.exit(1);
+		},
+	);
 }
