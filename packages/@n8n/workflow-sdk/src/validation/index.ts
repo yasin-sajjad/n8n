@@ -647,9 +647,7 @@ function buildConditionSummary(
 		if (!expectedValues) continue;
 		const actual = parentParams[paramName];
 		const expectedStr = (expectedValues as unknown[]).map((v) => `'${String(v)}'`).join(' or ');
-		parts.push(
-			`${paramName} should be ${expectedStr} (currently '${String(actual ?? 'undefined')}')`,
-		);
+		parts.push(`${paramName} should be ${expectedStr} (currently '${String(actual)}')`);
 	}
 
 	return parts.length > 0 ? `Required: ${parts.join(', ')}.` : '';
@@ -716,7 +714,7 @@ function validateParentSupportsInputs(
 					const subnodeName = conn.node;
 					const subnodeField = AI_CONNECTION_TO_SUBNODE_FIELD[connectionType] || connectionType;
 					const conditionDetails = buildConditionSummary(
-						inputConfig.displayOptions as IDisplayOptions,
+						inputConfig.displayOptions,
 						(parentNode.parameters ?? {}) as Record<string, unknown>,
 					);
 
