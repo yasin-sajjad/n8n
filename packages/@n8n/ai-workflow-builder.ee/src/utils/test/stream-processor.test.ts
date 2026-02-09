@@ -1473,17 +1473,6 @@ and connect it to the trigger
 			expect(result).toBe('add a set node\nand connect it to the trigger');
 		});
 
-		it('should handle backwards compatible "User request:" text format', () => {
-			const input = `<workflow_file path="/workflow.js">
-code
-</workflow_file>
-User request:
-old format request`;
-
-			const result = cleanContextTags(input);
-			expect(result).toBe('old format request');
-		});
-
 		it('should strip code builder tags when no user request marker found', () => {
 			const input = `<previous_requests>
 old request

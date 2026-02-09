@@ -149,8 +149,7 @@ function extractMessageContent(messages: MessageContent[]): string | null {
  * Handles multiple formats:
  * 1. Old multi-agent format: <current_workflow_json>...</current_execution_nodes_schemas>
  * 2. Code builder format with <user_request> XML tag
- * 3. Old text-based "User request:" format (backwards compatibility)
- * 4. Fallback: strips individual context tags
+ * 3. Fallback: strips individual context tags
  */
 export function cleanContextTags(text: string): string {
 	// Handle old multi-agent format
@@ -163,12 +162,6 @@ export function cleanContextTags(text: string): string {
 	const userRequestMatch = cleaned.match(/<user_request>\n?([\s\S]*?)\n?<\/user_request>/);
 	if (userRequestMatch) {
 		return userRequestMatch[1].trim();
-	}
-
-	// Fallback for old "User request:" text format (backwards compatibility)
-	const textMarkerMatch = cleaned.match(/User request:\s*\n?([\s\S]*)$/);
-	if (textMarkerMatch) {
-		return textMarkerMatch[1].trim();
 	}
 
 	// Fallback: strip individual tags if no user request marker found
