@@ -233,9 +233,10 @@ export class LmChatXAiGrok implements INodeType {
 			frequencyPenalty: options.frequencyPenalty,
 			presencePenalty: options.presencePenalty,
 			maxTokens: options.maxTokens,
-			additionalParams: options.responseFormat
-				? { response_format: { type: options.responseFormat } }
-				: undefined,
+			additionalParams: {
+				stream_options: undefined,
+				...(options.responseFormat ? { response_format: { type: options.responseFormat } } : {}),
+			},
 			onFailedAttempt: openAiFailedAttemptHandler,
 			timeout: options.timeout,
 			maxRetries: options.maxRetries ?? 2,
