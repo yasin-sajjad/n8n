@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, nextTick, onMounted, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, watch } from 'vue';
 import { useI18n } from '@n8n/i18n';
 import { SETUP_CREDENTIALS_MODAL_KEY, TEMPLATE_SETUP_EXPERIENCE } from '@/app/constants';
 import { useUIStore } from '@/app/stores/ui.store';
@@ -47,10 +47,6 @@ const allCredentialsFilled = computed(() => {
 	return nodes.every((node) => doesNodeHaveAllCredentialsFilled(nodeTypesStore, node));
 });
 
-const showButton = computed(() => {
-	return !!workflowsStore.workflow?.meta?.templateId && workflowsStore.getNodes().length > 0;
-});
-
 const isNewTemplatesSetupEnabled = computed(() => {
 	return (
 		posthogStore.getVariant(TEMPLATE_SETUP_EXPERIENCE.name) === TEMPLATE_SETUP_EXPERIENCE.variant
@@ -59,6 +55,23 @@ const isNewTemplatesSetupEnabled = computed(() => {
 
 const isSetupPanelFeatureEnabled = computed(() => {
 	return setupPanelStore.isFeatureEnabled;
+});
+
+const showButton = computed(() => {
+	const isCreatedFromTemplate = !!workflowsStore.workflow?.meta?.templateId;
+	if (!isCreatedFromTemplate) {
+		return false;
+	}
+
+	if (isSetupPanelFeatureEnabled.value) {
+		return workflowsStore.getNodes().length > 0;
+	}
+
+	if (isTemplateSetupCompleted.value) {
+		return false;
+	}
+
+	return !allCredentialsFilled.value;
 });
 
 const isButtonDisabled = computed(() => {
@@ -95,6 +108,10 @@ const handleTemplateSetup = () => {
 		openSetupModal();
 	}
 };
+
+onBeforeUnmount(() => {
+	uiStore.closeModal(SETUP_CREDENTIALS_MODAL_KEY);
+});
 
 onMounted(async () => {
 	// Wait for all reactive updates to settle before checking conditions

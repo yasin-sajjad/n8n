@@ -95,7 +95,7 @@ onMounted(() => {
 							:for="`credential-picker-${state.node.name}-${requirement.credentialType}`"
 							:class="$style['credential-label']"
 						>
-							Credential
+							{{ i18n.baseText('setupPanel.credentialLabel') }}
 						</label>
 						<N8nTooltip v-if="requirement.nodesWithSameCredential.length > 1" placement="top">
 							<template #content>

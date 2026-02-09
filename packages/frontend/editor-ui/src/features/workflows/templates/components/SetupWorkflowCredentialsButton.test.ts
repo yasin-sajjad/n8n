@@ -147,6 +147,7 @@ describe('SetupWorkflowCredentialsButton', () => {
 	it('does not disable button when setup panel feature is disabled even if sidebar is open', () => {
 		const workflowWithNodes = {
 			...EMPTY_WORKFLOW,
+			meta: { templateId: '2722', templateCredsSetupCompleted: false },
 			nodes: [
 				{
 					id: '1',
@@ -160,6 +161,7 @@ describe('SetupWorkflowCredentialsButton', () => {
 		};
 		workflowsStore.workflow = workflowWithNodes;
 		workflowsStore.getNodes.mockReturnValue(workflowWithNodes.nodes as never);
+		mockDoesNodeHaveAllCredentialsFilled.mockReturnValue(false);
 		setupPanelStore.isFeatureEnabled = false;
 		focusPanelStore.focusPanelActive = true;
 		focusPanelStore.selectedTab = 'setup';
