@@ -403,21 +403,16 @@ describe('useCredentialOAuth', () => {
 			credentialsStore.oAuth2Authorize.mockResolvedValue('https://oauth.example.com/auth');
 
 			// Don't fire any BroadcastChannel message - instead simulate abort
-			let abortHandler: (() => void) | undefined;
 			mockBroadcastChannel.addEventListener.mockImplementation(() => {
 				// no-op: message handler never fires
 			});
 
-			// Capture the abort signal listener from waitForOAuthCallback
 			const originalAddEventListener = AbortSignal.prototype.addEventListener;
 			vi.spyOn(AbortSignal.prototype, 'addEventListener').mockImplementation(function (
 				this: AbortSignal,
 				event: string,
 				handler: EventListenerOrEventListenerObject,
 			) {
-				if (event === 'abort' && typeof handler === 'function') {
-					abortHandler = handler as () => void;
-				}
 				return originalAddEventListener.call(this, event, handler);
 			});
 
