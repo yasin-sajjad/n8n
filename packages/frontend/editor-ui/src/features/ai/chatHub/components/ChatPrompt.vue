@@ -349,7 +349,6 @@ defineExpose({
 									? undefined
 									: i18n.baseText('chatHub.tools.selector.disabled.tooltip')
 							"
-							transparent-bg
 							@toggle="handleToolToggle"
 						/>
 					</div>
@@ -468,6 +467,10 @@ defineExpose({
 		line-height: 1.5em;
 		resize: none;
 		padding: 0 !important;
+	}
+
+	:global(.n8n-input) > div {
+		padding: 0;
 	}
 
 	&.calloutVisible {

@@ -61,7 +61,7 @@ function handleMenuSelect(action: string) {
 <template>
 	<div :class="[$style.item, { [$style.configured]: mode === 'configured' }]">
 		<div :class="$style.iconWrapper">
-			<NodeIcon :node-type="nodeType" :size="24" />
+			<NodeIcon :node-type="nodeType" :size="32" />
 		</div>
 
 		<div :class="$style.content">
@@ -129,13 +129,9 @@ function handleMenuSelect(action: string) {
 .item {
 	display: flex;
 	align-items: center;
-	gap: var(--spacing--xs);
-	padding: var(--spacing--2xs) var(--spacing--xs);
+	gap: var(--spacing--sm);
+	padding: var(--spacing--sm) 0;
 	border-radius: var(--radius--lg);
-
-	&:hover {
-		background-color: var(--color--background--light-2);
-	}
 
 	&.configured {
 		.actionButton {
@@ -153,6 +149,7 @@ function handleMenuSelect(action: string) {
 
 .iconWrapper {
 	flex-shrink: 0;
+	width: 32px;
 	display: flex;
 	align-items: center;
 	justify-content: center;

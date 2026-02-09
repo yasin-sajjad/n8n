@@ -10,17 +10,11 @@ import { useUIStore } from '@/app/stores/ui.store';
 import { TOOLS_MANAGER_MODAL_KEY } from '@/features/ai/chatHub/constants';
 import { useChatStore } from '@/features/ai/chatHub/chat.store';
 
-const props = withDefaults(
-	defineProps<{
-		disabled: boolean;
-		checkedToolIds: string[];
-		transparentBg?: boolean;
-		disabledTooltip?: string;
-	}>(),
-	{
-		transparentBg: false,
-	},
-);
+const props = defineProps<{
+	disabled: boolean;
+	checkedToolIds: string[];
+	disabledTooltip?: string;
+}>();
 
 const emit = defineEmits<{
 	toggle: [toolId: string];
@@ -47,7 +41,12 @@ const displayToolNodeTypes = computed(() => {
 });
 
 const toolsLabel = computed(() => {
-	if (toolCount.value > 0) {
+	if (toolCount.value === 1) {
+		const toolId = props.checkedToolIds[0];
+		const tool = chatStore.configuredTools.find((t) => t.definition.id === toolId);
+		if (tool) return tool.definition.name;
+	}
+	if (toolCount.value > 1) {
 		return i18n.baseText('chatHub.tools.selector.label.count', { adjustToNumber: toolCount.value });
 	}
 	return i18n.baseText('chatHub.tools.selector.label.default');
@@ -118,7 +117,7 @@ onMounted(async () => {
 			v-if="chatStore.configuredTools.length === 0"
 			type="secondary"
 			native-type="button"
-			:class="[$style.toolsButton, { [$style.transparentBg]: transparentBg }]"
+			:class="$style.toolsButton"
 			:disabled="disabled"
 			icon="plus"
 			@click="openToolsManager"
@@ -131,7 +130,7 @@ onMounted(async () => {
 			v-else
 			ref="dropdownMenu"
 			:items="menuItems"
-			placement="bottom-start"
+			placement="top-start"
 			extra-popper-class="tools-selector-dropdown"
 			searchable
 			:search-placeholder="i18n.baseText('chatHub.toolsManager.searchPlaceholder')"
@@ -143,10 +142,11 @@ onMounted(async () => {
 				<N8nButton
 					type="secondary"
 					native-type="button"
-					:class="[$style.toolsButton, { [$style.transparentBg]: transparentBg }]"
+					:class="$style.toolsButton"
 					:disabled="disabled"
+					:icon="toolCount === 0 ? 'plus' : undefined"
 				>
-					<span :class="$style.iconStack">
+					<span v-if="toolCount > 0" :class="$style.iconStack">
 						<NodeIcon
 							v-for="(nodeType, i) in displayToolNodeTypes"
 							:key="`${nodeType?.name}-${i}`"
@@ -189,10 +189,9 @@ onMounted(async () => {
 	display: flex;
 	align-items: center;
 	gap: var(--spacing--2xs);
-
-	&.transparentBg {
-		background-color: transparent !important;
-	}
+	border: none !important;
+	border-radius: var(--radius--lg);
+	background-color: var(--color--background);
 }
 
 .iconStack {
@@ -212,7 +211,7 @@ onMounted(async () => {
 }
 
 .iconOverlap {
-	margin-left: -6px;
+	margin-left: -5px;
 }
 
 .settingsButton {

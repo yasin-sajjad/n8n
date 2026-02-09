@@ -165,7 +165,7 @@ function handleClose() {
 	<Modal
 		:name="modalName"
 		:event-bus="modalBus"
-		width="560px"
+		width="710px"
 		:center="true"
 		max-width="90vw"
 		max-height="80vh"
@@ -192,9 +192,13 @@ function handleClose() {
 				</N8nInput>
 
 				<div v-if="filteredConfiguredTools.length > 0" :class="$style.section">
-					<N8nText :class="$style.sectionTitle" size="small" color="text-light" tag="h3">
-						{{ i18n.baseText('chatHub.toolsManager.configuredTools') }}
-					</N8nText>
+					<N8nHeading size="small" color="text-light" tag="h3">
+						{{
+							i18n.baseText('chatHub.toolsManager.configuredTools', {
+								interpolate: { count: tools.length },
+							})
+						}}
+					</N8nHeading>
 					<div :class="$style.toolsList">
 						<ToolListItem
 							v-for="tool in filteredConfiguredTools"
@@ -211,9 +215,13 @@ function handleClose() {
 				</div>
 
 				<div v-if="filteredAvailableTools.length > 0" :class="$style.section">
-					<N8nText :class="$style.sectionTitle" size="small" color="text-light" tag="h3">
-						{{ i18n.baseText('chatHub.toolsManager.availableTools') }}
-					</N8nText>
+					<N8nHeading size="small" color="text-light" tag="h3">
+						{{
+							i18n.baseText('chatHub.toolsManager.availableTools', {
+								interpolate: { count: availableToolTypes.length },
+							})
+						}}
+					</N8nHeading>
 					<div :class="$style.toolsList">
 						<ToolListItem
 							v-for="nodeType in filteredAvailableTools"
@@ -235,21 +243,17 @@ function handleClose() {
 				</div>
 			</div>
 		</template>
-
-		<template #footer>
-			<div :class="$style.footer">
-				<N8nButton type="primary" @click="handleClose">
-					{{ i18n.baseText('chatHub.toolsManager.confirm') }}
-				</N8nButton>
-			</div>
-		</template>
 	</Modal>
 </template>
 
 <style lang="scss" module>
 .modal {
 	:global(.el-dialog__body) {
-		padding: 0;
+		padding: var(--spacing--sm) var(--spacing--md);
+	}
+
+	:global(.el-dialog__header) {
+		padding: var(--spacing--md) var(--spacing--md) var(--spacing--sm);
 	}
 }
 
@@ -257,10 +261,10 @@ function handleClose() {
 	display: flex;
 	flex-direction: column;
 	gap: var(--spacing--sm);
-	padding: var(--spacing--sm);
 }
 
 .searchInput {
+	padding-bottom: var(--spacing--sm);
 	width: 100%;
 }
 
@@ -268,13 +272,6 @@ function handleClose() {
 	display: flex;
 	flex-direction: column;
 	gap: var(--spacing--2xs);
-}
-
-.sectionTitle {
-	text-transform: uppercase;
-	font-weight: var(--font-weight--bold);
-	letter-spacing: 0.5px;
-	padding-left: var(--spacing--xs);
 }
 
 .toolsList {

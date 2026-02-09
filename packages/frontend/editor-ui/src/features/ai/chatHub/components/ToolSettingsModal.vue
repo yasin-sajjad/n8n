@@ -272,7 +272,7 @@ onBeforeUnmount(() => {
 		v-if="node"
 		:name="modalName"
 		:event-bus="modalBus"
-		width="520px"
+		width="710px"
 		:center="true"
 		max-width="90vw"
 		min-height="250px"
@@ -334,7 +334,7 @@ onBeforeUnmount(() => {
 	}
 
 	:global(.el-dialog__body) {
-		padding: var(--spacing--sm);
+		padding: var(--spacing--sm) var(--spacing--md);
 	}
 
 	/* don't show "This node must be connected to an AI agent." */
