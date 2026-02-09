@@ -3895,9 +3895,6 @@ async function generateVersionSpecificFiles(
 		}
 	}
 
-	console.log(
-		`  Generated ${generatedDirs} node directories with ${generatedFiles} files (${splitVersions} split, ${flatVersions} flat)`,
-	);
 	return allNodes;
 }
 
