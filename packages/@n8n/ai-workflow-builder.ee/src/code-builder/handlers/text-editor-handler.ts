@@ -69,6 +69,13 @@ export class TextEditorHandler {
 			codeLength: this.code?.length ?? 0,
 		});
 
+		// Create-specific path validation with a more helpful error message
+		if (command.command === 'create' && command.path !== WORKFLOW_FILE_PATH) {
+			throw new Error(
+				'Cannot create multiple workflows. You can only extend the existing workflow at /workflow.js.',
+			);
+		}
+
 		// Validate path for all commands
 		this.validatePath(command.path);
 

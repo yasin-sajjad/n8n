@@ -101,6 +101,16 @@ describe('TextEditorHandler', () => {
 			expect(handler.getWorkflowCode()).toBe('const x = 1;');
 		});
 
+		it('should throw specific error when trying to create a different file', () => {
+			expect(() =>
+				handler.execute({
+					command: 'create',
+					path: '/other-workflow.js',
+					file_text: 'const x = 1;',
+				}),
+			).toThrow('Cannot create multiple workflows');
+		});
+
 		it('should overwrite existing code', () => {
 			handler.setWorkflowCode('existing content');
 
@@ -351,7 +361,7 @@ describe('TextEditorHandler', () => {
 					path: '/src/workflow.js',
 					file_text: 'code',
 				}),
-			).toThrow(InvalidPathError);
+			).toThrow('Cannot create multiple workflows');
 		});
 	});
 
