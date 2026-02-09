@@ -264,6 +264,31 @@ export function getPropertyValue(context: DisplayOptionsContext, propertyName: s
 }
 
 /**
+ * Get the raw (unwrapped) property value from context, used to inspect
+ * resource locator objects before they are unwrapped by getPropertyValue.
+ */
+function getRawPropertyValue(context: DisplayOptionsContext, propertyName: string): unknown {
+	if (propertyName.charAt(0) === '/') {
+		const rootParams = context.rootParameters ?? context.parameters;
+		return get(rootParams, propertyName.slice(1));
+	}
+	if (propertyName === '@version' || propertyName === '@tool') {
+		return undefined;
+	}
+	return get(context.parameters, propertyName);
+}
+
+/**
+ * Check if a value is an unselected resource locator (any mode with empty value).
+ * An empty RL represents "not yet configured" — the user hasn't selected a value yet.
+ */
+function isUnselectedResourceLocator(value: unknown): boolean {
+	if (!value || typeof value !== 'object' || !('__rl' in value)) return false;
+	const rl = value as Record<string, unknown>;
+	return rl.__rl === true && rl.value === '';
+}
+
+/**
  * Check if a field should be visible based on displayOptions and current context.
  *
  * Aligned with n8n core displayParameter function.
@@ -330,6 +355,13 @@ export function matchesDisplayOptions(
 	if (hide) {
 		// Any matching hide condition hides the field
 		for (const propertyName of Object.keys(hide)) {
+			// Skip hide condition for unselected resource locators.
+			// An empty RL value means "not yet configured" — the untilXSelected pattern
+			// is a UI progressive-disclosure hint, not a validation constraint.
+			if (isUnselectedResourceLocator(getRawPropertyValue(context, propertyName))) {
+				continue;
+			}
+
 			const values = getPropertyValue(context, propertyName);
 
 			// Don't apply hide if actualValues is empty (property doesn't exist)

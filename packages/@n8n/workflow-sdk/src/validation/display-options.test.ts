@@ -531,6 +531,61 @@ describe('matchesDisplayOptions', () => {
 		});
 	});
 
+	describe('unselected resource locator handling in hide conditions', () => {
+		it('skips hide condition when referenced property is an unselected resource locator', () => {
+			const context: DisplayOptionsContext = {
+				parameters: {
+					sheetName: { __rl: true, mode: 'list', value: '' },
+					resource: 'sheet',
+					operation: 'read',
+				},
+			};
+			// filtersUI has hide: { sheetName: [''] } — should NOT hide
+			// because sheetName is an unselected RL (empty value means "not configured yet")
+			const result = matchesDisplayOptions(context, {
+				show: { resource: ['sheet'], operation: ['read'] },
+				hide: { sheetName: [''] },
+			});
+			expect(result).toBe(true);
+		});
+
+		it('skips hide condition for unselected resource locator in id mode', () => {
+			const context: DisplayOptionsContext = {
+				parameters: {
+					documentId: { __rl: true, mode: 'id', value: '' },
+				},
+			};
+			const result = matchesDisplayOptions(context, {
+				hide: { documentId: [''] },
+			});
+			expect(result).toBe(true);
+		});
+
+		it('still applies hide condition for non-empty resource locator', () => {
+			const context: DisplayOptionsContext = {
+				parameters: {
+					sheetName: { __rl: true, mode: 'list', value: 'Sheet1' },
+				},
+			};
+			const result = matchesDisplayOptions(context, {
+				hide: { sheetName: ['Sheet1'] },
+			});
+			expect(result).toBe(false);
+		});
+
+		it('still applies hide condition for non-RL properties with empty string', () => {
+			const context: DisplayOptionsContext = {
+				parameters: {
+					mode: '',
+				},
+			};
+			const result = matchesDisplayOptions(context, {
+				hide: { mode: [''] },
+			});
+			expect(result).toBe(false);
+		});
+	});
+
 	describe('regex path handling', () => {
 		it('matches if ANY path in regex pattern exists', () => {
 			const context: DisplayOptionsContext = {
