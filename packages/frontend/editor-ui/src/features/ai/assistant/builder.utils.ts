@@ -15,7 +15,7 @@ import { getWorkflowVersionsByIds } from '@n8n/rest-api-client/api/workflowHisto
 import type { IRestApiContext } from '@n8n/rest-api-client';
 
 export function generateShortId() {
-	return Math.random().toString(36).substr(2, 9);
+	return Math.random().toString(36).substring(2, 11);
 }
 
 export function generateMessageId(): string {

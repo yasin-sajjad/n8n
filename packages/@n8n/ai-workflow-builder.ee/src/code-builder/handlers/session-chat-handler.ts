@@ -196,11 +196,12 @@ export class SessionChatHandler {
 			});
 		}
 
-		// Call success callback after successful generation (fire-and-forget)
 		if (generationSucceeded && this.onGenerationSuccess) {
-			void Promise.resolve(this.onGenerationSuccess()).catch((error) => {
+			try {
+				await this.onGenerationSuccess();
+			} catch (error) {
 				this.logger?.warn('Failed to execute onGenerationSuccess callback', { error });
-			});
+			}
 		}
 
 		this.logger?.debug('Saved CodeBuilder session', {

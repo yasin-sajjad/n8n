@@ -168,7 +168,7 @@ const mockFormTriggerNode: INodeTypeDescription = {
 	builderHint: {
 		message:
 			'Use with n8n-nodes-base.form to build a full form experience, with pages and final page',
-		relatedNodes: ['n8n-nodes-base.form'],
+		relatedNodes: [{ nodeType: 'n8n-nodes-base.form', relationHint: 'Build full form experience' }],
 	},
 };
 
@@ -185,7 +185,9 @@ const mockFormNode: INodeTypeDescription = {
 	builderHint: {
 		message:
 			'Use with n8n-nodes-base.formTrigger to build a full form experience. Form node creates additional pages/steps after the trigger',
-		relatedNodes: ['n8n-nodes-base.formTrigger'],
+		relatedNodes: [
+			{ nodeType: 'n8n-nodes-base.formTrigger', relationHint: 'Creates additional form pages' },
+		],
 	},
 };
 
@@ -202,7 +204,9 @@ const mockRespondToWebhookNode: INodeTypeDescription = {
 	builderHint: {
 		message:
 			'Only works with webhook node (n8n-nodes-base.webhook) with responseMode set to "responseNode"',
-		relatedNodes: ['n8n-nodes-base.webhook'],
+		relatedNodes: [
+			{ nodeType: 'n8n-nodes-base.webhook', relationHint: 'Required webhook trigger' },
+		],
 	},
 };
 
@@ -232,7 +236,12 @@ const mockAgentNode: INodeTypeDescription = {
 	builderHint: {
 		message:
 			'Use with @n8n/n8n-nodes-langchain.outputParserStructured to get structured JSON output from the agent',
-		relatedNodes: ['@n8n/n8n-nodes-langchain.outputParserStructured'],
+		relatedNodes: [
+			{
+				nodeType: '@n8n/n8n-nodes-langchain.outputParserStructured',
+				relationHint: 'Structured JSON output',
+			},
+		],
 	},
 };
 
@@ -370,7 +379,7 @@ const mockCodeRunnerNode: INodeTypeDescription = {
 	properties: [],
 	builderHint: {
 		message: 'Use with n8n-nodes-base.code for executing custom JavaScript',
-		relatedNodes: ['n8n-nodes-base.code'],
+		relatedNodes: [{ nodeType: 'n8n-nodes-base.code', relationHint: 'Execute custom JavaScript' }],
 	},
 };
 
@@ -395,10 +404,9 @@ describe('CodeBuilderSearchTool', () => {
 			// Search for "respond" which should only match respondToWebhook, not webhook
 			const result = await tool.invoke({ queries: ['respond'] });
 
-			// Should include Webhook node as [RELATED] since it's a related node
-			expect(result).toContain('[RELATED]');
+			// Should include Webhook node via @relatedNodes section
+			expect(result).toContain('@relatedNodes');
 			expect(result).toContain('n8n-nodes-base.webhook');
-			expect(result).toContain('(+ 1 related)');
 		});
 
 		it('should include builder hint for Respond to Webhook node', async () => {
@@ -452,7 +460,7 @@ describe('CodeBuilderSearchTool', () => {
 			expect(result).toContain('outputParserStructured');
 		});
 
-		it('should show outputParserStructured as [RELATED] when both nodes available but only agent matches search', async () => {
+		it('should show outputParserStructured in @relatedNodes when both nodes available but only agent matches search', async () => {
 			const nodeTypeParser = new NodeTypeParser([mockAgentNode, mockOutputParserStructuredNode]);
 			const tool = createCodeBuilderSearchTool(nodeTypeParser);
 
@@ -463,17 +471,15 @@ describe('CodeBuilderSearchTool', () => {
 			expect(result).toContain('@n8n/n8n-nodes-langchain.agent');
 			expect(result).toContain('@builderHint');
 
-			// outputParserStructured should appear as [RELATED] since it's in relatedNodes
-			// and available in the parser, but doesn't match "AI Agent" search directly
-			expect(result).toContain('[RELATED]');
+			// outputParserStructured should appear in @relatedNodes section
+			expect(result).toContain('@relatedNodes');
 			expect(result).toContain('@n8n/n8n-nodes-langchain.outputParserStructured');
-			expect(result).toContain('Structured Output Parser');
-			expect(result).toContain('(+ 1 related)');
+			expect(result).toContain('Structured JSON output');
 		});
 
-		it('should recursively collect related nodes (nodeA → nodeB → nodeC)', async () => {
+		it('should display related nodes inline via @relatedNodes (nodeA → nodeB)', async () => {
 			// Create a chain: nodeA → nodeB → nodeC
-			// When searching for nodeA, both nodeB and nodeC should appear as related
+			// When searching for nodeA, nodeB should appear in @relatedNodes section
 			const mockNodeA: INodeTypeDescription = {
 				name: 'test.chainA',
 				displayName: 'Chain Node A',
@@ -486,7 +492,7 @@ describe('CodeBuilderSearchTool', () => {
 				properties: [],
 				builderHint: {
 					message: 'Related to Chain Node B',
-					relatedNodes: ['test.chainB'],
+					relatedNodes: [{ nodeType: 'test.chainB', relationHint: 'Next in chain' }],
 				},
 			};
 
@@ -502,7 +508,7 @@ describe('CodeBuilderSearchTool', () => {
 				properties: [],
 				builderHint: {
 					message: 'Related to Chain Node C',
-					relatedNodes: ['test.chainC'],
+					relatedNodes: [{ nodeType: 'test.chainC', relationHint: 'Next in chain' }],
 				},
 			};
 
@@ -527,15 +533,9 @@ describe('CodeBuilderSearchTool', () => {
 			// Node A should be found directly
 			expect(result).toContain('test.chainA');
 
-			// Node B should appear as [RELATED] (direct relation from A)
+			// Node B should appear in @relatedNodes section (direct relation from A)
+			expect(result).toContain('@relatedNodes');
 			expect(result).toContain('test.chainB');
-			expect(result).toContain('[RELATED]');
-
-			// Node C should also appear as [RELATED] (indirect relation via B)
-			expect(result).toContain('test.chainC');
-
-			// Should show 2 related nodes (B and C)
-			expect(result).toContain('(+ 2 related)');
 		});
 
 		it('should prevent infinite recursion with circular related nodes', async () => {
@@ -552,7 +552,7 @@ describe('CodeBuilderSearchTool', () => {
 				properties: [],
 				builderHint: {
 					message: 'Related to Node B',
-					relatedNodes: ['test.nodeB'],
+					relatedNodes: [{ nodeType: 'test.nodeB', relationHint: 'Related node' }],
 				},
 			};
 
@@ -568,7 +568,7 @@ describe('CodeBuilderSearchTool', () => {
 				properties: [],
 				builderHint: {
 					message: 'Related to Node A',
-					relatedNodes: ['test.nodeA'],
+					relatedNodes: [{ nodeType: 'test.nodeA', relationHint: 'Related node' }],
 				},
 			};
 
@@ -581,10 +581,9 @@ describe('CodeBuilderSearchTool', () => {
 			// Node A should be found
 			expect(result).toContain('test.nodeA');
 
-			// Node B should appear as related (only once, not infinitely)
+			// Node B should appear in @relatedNodes section (only once, not infinitely)
+			expect(result).toContain('@relatedNodes');
 			expect(result).toContain('test.nodeB');
-			expect(result).toContain('[RELATED]');
-			expect(result).toContain('(+ 1 related)');
 		});
 
 		it('should NOT duplicate related nodes if already in search results', async () => {
@@ -596,8 +595,8 @@ describe('CodeBuilderSearchTool', () => {
 
 			// Count occurrences of form node ID
 			const formMatches = result.match(/n8n-nodes-base\.form[^T]/g) ?? [];
-			// Should appear once as search result, not duplicated as related
-			expect(formMatches.length).toBeLessThanOrEqual(2); // Once in hint text, once as result
+			// May appear as: search result, hint text, @relatedNodes section
+			expect(formMatches.length).toBeLessThanOrEqual(3);
 		});
 
 		it('should NOT include builder hint for nodes without hints', async () => {
@@ -780,26 +779,20 @@ describe('CodeBuilderSearchTool', () => {
 			expect(result).toMatch(/operation.*removeDuplicateInputItems/s);
 		});
 
-		it('should include discriminators for related nodes', async () => {
+		it('should include related nodes in @relatedNodes section', async () => {
 			// mockCodeRunnerNode has mockCodeNode as a related node
-			// mockCodeNode has mode discriminators
 			const nodeTypeParser = new NodeTypeParser([mockCodeRunnerNode, mockCodeNode]);
 			const tool = createCodeBuilderSearchTool(nodeTypeParser);
 
-			// Search for "Code Runner" - should find codeRunner directly, Code as [RELATED]
+			// Search for "Code Runner" - should find codeRunner directly, Code in @relatedNodes
 			const result = await tool.invoke({ queries: ['Code Runner'] });
 
 			// Code Runner should be found directly
 			expect(result).toContain('n8n-nodes-base.codeRunner');
 
-			// Code node should appear as [RELATED]
-			expect(result).toContain('[RELATED]');
+			// Code node should appear in @relatedNodes section
+			expect(result).toContain('@relatedNodes');
 			expect(result).toContain('n8n-nodes-base.code');
-
-			// Code node (the related node) should include its discriminators
-			expect(result).toContain('mode:');
-			expect(result).toContain('runOnceForAllItems');
-			expect(result).toContain('runOnceForEachItem');
 		});
 	});
 

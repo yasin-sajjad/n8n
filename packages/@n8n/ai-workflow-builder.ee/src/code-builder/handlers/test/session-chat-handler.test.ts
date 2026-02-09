@@ -91,9 +91,6 @@ describe('SessionChatHandler', () => {
 				chunks.push(chunk);
 			}
 
-			// Wait for fire-and-forget callback to complete
-			await new Promise((resolve) => setTimeout(resolve, 10));
-
 			expect(onGenerationSuccess).toHaveBeenCalledTimes(1);
 		});
 
@@ -130,9 +127,6 @@ describe('SessionChatHandler', () => {
 			for await (const _ of generator) {
 				// consume
 			}
-
-			// Wait for any potential callback
-			await new Promise((resolve) => setTimeout(resolve, 10));
 
 			expect(onGenerationSuccess).not.toHaveBeenCalled();
 		});
@@ -178,9 +172,6 @@ describe('SessionChatHandler', () => {
 			for await (const _ of generator) {
 				// consume
 			}
-
-			// Wait for fire-and-forget callback to complete and log
-			await new Promise((resolve) => setTimeout(resolve, 10));
 
 			expect(onGenerationSuccess).toHaveBeenCalledTimes(1);
 			expect(mockLogger.warn).toHaveBeenCalledWith(
@@ -272,9 +263,6 @@ describe('SessionChatHandler', () => {
 			for await (const _ of generator) {
 				// consume
 			}
-
-			// Wait for potential callback
-			await new Promise((resolve) => setTimeout(resolve, 10));
 
 			// When no workflow ID, session management is skipped,
 			// which means onGenerationSuccess is NOT called (since that's session-managed)

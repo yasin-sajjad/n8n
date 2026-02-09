@@ -2315,7 +2315,7 @@ export interface IBuilderHintInputConfig {
 /**
  * Maps AI input types (e.g. 'ai_languageModel', 'ai_memory') to their configuration
  */
-export type BuilderHintInputs = Record<string, IBuilderHintInputConfig>;
+export type BuilderHintInputs = Partial<Record<AINodeConnectionType, IBuilderHintInputConfig>>;
 
 /**
  * Related node with explanation of why it's related
@@ -2335,8 +2335,8 @@ export interface IBuilderHint {
 	inputs?: BuilderHintInputs;
 	/** General hint message for LLM workflow builders */
 	message?: string;
-	/** Related nodes that work together with this node - can be string[] (legacy) or IRelatedNode[] (with hints) */
-	relatedNodes?: string[] | IRelatedNode[];
+	/** Related nodes that work together with this node */
+	relatedNodes?: IRelatedNode[];
 }
 
 export interface INodeTypeDescription extends INodeTypeBaseDescription {

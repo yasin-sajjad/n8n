@@ -29,16 +29,6 @@ import {
 import type { NodeTypeParser, ParsedNodeType } from '../utils/node-type-parser';
 
 /**
- * Type guard to check if relatedNodes uses the new format with relationHint
- */
-function isRelatedNodeArray(
-	relatedNodes: string[] | IRelatedNode[] | undefined,
-): relatedNodes is IRelatedNode[] {
-	if (!relatedNodes || relatedNodes.length === 0) return false;
-	return typeof relatedNodes[0] === 'object' && 'nodeType' in relatedNodes[0];
-}
-
-/**
  * Debug logging helper for search tool
  * Uses util.inspect for terminal-friendly output with full depth
  */
@@ -125,8 +115,7 @@ function formatBuilderHint(
 }
 
 /**
- * Get direct related nodes for a node ID from its node type definition.
- * Returns just the node IDs (for legacy string[] format) or extracts nodeType from IRelatedNode[].
+ * Get direct related node IDs for a node from its builderHint.relatedNodes.
  */
 function getDirectRelatedNodeIds(
 	nodeTypeParser: NodeTypeParser,
@@ -137,15 +126,11 @@ function getDirectRelatedNodeIds(
 	const relatedNodes = nodeType?.builderHint?.relatedNodes;
 	if (!relatedNodes) return [];
 
-	if (isRelatedNodeArray(relatedNodes)) {
-		return relatedNodes.map((r) => r.nodeType);
-	}
-	return relatedNodes;
+	return relatedNodes.map((r) => r.nodeType);
 }
 
 /**
- * Get related nodes with their hints for the new format.
- * Returns undefined if using legacy string[] format.
+ * Get related nodes with their hints.
  */
 function getRelatedNodesWithHints(
 	nodeTypeParser: NodeTypeParser,
@@ -153,13 +138,7 @@ function getRelatedNodesWithHints(
 	version: number,
 ): IRelatedNode[] | undefined {
 	const nodeType = nodeTypeParser.getNodeType(nodeId, version);
-	const relatedNodes = nodeType?.builderHint?.relatedNodes;
-	if (!relatedNodes) return undefined;
-
-	if (isRelatedNodeArray(relatedNodes)) {
-		return relatedNodes;
-	}
-	return undefined;
+	return nodeType?.builderHint?.relatedNodes;
 }
 
 /**
