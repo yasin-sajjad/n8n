@@ -449,7 +449,39 @@ const aiAgent = node({{
 return workflow('ai-email', 'AI Email Sender')
   .add(startTrigger.to(aiAgent));
 \`\`\`
-</ai_agent_with_from_ai>`;
+</ai_agent_with_from_ai>
+
+<ai_agent_with_structured_output>
+\`\`\`javascript
+const structuredParser = outputParser({{
+  type: '@n8n/n8n-nodes-langchain.outputParserStructured',
+  version: 1.3,
+  config: {{
+    name: 'Structured Output Parser',
+    parameters: {{
+      schemaType: 'fromJson',
+      jsonSchemaExample: '{{{{ "sentiment": "positive", "confidence": 0.95, "summary": "brief summary" }}}}'
+    }},
+    position: [700, 500]
+  }}
+}});
+
+const aiAgent = node({{
+  type: '@n8n/n8n-nodes-langchain.agent',
+  version: 3.1,
+  config: {{
+    name: 'Sentiment Analyzer',
+    parameters: {{ promptType: 'define', text: 'Analyze the sentiment of the input text', hasOutputParser: true }},
+    subnodes: {{ model: openAiModel, outputParser: structuredParser }},
+    position: [540, 300]
+  }},
+  output: [{{ sentiment: 'positive', confidence: 0.95, summary: 'The text expresses satisfaction' }}]
+}});
+
+return workflow('ai-sentiment', 'AI Sentiment Analyzer')
+  .add(startTrigger.to(aiAgent));
+\`\`\`
+</ai_agent_with_structured_output>`;
 
 /**
  * Mandatory workflow for tool usage
