@@ -136,6 +136,7 @@ export class ChatSetupHandler {
 			preGeneratedCode: preGeneratedWorkflowCode,
 			valuesExcluded: payload.workflowContext?.valuesExcluded,
 			pinnedNodes: payload.workflowContext?.pinnedNodes,
+			planOutput: payload.planOutput,
 		});
 		this.logPromptBuilt(historyContext, textEditorEnabled);
 
