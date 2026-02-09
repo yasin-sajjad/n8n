@@ -4,7 +4,7 @@ import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { InstanceSettings } from 'n8n-core';
-import { jsonParse } from 'n8n-workflow';
+import { jsonParse, type INodeTypeDescription } from 'n8n-workflow';
 
 import {
 	generateSingleVersionTypeFile,
@@ -216,9 +216,9 @@ export class NodeDefinitionGeneratorService {
 	/**
 	 * Generate node definitions for a community package into nodeDefinitionsDir.
 	 */
-	async generateForPackage(_packageName: string, nodeTypes: NodeTypeDescription[]): Promise<void> {
+	async generateForPackage(_packageName: string, nodeTypes: INodeTypeDescription[]): Promise<void> {
 		await orchestrateGeneration({
-			nodes: nodeTypes,
+			nodes: nodeTypes as unknown as NodeTypeDescription[],
 			outputDir: this.instanceSettings.nodeDefinitionsDir,
 		});
 	}

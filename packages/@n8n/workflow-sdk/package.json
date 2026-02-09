@@ -11,6 +11,9 @@
 		"./scripts/generate-types": {
 			"types": "./src/generate-types/generate-types.ts",
 			"default": "./src/generate-types/generate-types.ts"
+		},
+		"./dist/generate-types/generate-types": {
+			"default": "./dist/generate-types/generate-types.js"
 		}
 	},
 	"scripts": {
@@ -37,10 +40,7 @@
 	"main": "dist/index.js",
 	"module": "src/index.ts",
 	"types": "dist/index.d.ts",
-	"bin": {
-		"n8n-generate-node-defs": "./dist/generate-types/generate-node-defs-cli.js"
-	},
-	"files": [
+"files": [
 		"dist/**/*"
 	],
 	"devDependencies": {

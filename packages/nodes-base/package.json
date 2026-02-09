@@ -856,7 +856,6 @@
     "@n8n/eslint-plugin-community-nodes": "workspace:*",
     "@n8n/typescript-config": "workspace:*",
     "@n8n/vitest-config": "workspace:*",
-    "@n8n/workflow-sdk": "workspace:*",
     "n8n-containers": "workspace:*",
     "vitest": "catalog:",
     "@types/amqplib": "^0.10.1",
