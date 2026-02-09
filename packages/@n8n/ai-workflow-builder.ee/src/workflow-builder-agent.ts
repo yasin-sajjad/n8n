@@ -27,7 +27,6 @@ import type { ResourceLocatorCallback } from './types/callbacks';
 import type { HITLInterruptValue, PlanOutput } from './types/planning';
 import type { SimpleWorkflow } from './types/workflow';
 import { createStreamProcessor, type StreamEvent } from './utils/stream-processor';
-import { TokenUsageTrackingHandler } from './utils/token-usage-tracking-handler';
 import type { WorkflowState } from './workflow-state';
 
 const PROMPT_IS_TOO_LARGE_ERROR =
@@ -95,13 +94,6 @@ export interface BuilderFeatureFlags {
 	planMode?: boolean;
 }
 
-export interface ChatMetrics {
-	durationMs: number;
-	inputTokens: number;
-	outputTokens: number;
-	thinkingTokens: number;
-}
-
 export interface ChatPayload {
 	id: string;
 	message: string;
@@ -140,7 +132,6 @@ export class WorkflowBuilderAgent {
 	private nodeDefinitionDirs?: string[];
 	private resourceLocatorCallback?: ResourceLocatorCallback;
 	private onTelemetryEvent?: (event: string, properties: ITelemetryTrackProperties) => void;
-	private lastChatMetrics?: ChatMetrics;
 	/** Feature flags stored from the first chat call to ensure consistency across a session */
 	private sessionFeatureFlags?: BuilderFeatureFlags;
 
@@ -183,10 +174,6 @@ export class WorkflowBuilderAgent {
 		})) as TypedStateSnapshot;
 	}
 
-	getLastChatMetrics(): ChatMetrics | undefined {
-		return this.lastChatMetrics;
-	}
-
 	private getDefaultWorkflowJSON(payload: ChatPayload): SimpleWorkflow {
 		return (
 			(payload.workflowContext?.currentWorkflow as SimpleWorkflow) ?? {
@@ -202,10 +189,7 @@ export class WorkflowBuilderAgent {
 		abortSignal?: AbortSignal,
 		externalCallbacks?: Callbacks,
 	) {
-		this.lastChatMetrics = undefined;
 		this.validateMessageLength(payload.message);
-
-		const startTime = Date.now();
 
 		// Feature flag: Route to CodeWorkflowBuilder if enabled (default: false)
 		const useCodeWorkflowBuilder = payload.featureFlags?.codeBuilder ?? false;
@@ -228,7 +212,7 @@ export class WorkflowBuilderAgent {
 						resumeData: undefined,
 						resumeInterrupt: undefined,
 					};
-					yield* this.runCodeWorkflowBuilder(codePayload, userId, abortSignal, startTime);
+					yield* this.runCodeWorkflowBuilder(codePayload, userId, abortSignal);
 					return;
 				}
 
@@ -237,7 +221,7 @@ export class WorkflowBuilderAgent {
 					userId,
 					action: decision.action,
 				});
-				yield* this.runMultiAgentSystem(payload, userId, abortSignal, externalCallbacks, startTime);
+				yield* this.runMultiAgentSystem(payload, userId, abortSignal, externalCallbacks);
 				return;
 			}
 
@@ -246,31 +230,26 @@ export class WorkflowBuilderAgent {
 				this.logger?.debug('Plan mode with code builder, routing to multi-agent for planning', {
 					userId,
 				});
-				yield* this.runMultiAgentSystem(payload, userId, abortSignal, externalCallbacks, startTime);
+				yield* this.runMultiAgentSystem(payload, userId, abortSignal, externalCallbacks);
 				return;
 			}
 
 			// Normal code builder flow (no plan mode)
 			this.logger?.debug('Routing to CodeWorkflowBuilder', { userId });
-			yield* this.runCodeWorkflowBuilder(payload, userId, abortSignal, startTime);
+			yield* this.runCodeWorkflowBuilder(payload, userId, abortSignal);
 			return;
 		}
 
 		// Fall back to legacy multi-agent system
 		this.logger?.debug('Routing to legacy multi-agent system', { userId });
-		yield* this.runMultiAgentSystem(payload, userId, abortSignal, externalCallbacks, startTime);
+		yield* this.runMultiAgentSystem(payload, userId, abortSignal, externalCallbacks);
 	}
 
 	private async *runCodeWorkflowBuilder(
 		payload: ChatPayload,
 		userId: string | undefined,
 		abortSignal: AbortSignal | undefined,
-		startTime: number,
 	) {
-		let accumulatedInputTokens = 0;
-		let accumulatedOutputTokens = 0;
-		let accumulatedThinkingTokens = 0;
-
 		const codeWorkflowBuilder = new CodeWorkflowBuilder({
 			llm: this.stageLLMs.builder,
 			nodeTypes: this.parsedNodeTypes,
@@ -285,21 +264,9 @@ export class WorkflowBuilderAgent {
 				workflowId: payload.workflowContext?.currentWorkflow?.id,
 			},
 			onTelemetryEvent: this.onTelemetryEvent,
-			onTokenUsage: (usage) => {
-				accumulatedInputTokens += usage.inputTokens;
-				accumulatedOutputTokens += usage.outputTokens;
-				accumulatedThinkingTokens += usage.thinkingTokens;
-			},
 		});
 
 		yield* codeWorkflowBuilder.chat(payload, userId ?? 'unknown', abortSignal);
-
-		this.lastChatMetrics = {
-			durationMs: Date.now() - startTime,
-			inputTokens: accumulatedInputTokens,
-			outputTokens: accumulatedOutputTokens,
-			thinkingTokens: accumulatedThinkingTokens,
-		};
 	}
 
 	private async *runMultiAgentSystem(
@@ -307,15 +274,12 @@ export class WorkflowBuilderAgent {
 		userId: string | undefined,
 		abortSignal: AbortSignal | undefined,
 		externalCallbacks: Callbacks | undefined,
-		startTime: number,
 	) {
-		const tokenTracker = new TokenUsageTrackingHandler();
 		const { agent, threadConfig, streamConfig } = this.setupAgentAndConfigs(
 			payload,
 			userId,
 			abortSignal,
 			externalCallbacks,
-			tokenTracker,
 		);
 
 		try {
@@ -324,14 +288,6 @@ export class WorkflowBuilderAgent {
 		} catch (error: unknown) {
 			this.handleStreamError(error);
 		}
-
-		const tokenUsage = tokenTracker.getUsage();
-		this.lastChatMetrics = {
-			durationMs: Date.now() - startTime,
-			inputTokens: tokenUsage.inputTokens,
-			outputTokens: tokenUsage.outputTokens,
-			thinkingTokens: 0,
-		};
 	}
 
 	private validateMessageLength(message: string): void {
@@ -352,7 +308,6 @@ export class WorkflowBuilderAgent {
 		userId?: string,
 		abortSignal?: AbortSignal,
 		externalCallbacks?: Callbacks,
-		tokenTracker?: TokenUsageTrackingHandler,
 	) {
 		// Store feature flags from the first call; reuse for all subsequent calls
 		// to prevent mid-session flag changes from causing inconsistency
@@ -370,12 +325,7 @@ export class WorkflowBuilderAgent {
 			},
 		};
 
-		const baseCallbacks = externalCallbacks ?? (this.tracer ? [this.tracer] : undefined);
-		let callbacks: Callbacks | undefined = baseCallbacks;
-		if (tokenTracker) {
-			const baseArray = Array.isArray(baseCallbacks) ? baseCallbacks : [];
-			callbacks = [...baseArray, tokenTracker];
-		}
+		const callbacks = externalCallbacks ?? (this.tracer ? [this.tracer] : undefined);
 
 		const streamConfig = {
 			...threadConfig,

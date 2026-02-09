@@ -18,7 +18,6 @@ import type { HITLInterruptValue } from '@/types/planning';
 import {
 	BuilderFeatureFlags,
 	WorkflowBuilderAgent,
-	type ChatMetrics,
 	type ChatPayload,
 } from '@/workflow-builder-agent';
 
@@ -303,15 +302,7 @@ export class AiWorkflowBuilderService {
 		// Track telemetry after stream completes (onGenerationSuccess is called by the agent)
 		if (this.onTelemetryEvent && userId) {
 			try {
-				const metrics = agent.getLastChatMetrics();
-				await this.trackBuilderReplyTelemetry(
-					agent,
-					workflowId,
-					userId,
-					payload.id,
-					isCodeBuilder,
-					metrics,
-				);
+				await this.trackBuilderReplyTelemetry(agent, workflowId, userId, payload.id, isCodeBuilder);
 			} catch (error) {
 				this.logger?.error('Failed to track builder reply telemetry', { error });
 			}
@@ -373,7 +364,6 @@ export class AiWorkflowBuilderService {
 		userId: string,
 		userMessageId: string,
 		isCodeBuilder: boolean,
-		metrics?: ChatMetrics,
 	): Promise<void> {
 		if (!this.onTelemetryEvent) return;
 
@@ -395,15 +385,8 @@ export class AiWorkflowBuilderService {
 			}),
 			user_message_id: userMessageId,
 			code_builder: isCodeBuilder,
-			...(metrics && {
-				duration_ms: metrics.durationMs,
-				input_tokens: metrics.inputTokens,
-				output_tokens: metrics.outputTokens,
-				thinking_tokens: metrics.thinkingTokens,
-			}),
 		};
 
-		console.log('Builder replied to user message', JSON.stringify(properties, null, 2));
 		this.onTelemetryEvent('Builder replied to user message', properties);
 	}
 
