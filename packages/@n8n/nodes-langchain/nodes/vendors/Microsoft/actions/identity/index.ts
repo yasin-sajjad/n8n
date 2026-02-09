@@ -15,20 +15,20 @@ export const description: INodeProperties[] = [
 			{
 				name: 'Get Many',
 				value: 'getAll',
-				description: 'Get many blueprints',
-				action: 'Get many blueprints',
+				description: 'Get many agent identities',
+				action: 'Get many agent identities',
 			},
 			{
 				name: 'Update',
 				value: 'update',
-				description: 'Update a blueprint',
-				action: 'Update a blueprint',
+				description: 'Update an agent identity',
+				action: 'Update an agent identity',
 			},
 		],
 		default: 'getAll',
 		displayOptions: {
 			show: {
-				resource: ['blueprint'],
+				resource: ['identity'],
 			},
 		},
 	},

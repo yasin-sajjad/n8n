@@ -14,7 +14,8 @@ export class MicrosoftAgent365ManagementApi implements ICredentialType {
 			displayName: 'Scope',
 			name: 'scope',
 			type: 'hidden',
-			default: 'openid offline_access https://graph.microsoft.com/.default',
+			default:
+				'openid offline_access Application.ReadWrite.All AgentIdentity.ReadWrite.All AgentIdentityBlueprint.ReadWrite.All AgentIdentityBlueprintPrincipal.ReadWrite.All User.ReadWrite.All',
 		},
 	];
 }

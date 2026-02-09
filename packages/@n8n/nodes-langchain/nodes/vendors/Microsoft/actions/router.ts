@@ -1,6 +1,9 @@
 import { NodeOperationError, type IExecuteFunctions, type INodeExecutionData } from 'n8n-workflow';
 
+import * as agentUser from './agentUser';
+import * as application from './application';
 import * as blueprint from './blueprint';
+import * as identity from './identity';
 import type { MicrosoftAgent365Type } from './node.type';
 
 export async function router(this: IExecuteFunctions) {
@@ -17,8 +20,20 @@ export async function router(this: IExecuteFunctions) {
 
 	let execute;
 	switch (microsoftAgent365TypeData.resource) {
+		case 'agentUser':
+			execute = agentUser[microsoftAgent365TypeData.operation].execute;
+			break;
+
+		case 'application':
+			execute = application[microsoftAgent365TypeData.operation].execute;
+			break;
+
 		case 'blueprint':
 			execute = blueprint[microsoftAgent365TypeData.operation].execute;
+			break;
+
+		case 'identity':
+			execute = identity[microsoftAgent365TypeData.operation].execute;
 			break;
 
 		default:

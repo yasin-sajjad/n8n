@@ -1,9 +1,8 @@
 import type { INodeProperties } from 'n8n-workflow';
 
 import * as getAll from './getAll.operation';
-import * as update from './update.operation';
 
-export { getAll, update };
+export { getAll };
 
 export const description: INodeProperties[] = [
 	{
@@ -15,23 +14,16 @@ export const description: INodeProperties[] = [
 			{
 				name: 'Get Many',
 				value: 'getAll',
-				description: 'Get many blueprints',
-				action: 'Get many blueprints',
-			},
-			{
-				name: 'Update',
-				value: 'update',
-				description: 'Update a blueprint',
-				action: 'Update a blueprint',
+				description: 'Get many applications',
+				action: 'Get many applications',
 			},
 		],
 		default: 'getAll',
 		displayOptions: {
 			show: {
-				resource: ['blueprint'],
+				resource: ['application'],
 			},
 		},
 	},
 	...getAll.description,
-	...update.description,
 ];
