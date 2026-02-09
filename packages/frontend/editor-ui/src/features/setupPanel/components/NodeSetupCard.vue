@@ -62,11 +62,13 @@ onMounted(() => {
 
 <template>
 	<div
+		data-test-id="node-setup-card"
 		:class="[$style.card, { [$style.collapsed]: !expanded, [$style.completed]: state.isComplete }]"
 	>
-		<header :class="$style.header" @click="onHeaderClick">
+		<header data-test-id="node-setup-card-header" :class="$style.header" @click="onHeaderClick">
 			<N8nIcon
 				v-if="!expanded && state.isComplete"
+				data-test-id="node-setup-card-complete-icon"
 				icon="check"
 				:class="$style['complete-icon']"
 				size="medium"
@@ -89,6 +91,7 @@ onMounted(() => {
 				>
 					<div :class="$style['credential-label-row']">
 						<label
+							data-test-id="node-setup-card-credential-label"
 							:for="`credential-picker-${state.node.name}-${requirement.credentialType}`"
 							:class="$style['credential-label']"
 						>
@@ -98,7 +101,10 @@ onMounted(() => {
 							<template #content>
 								{{ requirement.nodesWithSameCredential.join(', ') }}
 							</template>
-							<span :class="$style['shared-nodes-hint']">
+							<span
+								data-test-id="node-setup-card-shared-nodes-hint"
+								:class="$style['shared-nodes-hint']"
+							>
 								{{
 									i18n.baseText('setupPanel.usedInNodes', {
 										interpolate: {
@@ -129,6 +135,7 @@ onMounted(() => {
 					</N8nText>
 				</div>
 				<N8nButton
+					data-test-id="node-setup-card-test-button"
 					:label="i18n.baseText('node.testStep')"
 					:disabled="!state.isComplete"
 					icon="flask-conical"
