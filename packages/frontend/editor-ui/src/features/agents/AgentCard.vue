@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import type { AgentNode } from './agents.store';
+import type { AgentNode } from './agents.types';
 
 const props = defineProps<{
 	agent: AgentNode;
+	selected: boolean;
+	zoneColor: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -25,10 +27,12 @@ function onPointerDown(event: PointerEvent) {
 
 <template>
 	<div
-		:class="$style.card"
+		:class="[$style.card, { [$style.selected]: selected }]"
 		:style="{
 			left: `${agent.position.x}px`,
 			top: `${agent.position.y}px`,
+			borderLeftColor: zoneColor ?? undefined,
+			borderLeftWidth: zoneColor ? '3px' : undefined,
 		}"
 		data-testid="agent-card"
 		@pointerdown="onPointerDown"
@@ -59,6 +63,7 @@ function onPointerDown(event: PointerEvent) {
 	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 	cursor: grab;
 	user-select: none;
+	z-index: 3;
 	transition:
 		box-shadow 0.15s ease,
 		transform 0.15s ease;
@@ -73,6 +78,22 @@ function onPointerDown(event: PointerEvent) {
 		cursor: grabbing;
 		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
 		transform: translateY(-2px);
+	}
+}
+
+.selected {
+	outline: 2px solid var(--color--primary);
+	outline-offset: 2px;
+	animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+	0%,
+	100% {
+		outline-color: var(--color--primary);
+	}
+	50% {
+		outline-color: var(--color--primary--tint-2);
 	}
 }
 
