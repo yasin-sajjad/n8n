@@ -4291,7 +4291,7 @@
 	"setupPanel.test.description": "Here you can configure everything needed to run the current workflow",
 	"setupPanel.credentialLabel": "Credential",
 	"setupPanel.usedInNodes": "Used in {count} nodes",
-	"setupPanel.everythingConfigured.message": "All credentials have been configured",
+	"setupPanel.everythingConfigured.message": "Your workflow is ready to be executed",
 	"setupPanel.trigger.credential.note": "Add a credential to listen for events.",
 	"becomeCreator.text": "Share your workflows with other users, unlock perks, and become a featured template creator!",
 	"becomeCreator.buttonText": "Become a creator",
