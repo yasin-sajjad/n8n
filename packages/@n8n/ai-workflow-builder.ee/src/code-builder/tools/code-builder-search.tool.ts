@@ -7,13 +7,10 @@
  *
  * Includes discriminator information (resource/operation, mode) so the agent
  * knows what parameters to pass to get_nodes for split type files.
- *
- * POC with extensive debug logging for development.
  */
 
 import { tool } from '@langchain/core/tools';
 import type { IParameterBuilderHint, IRelatedNode } from 'n8n-workflow';
-import { inspect } from 'node:util';
 import { z } from 'zod';
 
 import {
@@ -27,27 +24,6 @@ import {
 	type ModeInfo,
 } from '../utils/discriminator-utils';
 import type { NodeTypeParser, ParsedNodeType } from '../utils/node-type-parser';
-
-/**
- * Debug logging helper for search tool
- * Uses util.inspect for terminal-friendly output with full depth
- */
-function debugLog(message: string, data?: Record<string, unknown>): void {
-	const timestamp = new Date().toISOString();
-	const prefix = `[CODE-BUILDER][${timestamp}][SEARCH_TOOL]`;
-	if (data) {
-		const formatted = inspect(data, {
-			depth: null,
-			colors: true,
-			maxStringLength: null,
-			maxArrayLength: null,
-			breakLength: 120,
-		});
-		console.log(`${prefix} ${message}\n${formatted}`);
-	} else {
-		console.log(`${prefix} ${message}`);
-	}
-}
 
 /**
  * Trigger node types that don't have "trigger" in their name
@@ -438,29 +414,12 @@ function formatDiscriminatorInfo(info: DiscriminatorInfo, nodeId: string): strin
  * Includes discriminator information for nodes with resource/operation or mode patterns
  */
 export function createCodeBuilderSearchTool(nodeTypeParser: NodeTypeParser) {
-	debugLog('Creating search_nodes tool');
-
 	return tool(
 		async (input: { queries: string[] }) => {
-			debugLog('========== SEARCH_NODES TOOL INVOKED ==========');
-			debugLog('Input', { queries: input.queries });
-
 			const allResults: string[] = [];
 
 			for (const query of input.queries) {
-				const searchStartTime = Date.now();
 				const results = nodeTypeParser.searchNodeTypes(query, 5);
-				const searchDuration = Date.now() - searchStartTime;
-
-				debugLog(`Search complete for "${query}"`, {
-					searchDurationMs: searchDuration,
-					resultCount: results.length,
-					results: results.map((node: ParsedNodeType) => ({
-						id: node.id,
-						displayName: node.displayName,
-						isTrigger: node.isTrigger,
-					})),
-				});
 
 				if (results.length === 0) {
 					allResults.push(`## "${query}"\nNo nodes found. Try a different search term.`);
@@ -553,11 +512,6 @@ export function createCodeBuilderSearchTool(nodeTypeParser: NodeTypeParser) {
 			}
 
 			const response = allResults.join('\n\n---\n\n');
-			debugLog('Returning response', {
-				responseLength: response.length,
-				responsePreview: response,
-			});
-			debugLog('========== SEARCH_NODES TOOL COMPLETE ==========');
 
 			return response;
 		},

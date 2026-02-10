@@ -261,7 +261,6 @@ export const useCollaborationStore = defineStore(STORES.COLLABORATION, () => {
 	}
 
 	function setRefreshCanvasCallback(fn: (workflow: IWorkflowDb) => void) {
-		console.log('[Collaboration] setRefreshCanvasCallback called');
 		refreshCanvasCallback = fn;
 	}
 

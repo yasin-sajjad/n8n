@@ -21,9 +21,8 @@ function writeGeneratedTsFile(id: string, json: WorkflowJSON): void {
 		const code = generateWorkflowCode(json);
 		const generatedPath = path.join(DOWNLOADED_FIXTURES_DIR, `${id}.generated.ts`);
 		fs.writeFileSync(generatedPath, code, 'utf-8');
-	} catch (error) {
-		// Don't fail the test if code generation fails - just log it
-		console.warn(`Failed to generate TS for workflow ${id}:`, error);
+	} catch {
+		// Don't fail the test if code generation fails
 	}
 }
 
@@ -239,7 +238,6 @@ describe('Real Workflow Patterns', () => {
 		expect(workflows.length).toBeGreaterThan(0);
 		const aiWorkflow = workflows.find((w) => w.id === '1954');
 		if (!aiWorkflow) {
-			console.warn('AI agent workflow (1954) not found in fixtures');
 			return;
 		}
 
@@ -281,7 +279,6 @@ describe('Real Workflow Patterns', () => {
 	it('should handle multi-node workflows', () => {
 		const complexWorkflow = workflows.find((w) => w.nodeCount >= 10);
 		if (!complexWorkflow) {
-			console.warn('No complex workflow (10+ nodes) found in fixtures');
 			return;
 		}
 
@@ -297,7 +294,6 @@ describe('Real Workflow Patterns', () => {
 		);
 
 		if (!workflowWithCreds) {
-			console.warn('No workflow with credentials found in fixtures');
 			return;
 		}
 

@@ -96,7 +96,6 @@ export class CodeBuilderAgent {
 		};
 
 	constructor(config: CodeBuilderAgentConfig) {
-		/** @TODO Lots of temporary logging to be cleaned up */
 		this.debugLog('CONSTRUCTOR', 'Initializing CodeBuilderAgent...', {
 			nodeTypesCount: config.nodeTypes.length,
 			hasLogger: !!config.logger,
@@ -204,8 +203,6 @@ export class CodeBuilderAgent {
 	/**
 	 * Initialize a log file for the current chat session.
 	 * Creates a file with timestamp, workflow ID, and prompt snippet in the name.
-	 * @TODO SECURITY: Remove debug logging before merge or guard behind environment flag.
-	 * Files in tmpdir are world-readable and may contain sensitive user data.
 	 */
 	private initLogFile(workflowId: string | undefined, prompt: string): void {
 		const logDir = join(tmpdir(), 'n8n-code-builder-logs');
@@ -236,7 +233,6 @@ ${'='.repeat(50)}
 
 `;
 		appendFileSync(this.currentLogFile, header);
-		console.log(`[CODE-BUILDER] Log file created: ${this.currentLogFile}`);
 	}
 
 	/**
@@ -272,23 +268,9 @@ ${'='.repeat(50)}
 			}
 		}
 
-		// Also log to eval logger or console
+		// Also log to eval logger if available
 		if (this.evalLogger) {
 			this.evalLogger.log(`CODE-BUILDER:${context}`, message, data);
-		} else {
-			// Console version with colors
-			if (data) {
-				const coloredFormatted = inspect(data, {
-					depth: null,
-					colors: true,
-					maxStringLength: null,
-					maxArrayLength: null,
-					breakLength: 120,
-				});
-				console.log(`${prefix} ${message}\n${coloredFormatted}`);
-			} else {
-				console.log(`${prefix} ${message}`);
-			}
 		}
 	}
 

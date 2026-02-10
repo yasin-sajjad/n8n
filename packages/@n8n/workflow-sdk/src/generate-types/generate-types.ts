@@ -3824,17 +3824,10 @@ async function generateVersionSpecificFiles(
 
 	for (const [nodeName, nodes] of nodesByName) {
 		try {
-			// Debug: log set node processing
-			if (nodeName === 'set') {
-				console.log(`  DEBUG: Processing set node with ${nodes.length} entries`);
-			}
 			// Create directory for this node
 			const nodeDir = path.join(packageDir, nodeName);
 			await fs.promises.mkdir(nodeDir, { recursive: true });
 			generatedDirs++;
-			if (nodeName === 'set') {
-				console.log(`  DEBUG: Created directory at ${nodeDir}`);
-			}
 
 			// Collect all individual versions from all node entries and map them to their source node
 			// This allows us to generate a file per individual version (e.g., v3, v31, v32, v33, v34)

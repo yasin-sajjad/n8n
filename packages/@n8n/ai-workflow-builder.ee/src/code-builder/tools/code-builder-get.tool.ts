@@ -3,15 +3,12 @@
  *
  * Returns the full TypeScript type definition for a specific node
  * from the generated workflow-sdk types.
- *
- * POC with extensive debug logging for development.
  */
 
 import { tool } from '@langchain/core/tools';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { inspect } from 'node:util';
 import { z } from 'zod';
 
 /**
@@ -54,43 +51,18 @@ export function validatePathWithinBase(filePath: string, baseDir: string): boole
 }
 
 /**
- * Debug logging helper for get tool
- * Uses util.inspect for terminal-friendly output with full depth
- */
-function debugLog(message: string, data?: Record<string, unknown>): void {
-	const timestamp = new Date().toISOString();
-	const prefix = `[CODE-BUILDER][${timestamp}][GET_TOOL]`;
-	if (data) {
-		const formatted = inspect(data, {
-			depth: null,
-			colors: true,
-			maxStringLength: null,
-			maxArrayLength: null,
-			breakLength: 120,
-		});
-		console.log(`${prefix} ${message}\n${formatted}`);
-	} else {
-		console.log(`${prefix} ${message}`);
-	}
-}
-
-/**
  * Get the paths to the generated nodes directories.
  * Searches multiple directories in order (built-in first, then community).
  * Falls back to ~/.n8n/node-definitions if no dirs are provided.
  */
 function getGeneratedNodesPaths(nodeDefinitionDirs?: string[]): string[] {
 	if (nodeDefinitionDirs && nodeDefinitionDirs.length > 0) {
-		const nodesPaths = nodeDefinitionDirs.map((dir) => join(dir, 'nodes'));
-		debugLog('Using custom node definition dirs', { nodeDefinitionDirs, nodesPaths });
-		return nodesPaths;
+		return nodeDefinitionDirs.map((dir) => join(dir, 'nodes'));
 	}
 
 	// Default to ~/.n8n/node-definitions (same location as runtime and CLI)
 	const defaultTypesDir = join(homedir(), '.n8n', 'node-definitions');
-	const nodesPath = join(defaultTypesDir, 'nodes');
-	debugLog('Using default generated nodes path', { defaultTypesDir, nodesPath });
-	return [nodesPath];
+	return [join(defaultTypesDir, 'nodes')];
 }
 
 /**
@@ -115,10 +87,6 @@ function findNodeDir(
 		for (const nodesPath of nodesPaths) {
 			const nodeDir = join(nodesPath, parsed.packageName, baseName);
 			if (existsSync(nodeDir)) {
-				debugLog('Found node dir via Tool variant fallback', {
-					original: parsed.nodeName,
-					resolved: baseName,
-				});
 				return { nodesPath, nodeDir };
 			}
 		}
@@ -192,36 +160,28 @@ function getAvailableDiscriminators(
  *   "@n8n/n8n-nodes-langchain.agent" -> { package: "n8n-nodes-langchain", nodeName: "agent" }
  */
 function parseNodeId(nodeId: string): { packageName: string; nodeName: string } | null {
-	debugLog('Parsing node ID', { nodeId });
-
 	// Handle @n8n/ prefixed packages (langchain)
 	if (nodeId.startsWith('@n8n/')) {
 		const withoutPrefix = nodeId.slice(5); // Remove "@n8n/"
 		const dotIndex = withoutPrefix.indexOf('.');
 		if (dotIndex === -1) {
-			debugLog('Failed to parse @n8n/ prefixed node ID - no dot found', { nodeId, withoutPrefix });
 			return null;
 		}
-		const result = {
+		return {
 			packageName: withoutPrefix.slice(0, dotIndex),
 			nodeName: withoutPrefix.slice(dotIndex + 1),
 		};
-		debugLog('Parsed @n8n/ prefixed node ID', { nodeId, ...result });
-		return result;
 	}
 
 	// Handle regular packages
 	const dotIndex = nodeId.indexOf('.');
 	if (dotIndex === -1) {
-		debugLog('Failed to parse node ID - no dot found', { nodeId });
 		return null;
 	}
-	const result = {
+	return {
 		packageName: nodeId.slice(0, dotIndex),
 		nodeName: nodeId.slice(dotIndex + 1),
 	};
-	debugLog('Parsed regular node ID', { nodeId, ...result });
-	return result;
 }
 
 /**
@@ -231,7 +191,6 @@ function parseNodeId(nodeId: string): { packageName: string; nodeName: string } 
 function getNodeVersions(nodeId: string, nodeDefinitionDirs?: string[]): string[] {
 	const parsed = parseNodeId(nodeId);
 	if (!parsed) {
-		debugLog('Could not get versions - parsing failed', { nodeId });
 		return [];
 	}
 
@@ -239,7 +198,6 @@ function getNodeVersions(nodeId: string, nodeDefinitionDirs?: string[]): string[
 	const found = findNodeDir(parsed, nodesPaths);
 
 	if (!found) {
-		debugLog('Node directory does not exist in any dir', { nodeId });
 		return [];
 	}
 
@@ -273,13 +231,8 @@ function getNodeVersions(nodeId: string, nodeDefinitionDirs?: string[]): string[
 			return bNum - aNum;
 		});
 
-		debugLog('Found versions', { nodeId, versions });
 		return versions;
-	} catch (error) {
-		debugLog('Error reading node directory', {
-			nodeDir,
-			error: error instanceof Error ? error.message : 'Unknown error',
-		});
+	} catch {
 		return [];
 	}
 }
@@ -357,7 +310,6 @@ function resolveResourceOperationPath(
 		}
 	}
 
-	debugLog('Resolved split path for resource/operation', { filePath });
 	return { filePath };
 }
 
@@ -403,7 +355,6 @@ function resolveModePath(
 		};
 	}
 
-	debugLog('Resolved split path for mode', { filePath });
 	return { filePath };
 }
 
@@ -419,7 +370,6 @@ function tryGetNodeFilePath(
 ): PathResolutionResult {
 	const parsed = parseNodeId(nodeId);
 	if (!parsed) {
-		debugLog('Could not get file path - parsing failed', { nodeId });
 		return { error: `Invalid node ID format: '${nodeId}'` };
 	}
 
@@ -439,7 +389,6 @@ function tryGetNodeFilePath(
 	const found = findNodeDir(parsed, nodesPaths);
 
 	if (!found) {
-		debugLog('Node directory does not exist in any dir', { nodeId });
 		return {
 			error: `Node type '${nodeId}' not found. Use search_node to find the correct node ID.`,
 		};
@@ -458,11 +407,9 @@ function tryGetNodeFilePath(
 	if (!targetVersion) {
 		const versions = getNodeVersions(nodeId, nodeDefinitionDirs);
 		if (versions.length === 0) {
-			debugLog('No versions found for node', { nodeId });
 			return { error: `No versions found for node '${nodeId}'` };
 		}
 		targetVersion = versions[0]; // Latest version (sorted descending)
-		debugLog('Using latest version', { nodeId, version: targetVersion });
 	}
 
 	// Convert version to file format:
@@ -478,8 +425,6 @@ function tryGetNodeFilePath(
 
 	// Check if this is a split version structure
 	if (isSplitVersionStructure(nodeDir, targetVersion)) {
-		debugLog('Detected split version structure', { nodeId, version: targetVersion });
-
 		const available = getAvailableDiscriminators(nodeDir, targetVersion);
 
 		// Handle resource/operation pattern
@@ -507,15 +452,7 @@ function tryGetNodeFilePath(
 	// Flat file structure
 	const filePath = join(nodeDir, `${targetVersion}.ts`);
 
-	debugLog('Checking flat file path', {
-		nodeId,
-		version: targetVersion,
-		filePath,
-		exists: existsSync(filePath),
-	});
-
 	if (!existsSync(filePath)) {
-		debugLog('File does not exist', { filePath });
 		return { error: `Version '${version}' not found for node '${nodeId}'` };
 	}
 
@@ -545,7 +482,6 @@ function getNodeFilePath(
 	// have their own type files, so this fallback only triggers when no file is found
 	if (result.error && nodeId.endsWith('Tool')) {
 		const baseNodeId = nodeId.slice(0, -4);
-		debugLog('Trying base node fallback', { nodeId, baseNodeId });
 		result = tryGetNodeFilePath(baseNodeId, version, nodeDefinitionDirs, discriminators);
 	}
 
@@ -567,13 +503,6 @@ function getNodeTypeDefinition(
 	availableVersions?: string[];
 	error?: string;
 } {
-	debugLog('Getting type definition for node', {
-		nodeId,
-		version,
-		nodeDefinitionDirs,
-		discriminators,
-	});
-
 	// Check if any types directory exists
 	const nodesPaths = getGeneratedNodesPaths(nodeDefinitionDirs);
 	const anyDirExists = nodesPaths.some((p) => existsSync(p));
@@ -610,29 +539,14 @@ function getNodeTypeDefinition(
 	}
 
 	try {
-		const readStartTime = Date.now();
 		const content = readFileSync(pathResult.filePath, 'utf-8');
-		const readDuration = Date.now() - readStartTime;
 
 		// Extract version from file path - handles both flat (v1.ts) and split (v1/...) structures
 		const actualVersion = pathResult.filePath.match(/\/(v\d+)(?:\/|\.ts)/)?.[1];
 
-		debugLog('File read successfully', {
-			nodeId,
-			version: actualVersion,
-			filePath: pathResult.filePath,
-			readDurationMs: readDuration,
-			contentLength: content.length,
-		});
-
 		return { nodeId, version: actualVersion, content };
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-		debugLog('Error reading file', {
-			nodeId,
-			filePath: pathResult.filePath,
-			error: errorMessage,
-		});
 		return {
 			nodeId,
 			content: '',
@@ -671,17 +585,9 @@ export interface CodeBuilderGetToolOptions {
  */
 export function createCodeBuilderGetTool(options: CodeBuilderGetToolOptions = {}) {
 	const { nodeDefinitionDirs } = options;
-	debugLog('Creating get_node_types tool', { nodeDefinitionDirs });
 
 	return tool(
 		async (input: { nodeIds: NodeRequest[] }) => {
-			debugLog('========== GET_NODE_TYPES TOOL INVOKED ==========');
-			debugLog('Input', {
-				nodeIds: input.nodeIds,
-				count: input.nodeIds.length,
-				nodeDefinitionDirs,
-			});
-
 			const results: string[] = [];
 			const errors: string[] = [];
 
@@ -720,13 +626,6 @@ export function createCodeBuilderGetTool(options: CodeBuilderGetToolOptions = {}
 			if (errors.length > 0) {
 				response += `\n\n# Errors\n\n${errors.join('\n')}`;
 			}
-
-			debugLog('Returning response', {
-				successCount: results.length,
-				errorCount: errors.length,
-				responseLength: response.length,
-			});
-			debugLog('========== GET_NODE_TYPES TOOL COMPLETE ==========');
 
 			return response;
 		},

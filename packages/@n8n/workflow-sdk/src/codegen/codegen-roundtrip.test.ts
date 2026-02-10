@@ -2148,18 +2148,6 @@ describe('Codegen Roundtrip with Real Workflows', () => {
 						);
 
 						// Compare warnings
-						if (JSON.stringify(actualWarnings) !== JSON.stringify(expected)) {
-							console.log(`Workflow ${id} warning mismatch:`);
-							console.log(`  Expected (${expected.length}):`);
-							for (const w of expected) {
-								console.log(`    - [${w.code}] ${w.nodeName ?? '(no node)'}`);
-							}
-							console.log(`  Actual (${actualWarnings.length}):`);
-							for (const w of actualWarnings) {
-								console.log(`    - [${w.code}] ${w.nodeName ?? '(no node)'}`);
-							}
-						}
-
 						expect(actualWarnings).toEqual(expected);
 					}
 
@@ -2168,16 +2156,6 @@ describe('Codegen Roundtrip with Real Workflows', () => {
 					expect(parsedJson.name ?? '').toBe(json.name ?? '');
 
 					// Verify node count
-					if (parsedJson.nodes.length !== json.nodes.length) {
-						const originalNames = new Set(json.nodes.map((n) => n.name));
-						const parsedNames = new Set(parsedJson.nodes.map((n) => n.name));
-						const missing = [...originalNames].filter((n) => !parsedNames.has(n));
-						const extra = [...parsedNames].filter((n) => !originalNames.has(n));
-						console.log(`Node count mismatch for ${id}:`);
-						console.log(`  Original: ${json.nodes.length}, Parsed: ${parsedJson.nodes.length}`);
-						if (missing.length) console.log('  Missing nodes:', missing);
-						if (extra.length) console.log('  Extra nodes:', extra);
-					}
 					expect(parsedJson.nodes).toHaveLength(json.nodes.length);
 
 					// Verify all nodes are present by name

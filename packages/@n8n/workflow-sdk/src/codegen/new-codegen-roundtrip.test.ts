@@ -38,12 +38,7 @@ describe('new codegen roundtrip', () => {
 		};
 
 		const code = generateWorkflowCode(originalJson);
-		console.log('=== GENERATED CODE ===');
-		console.log(code);
-
 		const parsedJson = parseWorkflowCode(code);
-		console.log('=== PARSED JSON ===');
-		console.log(JSON.stringify(parsedJson, null, 2));
 
 		// Verify node count
 		expect(parsedJson.nodes).toHaveLength(2);
@@ -101,12 +96,7 @@ describe('new codegen roundtrip', () => {
 		};
 
 		const code = generateWorkflowCode(originalJson);
-		console.log('=== IF GENERATED CODE ===');
-		console.log(code);
-
 		const parsedJson = parseWorkflowCode(code);
-		console.log('=== IF PARSED JSON ===');
-		console.log(JSON.stringify(parsedJson, null, 2));
 
 		// Verify node count
 		expect(parsedJson.nodes).toHaveLength(4);
@@ -171,12 +161,7 @@ describe('new codegen roundtrip', () => {
 		};
 
 		const code = generateWorkflowCode(originalJson);
-		console.log('=== MERGE GENERATED CODE ===');
-		console.log(code);
-
 		const parsedJson = parseWorkflowCode(code);
-		console.log('=== MERGE PARSED JSON ===');
-		console.log(JSON.stringify(parsedJson, null, 2));
 
 		// Verify node count
 		expect(parsedJson.nodes).toHaveLength(4);
