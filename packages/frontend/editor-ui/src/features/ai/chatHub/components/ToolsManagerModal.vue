@@ -5,14 +5,20 @@ import { useNodeTypesStore } from '@/app/stores/nodeTypes.store';
 import { useUIStore } from '@/app/stores/ui.store';
 import { TOOL_SETTINGS_MODAL_KEY } from '@/features/ai/chatHub/constants';
 import ToolListItem from './ToolListItem.vue';
-import { N8nButton, N8nHeading, N8nIcon, N8nInput, N8nText } from '@n8n/design-system';
+import { N8nHeading, N8nIcon, N8nInput, N8nText } from '@n8n/design-system';
 import { useI18n } from '@n8n/i18n';
 import { createEventBus } from '@n8n/utils/event-bus';
 import { useDebounceFn } from '@vueuse/core';
-import { NodeConnectionTypes, type INode, type INodeTypeDescription } from 'n8n-workflow';
+import {
+	AGENT_TOOL_LANGCHAIN_NODE_TYPE,
+	NodeConnectionTypes,
+	WORKFLOW_TOOL_LANGCHAIN_NODE_TYPE,
+	type INode,
+	type INodeTypeDescription,
+} from 'n8n-workflow';
 import type { ChatHubToolDto } from '@n8n/api-types';
 import { computed, ref, watch } from 'vue';
-import { AGENT_TOOL_NODE_TYPE, DEBOUNCE_TIME, getDebounceTime } from '@/app/constants';
+import { DEBOUNCE_TIME, getDebounceTime } from '@/app/constants';
 import { useChatStore } from '@/features/ai/chatHub/chat.store';
 import { useToast } from '@/app/composables/useToast';
 
@@ -24,8 +30,20 @@ defineProps<{
 	};
 }>();
 
-/** Tool node types that should not be available in the Chat Hub tool selector. */
-const CHAT_HUB_EXCLUDED_TOOL_TYPES: string[] = [AGENT_TOOL_NODE_TYPE];
+const CHAT_HUB_EXCLUDED_TOOL_TYPES: string[] = [
+	AGENT_TOOL_LANGCHAIN_NODE_TYPE,
+	WORKFLOW_TOOL_LANGCHAIN_NODE_TYPE,
+];
+
+function hasInputs(nodeType: INodeTypeDescription): boolean {
+	const { inputs } = nodeType;
+	if (Array.isArray(inputs)) {
+		return inputs.length > 0;
+	}
+
+	// Expression-based inputs are always considered non-empty
+	return true;
+}
 
 const i18n = useI18n();
 const nodeTypesStore = useNodeTypesStore();
@@ -55,7 +73,9 @@ const availableToolTypes = computed<INodeTypeDescription[]>(() => {
 		.map((name) => nodeTypesStore.getNodeType(name))
 		.filter(
 			(nodeType): nodeType is INodeTypeDescription =>
-				nodeType !== null && !CHAT_HUB_EXCLUDED_TOOL_TYPES.includes(nodeType.name),
+				nodeType !== null &&
+				!CHAT_HUB_EXCLUDED_TOOL_TYPES.includes(nodeType.name) &&
+				!hasInputs(nodeType),
 		);
 });
 
