@@ -194,7 +194,7 @@ describe('useWorkflowSetupState', () => {
 			expect(setupCards.value[0].type).toBe('trigger');
 		});
 
-		it('should order triggers first, then credentials', () => {
+		it('should order credentials first, then triggers', () => {
 			const regularNode = createNode({
 				name: 'Regular',
 				type: 'n8n-nodes-base.regular',
@@ -219,9 +219,10 @@ describe('useWorkflowSetupState', () => {
 
 			const { setupCards } = useWorkflowSetupState();
 
-			expect(setupCards.value[0].type).toBe('trigger');
 			const credCards = setupCards.value.filter((c) => c.type === 'credential');
 			expect(credCards.length).toBeGreaterThan(0);
+			expect(setupCards.value[0].type).toBe('credential');
+			expect(setupCards.value[setupCards.value.length - 1].type).toBe('trigger');
 		});
 
 		it('should exclude disabled nodes', () => {

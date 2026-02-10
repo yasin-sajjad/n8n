@@ -106,18 +106,18 @@ export const useWorkflowSetupState = (nodes?: Ref<INodeUi[]>) => {
 	);
 
 	/**
-	 * Ordered list of all setup cards: trigger cards first, then credential-type cards.
+	 * Ordered list of all setup cards: credential-type cards first, then trigger cards.
 	 */
 	const setupCards = computed<SetupCardItem[]>(() => {
-		const triggers: SetupCardItem[] = triggerStates.value.map((state) => ({
-			type: 'trigger' as const,
-			state,
-		}));
 		const credentials: SetupCardItem[] = credentialTypeStates.value.map((state) => ({
 			type: 'credential' as const,
 			state,
 		}));
-		return [...triggers, ...credentials];
+		const triggers: SetupCardItem[] = triggerStates.value.map((state) => ({
+			type: 'trigger' as const,
+			state,
+		}));
+		return [...credentials, ...triggers];
 	});
 
 	const totalCredentialsMissing = computed(() => {
