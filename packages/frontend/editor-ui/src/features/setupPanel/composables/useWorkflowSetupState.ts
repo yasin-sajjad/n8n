@@ -19,7 +19,10 @@ import { getNodeCredentialTypes, buildNodeSetupState } from '../setupPanel.utils
  * marking nodes as complete/incomplete based on credential selection and issues.
  * @param nodes Optional sub-set of nodes to check (defaults to full workflow)
  */
-export const useWorkflowSetupState = (nodes?: Ref<INodeUi[]>) => {
+export const useWorkflowSetupState = (
+	nodes?: Ref<INodeUi[]>,
+	pinnedData?: Ref<Record<string, unknown>>,
+) => {
 	const workflowsStore = useWorkflowsStore();
 	const credentialsStore = useCredentialsStore();
 	const nodeTypesStore = useNodeTypesStore();
@@ -29,6 +32,7 @@ export const useWorkflowSetupState = (nodes?: Ref<INodeUi[]>) => {
 	const i18n = useI18n();
 
 	const sourceNodes = computed(() => nodes?.value ?? workflowsStore.allNodes);
+	const sourcePinnedData = computed(() => pinnedData?.value ?? workflowsStore.workflow.pinData);
 
 	const getCredentialDisplayName = (credentialType: string): string => {
 		const credentialTypeInfo = credentialsStore.getCredentialTypeByName(credentialType);
@@ -110,6 +114,10 @@ export const useWorkflowSetupState = (nodes?: Ref<INodeUi[]>) => {
 	const totalNodesRequiringSetup = computed(() => {
 		return nodeSetupStates.value.length;
 	});
+
+	const isReadyToDemo = computed(() =>
+		nodeSetupStates.value.every((x) => x.node.name in sourcePinnedData.value),
+	);
 
 	const isAllComplete = computed(() => {
 		return (
@@ -205,5 +213,6 @@ export const useWorkflowSetupState = (nodes?: Ref<INodeUi[]>) => {
 		isAllComplete,
 		setCredential,
 		unsetCredential,
+		isReadyToDemo,
 	};
 };

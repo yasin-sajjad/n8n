@@ -2,6 +2,7 @@
 import { watch } from 'vue';
 import { useWorkflowSetupState } from '@/features/setupPanel/composables/useWorkflowSetupState';
 import NodeSetupCard from './NodeSetupCard.vue';
+import DemoWorkflowCard from './DemoWorkflowCard.vue';
 import { N8nIcon, N8nText } from '@n8n/design-system';
 import { useI18n } from '@n8n/i18n';
 import { useWorkflowsStore } from '@/app/stores/workflows.store';
@@ -10,7 +11,10 @@ import { useTelemetry } from '@/app/composables/useTelemetry';
 const i18n = useI18n();
 const telemetry = useTelemetry();
 const workflowsStore = useWorkflowsStore();
-const { nodeSetupStates, isAllComplete, setCredential, unsetCredential } = useWorkflowSetupState();
+const { nodeSetupStates, isAllComplete, setCredential, unsetCredential, isReadyToDemo } =
+	useWorkflowSetupState();
+
+const wasReadyToDemo = isReadyToDemo.value;
 
 watch(isAllComplete, (allComplete) => {
 	if (allComplete) {
@@ -56,6 +60,7 @@ const onCredentialDeselected = (nodeName: string, credentialType: string) => {
 			</div>
 		</div>
 		<div v-else :class="$style['card-list']" data-test-id="setup-cards-list">
+			<DemoWorkflowCard />
 			<NodeSetupCard
 				v-for="(state, index) in nodeSetupStates"
 				:key="state.node.id"
