@@ -35,11 +35,11 @@ export class SecretsProviderConnectionRepository extends Repository<SecretsProvi
 	}
 
 	async findByProjectId(projectId: string): Promise<SecretsProviderConnection[]> {
-  		return await this.createQueryBuilder('connection')
-  			.innerJoin('connection.projectAccess', 'projectAccess')
-  			.where('projectAccess.projectId = :projectId', { projectId })
-  			.getMany();
-  	}
+		return await this.createQueryBuilder('connection')
+			.innerJoin('connection.projectAccess', 'projectAccess')
+			.where('projectAccess.projectId = :projectId', { projectId })
+			.getMany();
+	}
 
 	/**
 	 * Checks if a provider is accessible from a project.
@@ -63,7 +63,7 @@ export class SecretsProviderConnectionRepository extends Repository<SecretsProvi
 		return count > 0;
 	}
 
-  /**
+	/**
 	 * Find all connections accessible to a project:
 	 * - Connections specifically shared with this project
 	 * - Global connections (those with no project assignments)
