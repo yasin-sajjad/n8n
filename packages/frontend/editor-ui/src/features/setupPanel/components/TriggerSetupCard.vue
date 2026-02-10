@@ -4,25 +4,18 @@ import { useI18n } from '@n8n/i18n';
 import { N8nButton, N8nIcon, N8nText, N8nTooltip } from '@n8n/design-system';
 
 import NodeIcon from '@/app/components/NodeIcon.vue';
-import CredentialPicker from '@/features/credentials/components/CredentialPicker/CredentialPicker.vue';
-import SetupCredentialLabel from './SetupCredentialLabel.vue';
 import { useNodeTypesStore } from '@/app/stores/nodeTypes.store';
 import { useWorkflowsStore } from '@/app/stores/workflows.store';
 
-import type { NodeSetupState } from '../setupPanel.types';
+import type { TriggerSetupState } from '../setupPanel.types';
 import { useNodeExecution } from '@/app/composables/useNodeExecution';
 import { useTelemetry } from '@/app/composables/useTelemetry';
 
 const props = defineProps<{
-	state: NodeSetupState;
+	state: TriggerSetupState;
 }>();
 
 const expanded = defineModel<boolean>('expanded', { default: false });
-
-const emit = defineEmits<{
-	credentialSelected: [payload: { credentialType: string; credentialId: string }];
-	credentialDeselected: [credentialType: string];
-}>();
 
 const i18n = useI18n();
 const telemetry = useTelemetry();
@@ -37,12 +30,9 @@ const nodeType = computed(() =>
 	nodeTypesStore.getNodeType(props.state.node.type, props.state.node.typeVersion),
 );
 
-// For triggers: button is disabled if node has issues, is executing, or there's a disabledReason
 const isButtonDisabled = computed(
 	() => isExecuting.value || hasIssues.value || !!disabledReason.value,
 );
-
-const showFooter = computed(() => props.state.isTrigger || props.state.isComplete);
 
 const tooltipText = computed(() => {
 	if (hasIssues.value) {
@@ -55,45 +45,12 @@ const onHeaderClick = () => {
 	expanded.value = !expanded.value;
 };
 
-// Tracks whether the user directly interacted with this card (credential select/deselect or test click).
-// Used to avoid firing telemetry for cards that were auto-completed via credential auto-assignment.
 const hadManualInteraction = ref(false);
-
-const onCredentialSelected = (credentialType: string, credentialId: string) => {
-	hadManualInteraction.value = true;
-	emit('credentialSelected', { credentialType, credentialId });
-};
-
-const onCredentialDeselected = (credentialType: string) => {
-	hadManualInteraction.value = true;
-	emit('credentialDeselected', credentialType);
-};
 
 const onTestClick = async () => {
 	hadManualInteraction.value = true;
 	await execute();
 };
-
-function collectNodeTypesFromRequirements(
-	requirements: Array<{ nodesWithSameCredential: string[] }>,
-) {
-	const types = new Set<string>();
-
-	for (const req of requirements) {
-		for (const nodeName of req.nodesWithSameCredential) {
-			const node = workflowsStore.getNodeByName(nodeName);
-			if (node) types.add(node.type);
-		}
-	}
-
-	return types;
-}
-
-function countRelatedNodes(requirements: Array<{ nodesWithSameCredential: string[] }>) {
-	let count = 0;
-	for (const req of requirements) count += req.nodesWithSameCredential.length;
-	return count;
-}
 
 watch(
 	() => props.state.isComplete,
@@ -105,9 +62,8 @@ watch(
 				telemetry.track('User completed setup step', {
 					template_id: workflowsStore.workflow.meta?.templateId,
 					workflow_id: workflowsStore.workflowId,
-					type: props.state.isTrigger ? 'trigger' : 'credential',
-					nodes: Array.from(collectNodeTypesFromRequirements(props.state.credentialRequirements)),
-					related_nodes_count: countRelatedNodes(props.state.credentialRequirements),
+					type: 'trigger',
+					node_type: props.state.node.type,
 				});
 				hadManualInteraction.value = false;
 			}
@@ -124,29 +80,28 @@ onMounted(() => {
 
 <template>
 	<div
-		data-test-id="node-setup-card"
+		data-test-id="trigger-setup-card"
 		:class="[
 			$style.card,
 			{
 				[$style.collapsed]: !expanded,
 				[$style.completed]: state.isComplete,
-				[$style['no-content']]: !state.credentialRequirements.length,
 			},
 		]"
 	>
-		<header data-test-id="node-setup-card-header" :class="$style.header" @click="onHeaderClick">
+		<header data-test-id="trigger-setup-card-header" :class="$style.header" @click="onHeaderClick">
 			<N8nIcon
 				v-if="!expanded && state.isComplete"
-				data-test-id="node-setup-card-complete-icon"
+				data-test-id="trigger-setup-card-complete-icon"
 				icon="check"
 				:class="$style['complete-icon']"
 				size="medium"
 			/>
 			<NodeIcon v-else :node-type="nodeType" :size="16" />
 			<N8nText :class="$style['node-name']" size="medium" color="text-dark">
-				{{ props.state.node.name }}
+				{{ state.node.name }}
 			</N8nText>
-			<N8nTooltip v-if="state.isTrigger">
+			<N8nTooltip>
 				<template #content>
 					{{ i18n.baseText('nodeCreator.nodeItem.triggerIconTitle') }}
 				</template>
@@ -166,46 +121,17 @@ onMounted(() => {
 		</header>
 
 		<template v-if="expanded">
-			<div
-				v-if="state.credentialRequirements.length"
-				:class="{ [$style.content]: true, ['pb-s']: !showFooter }"
-			>
-				<N8nText v-if="state.isTrigger" size="medium" color="text-light" class="mb-3xs">
-					{{ i18n.baseText('setupPanel.trigger.credential.note') }}
-				</N8nText>
-				<div
-					v-for="requirement in state.credentialRequirements"
-					:key="requirement.credentialType"
-					:class="$style['credential-container']"
-				>
-					<SetupCredentialLabel
-						:node-name="state.node.name"
-						:credential-type="requirement.credentialType"
-						:nodes-with-same-credential="requirement.nodesWithSameCredential"
-					/>
-					<CredentialPicker
-						create-button-type="secondary"
-						:class="$style['credential-picker']"
-						:app-name="requirement.credentialDisplayName"
-						:credential-type="requirement.credentialType"
-						:selected-credential-id="requirement.selectedCredentialId ?? null"
-						@credential-selected="onCredentialSelected(requirement.credentialType, $event)"
-						@credential-deselected="onCredentialDeselected(requirement.credentialType)"
-					/>
-				</div>
-			</div>
-
-			<footer v-if="showFooter" :class="$style.footer">
+			<footer :class="$style.footer">
 				<div v-if="state.isComplete" :class="$style['footer-complete-check']">
 					<N8nIcon icon="check" :class="$style['complete-icon']" size="large" />
 					<N8nText size="medium" color="success">
 						{{ i18n.baseText('generic.complete') }}
 					</N8nText>
 				</div>
-				<N8nTooltip v-if="state.isTrigger" :disabled="!tooltipText" placement="top">
+				<N8nTooltip :disabled="!tooltipText" placement="top">
 					<template #content>{{ tooltipText }}</template>
 					<N8nButton
-						data-test-id="node-setup-card-test-button"
+						data-test-id="trigger-setup-card-test-button"
 						:label="buttonLabel"
 						:disabled="isButtonDisabled"
 						:loading="isExecuting"
@@ -257,10 +183,6 @@ onMounted(() => {
 	.card:not(.collapsed) & {
 		margin-bottom: var(--spacing--sm);
 	}
-
-	.card.no-content & {
-		margin-bottom: 0;
-	}
 }
 
 .node-name {
@@ -270,23 +192,6 @@ onMounted(() => {
 
 .complete-icon {
 	color: var(--color--success);
-}
-
-.content {
-	display: flex;
-	flex-direction: column;
-	gap: var(--spacing--xs);
-	padding: 0 var(--spacing--sm);
-}
-
-.credential-container {
-	display: flex;
-	flex-direction: column;
-	gap: var(--spacing--3xs);
-}
-
-.credential-picker {
-	flex: 1;
 }
 
 .footer {

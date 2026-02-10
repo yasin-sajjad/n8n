@@ -2,7 +2,12 @@ import type { INodeUi } from '@/Interface';
 import type { NodeTypeProvider } from '@/app/utils/nodeTypes/nodeTypeTransforms';
 import { getNodeTypeDisplayableCredentials } from '@/app/utils/nodes/nodeTransforms';
 
-import type { NodeCredentialRequirement, NodeSetupState } from './setupPanel.types';
+import type {
+	CredentialTypeSetupState,
+	NodeCredentialRequirement,
+	NodeSetupState,
+	TriggerSetupState,
+} from './setupPanel.types';
 
 /**
  * Collects all credential types that a node requires from three sources:
@@ -99,4 +104,103 @@ export function buildNodeSetupState(
 		isComplete,
 		isTrigger,
 	};
+}
+
+/**
+ * Groups credential requirements across all nodes by credential type.
+ * Returns one CredentialTypeSetupState per unique credential type.
+ */
+export function groupCredentialsByType(
+	nodesWithCredentials: Array<{ node: INodeUi; credentialTypes: string[] }>,
+	getCredentialDisplayName: (type: string) => string,
+): CredentialTypeSetupState[] {
+	const map = new Map<string, CredentialTypeSetupState>();
+
+	for (const { node, credentialTypes } of nodesWithCredentials) {
+		for (const credType of credentialTypes) {
+			const existing = map.get(credType);
+			if (existing) {
+				existing.nodeNames.push(node.name);
+
+				const nodeIssues = node.issues?.credentials?.[credType];
+				if (nodeIssues) {
+					const issueMessages = [nodeIssues].flat();
+					for (const msg of issueMessages) {
+						if (!existing.issues.includes(msg)) {
+							existing.issues.push(msg);
+						}
+					}
+				}
+
+				if (!existing.selectedCredentialId) {
+					const credValue = node.credentials?.[credType];
+					if (typeof credValue !== 'string' && credValue?.id) {
+						existing.selectedCredentialId = credValue.id;
+					}
+				}
+			} else {
+				const credValue = node.credentials?.[credType];
+				const selectedCredentialId =
+					typeof credValue === 'string' ? undefined : (credValue?.id ?? undefined);
+
+				const credentialIssues = node.issues?.credentials ?? {};
+				const issues = credentialIssues[credType];
+				const issueMessages = [issues ?? []].flat();
+
+				map.set(credType, {
+					credentialType: credType,
+					credentialDisplayName: getCredentialDisplayName(credType),
+					selectedCredentialId,
+					issues: issueMessages,
+					nodeNames: [node.name],
+					isComplete: false,
+				});
+			}
+		}
+	}
+
+	for (const state of map.values()) {
+		state.isComplete = !!state.selectedCredentialId && state.issues.length === 0;
+	}
+
+	return Array.from(map.values());
+}
+
+/**
+ * Builds the setup state for a trigger card.
+ * Complete when: trigger has been executed AND all its credential types are satisfied.
+ */
+export function buildTriggerSetupState(
+	node: INodeUi,
+	triggerCredentialTypes: string[],
+	credentialTypeStates: CredentialTypeSetupState[],
+	hasTriggerExecuted: boolean,
+): TriggerSetupState {
+	const allCredentialsComplete = triggerCredentialTypes.every((credType) => {
+		const credState = credentialTypeStates.find((s) => s.credentialType === credType);
+		return credState?.isComplete ?? true;
+	});
+
+	return {
+		node,
+		isComplete: allCredentialsComplete && hasTriggerExecuted,
+	};
+}
+
+/**
+ * Sorts credential type states by the leftmost X position of any node that uses them.
+ */
+export function sortCredentialTypeStates(
+	states: CredentialTypeSetupState[],
+	getNodeByName: (name: string) => INodeUi | null | undefined,
+): CredentialTypeSetupState[] {
+	return [...states].sort((a, b) => {
+		const aMinX = Math.min(
+			...a.nodeNames.map((name) => getNodeByName(name)?.position[0] ?? Infinity),
+		);
+		const bMinX = Math.min(
+			...b.nodeNames.map((name) => getNodeByName(name)?.position[0] ?? Infinity),
+		);
+		return aMinX - bMinX;
+	});
 }
