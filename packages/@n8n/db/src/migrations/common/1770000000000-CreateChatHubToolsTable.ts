@@ -178,6 +178,9 @@ export class CreateChatHubToolsTable1770000000000 implements ReversibleMigration
 		await dropTable(table.agentTools);
 		await dropTable(table.tools);
 
+		// This loses data, but we can't really restore it.
+		// Impact of losing the configured tools should be fairly minimal, as credentials remain intact
+		// and users can easily re-add the search tools to sessions and agents after the rollback if needed.
 		await addColumns(table.sessions, [column('tools').json.notNull.default("'[]'")]);
 		await addColumns(table.agents, [column('tools').json.notNull.default("'[]'")]);
 	}
