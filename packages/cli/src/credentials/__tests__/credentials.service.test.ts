@@ -1616,21 +1616,82 @@ describe('CredentialsService', () => {
 			);
 		});
 
-		it('should prevent use of external secret expression when required permission is missing', async () => {
-			credentialsHelper.getCredentialsProperties.mockReturnValue([]);
-			const payload = {
-				name: 'Test Credential',
-				type: 'apiKey',
-				data: {
-					apiKey: '$secrets.myApiKey',
-					url: 'https://api.example.com',
-				},
-				projectId: 'project-1',
-			};
+		describe('external secrets', () => {
+			it('should prevent use of external secret expression when required permission is missing', async () => {
+				credentialsHelper.getCredentialsProperties.mockReturnValue([]);
+				const payload = {
+					name: 'Test Credential',
+					type: 'apiKey',
+					data: {
+						apiKey: '={{ $secrets.myApiKey }}',
+						url: 'https://api.example.com',
+					},
+					projectId: 'WHwt9vP3keCUvmB5',
+				};
 
-			await expect(service.createUnmanagedCredential(payload, memberUser)).rejects.toThrow(
-				'Lacking permissions to reference external secrets in credentials',
-			);
+				await expect(service.createUnmanagedCredential(payload, memberUser)).rejects.toThrow(
+					'Lacking permissions to reference external secrets in credentials',
+				);
+			});
+
+			it('should list all unavailable external secret providers in error message', async () => {
+				credentialsHelper.getCredentialsProperties.mockReturnValue([]);
+				const payload = {
+					name: 'Test Credential',
+					type: 'apiKey',
+					data: {
+						apiKey: '={{ $secrets.outsideProvider.bar }}',
+						anotherApiKey: '={{ $secrets.anotherOutsideProvider.bar }}',
+					},
+					projectId: 'WHwt9vP3keCUvmB5',
+				};
+				externalSecretsProviderAccessCheckService.canAccessProviderFromProject.mockResolvedValue(
+					false,
+				);
+
+				await expect(service.createUnmanagedCredential(payload, ownerUser)).rejects.toThrow(
+					'The secret providers "outsideProvider", "anotherOutsideProvider" do not exist in this project',
+				);
+			});
+
+			it('should throw BadRequestError when referencing external secret provider that is not available in current project', async () => {
+				credentialsHelper.getCredentialsProperties.mockReturnValue([]);
+				const payload = {
+					name: 'Test Credential',
+					type: 'apiKey',
+					data: {
+						apiKey: '={{ $secrets.outsideProvider.bar }}',
+						url: 'https://api.example.com',
+					},
+					projectId: 'WHwt9vP3keCUvmB5',
+				};
+				externalSecretsProviderAccessCheckService.canAccessProviderFromProject.mockResolvedValue(
+					false,
+				);
+
+				await expect(service.createUnmanagedCredential(payload, ownerUser)).rejects.toThrow(
+					'The secret provider "outsideProvider" used in "apiKey" does not exist in this project',
+				);
+			});
+
+			it('should create credential that references external secret provider that is shared with current project', async () => {
+				credentialsHelper.getCredentialsProperties.mockReturnValue([]);
+				const payload = {
+					name: 'Test Credential',
+					type: 'apiKey',
+					data: {
+						apiKey: '={{ $secrets.validProvider.bar }}',
+						url: 'https://api.example.com',
+					},
+					projectId: 'WHwt9vP3keCUvmB5',
+				};
+
+				externalSecretsProviderAccessCheckService.canAccessProviderFromProject.mockResolvedValue(
+					true,
+				);
+
+				await service.createUnmanagedCredential(payload, ownerUser);
+			});
 		});
 	});
 
