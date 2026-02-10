@@ -2,9 +2,12 @@ import { GLOBAL_OWNER_ROLE, GLOBAL_MEMBER_ROLE } from '@n8n/db';
 import type { User } from '@n8n/db';
 import { mock } from 'jest-mock-extended';
 
+import type { SecretsProviderAccessCheckService } from '@/modules/external-secrets.ee/secret-provider-access-check.service.ee';
+
 import {
 	validateExternalSecretsPermissions,
 	isChangingExternalSecretExpression,
+	validateAccessToReferencedSecretProviders,
 } from '../validation';
 
 describe('Credentials Validation', () => {
@@ -75,6 +78,32 @@ describe('Credentials Validation', () => {
 			expect(() => validateExternalSecretsPermissions(memberUser, newData, existingData)).toThrow(
 				errorMessage,
 			);
+		});
+
+		describe('bracket notation', () => {
+			it('should throw when user lacks permission and uses bracket notation', () => {
+				const data = {
+					apiKey: "={{ $secrets['vault']['key'] }}",
+				};
+
+				expect(() => validateExternalSecretsPermissions(memberUser, data)).toThrow(errorMessage);
+			});
+
+			it('should pass when user has permission and uses bracket notation', () => {
+				const data = {
+					apiKey: "={{ $secrets['vault']['key'] }}",
+				};
+
+				expect(() => validateExternalSecretsPermissions(ownerUser, data)).not.toThrow();
+			});
+
+			it('should throw when user lacks permission and uses mixed notation', () => {
+				const data = {
+					apiKey: "={{ $secrets.vault['nested'] }}",
+				};
+
+				expect(() => validateExternalSecretsPermissions(memberUser, data)).toThrow(errorMessage);
+			});
 		});
 	});
 
@@ -148,36 +177,8 @@ describe('Credentials Validation', () => {
 
 			expect(isChangingExternalSecretExpression(newData, existingData)).toBe(false);
 		});
-	});
 
-	describe('bracket notation support', () => {
-		describe('validateExternalSecretsPermissions with bracket notation', () => {
-			it('should throw when user lacks permission and uses bracket notation', () => {
-				const data = {
-					apiKey: "={{ $secrets['vault']['key'] }}",
-				};
-
-				expect(() => validateExternalSecretsPermissions(memberUser, data)).toThrow(errorMessage);
-			});
-
-			it('should pass when user has permission and uses bracket notation', () => {
-				const data = {
-					apiKey: "={{ $secrets['vault']['key'] }}",
-				};
-
-				expect(() => validateExternalSecretsPermissions(ownerUser, data)).not.toThrow();
-			});
-
-			it('should throw when user lacks permission and uses mixed notation', () => {
-				const data = {
-					apiKey: "={{ $secrets.vault['nested'] }}",
-				};
-
-				expect(() => validateExternalSecretsPermissions(memberUser, data)).toThrow(errorMessage);
-			});
-		});
-
-		describe('isChangingExternalSecretExpression with bracket notation', () => {
+		describe('bracket notation', () => {
 			it('should return true when adding bracket notation external secret', () => {
 				const existingData = { apiKey: 'plain-value' };
 				const newData = { apiKey: "={{ $secrets['vault']['key'] }}" };
@@ -197,6 +198,172 @@ describe('Credentials Validation', () => {
 				const newData = { apiKey: "={{ $secrets['vault']['key'] }}" };
 
 				expect(isChangingExternalSecretExpression(newData, existingData)).toBe(false);
+			});
+		});
+	});
+
+	describe('validateAccessToReferencedSecretProviders', () => {
+		const projectId = 'test-project-id';
+		let accessCheckService: SecretsProviderAccessCheckService;
+
+		beforeEach(() => {
+			accessCheckService = mock<SecretsProviderAccessCheckService>();
+		});
+
+		it('should handle provider name with underscores, hyphens and numbers', async () => {
+			const data = {
+				apiKey: '={{ $secrets.my_provider-123.key }}',
+			};
+
+			accessCheckService.canAccessProviderFromProject = jest.fn().mockResolvedValue(true);
+
+			await expect(
+				validateAccessToReferencedSecretProviders(projectId, data, accessCheckService),
+			).resolves.toBeUndefined();
+
+			expect(accessCheckService.canAccessProviderFromProject).toHaveBeenCalledWith(
+				'my_provider-123',
+				projectId,
+			);
+		});
+
+		it('should pass validation when credential has only regular values', async () => {
+			const data = {
+				apiKey: 'regular-value',
+				token: 'another-value',
+			};
+
+			await expect(
+				validateAccessToReferencedSecretProviders(projectId, data, accessCheckService),
+			).resolves.toBeUndefined();
+		});
+
+		it('should pass when project has access to the only referenced provider', async () => {
+			const data = {
+				apiKey: '={{ $secrets.vault.mykey }}',
+			};
+
+			accessCheckService.canAccessProviderFromProject = jest.fn().mockResolvedValue(true);
+
+			await validateAccessToReferencedSecretProviders(projectId, data, accessCheckService);
+
+			expect(accessCheckService.canAccessProviderFromProject).toHaveBeenCalledWith(
+				'vault',
+				projectId,
+			);
+		});
+
+		it('should pass when project has access to multiple referenceded provider', async () => {
+			const data = {
+				apiKey: '={{ $secrets.vault.key }}',
+				token: '={{ $secrets.aws.secret }}',
+			};
+
+			accessCheckService.canAccessProviderFromProject = jest.fn().mockResolvedValue(true);
+
+			await expect(
+				validateAccessToReferencedSecretProviders(projectId, data, accessCheckService),
+			).resolves.toBeUndefined();
+
+			expect((accessCheckService.canAccessProviderFromProject as jest.Mock).mock.calls).toEqual([
+				['vault', projectId],
+				['aws', projectId],
+			]);
+		});
+
+		it('should throw error when user lacks access to referenced provider', async () => {
+			const data = {
+				apiKey: '={{ $secrets.vault.mykey }}',
+			};
+
+			accessCheckService.canAccessProviderFromProject = jest.fn().mockResolvedValue(false);
+
+			await expect(
+				validateAccessToReferencedSecretProviders(projectId, data, accessCheckService),
+			).rejects.toThrow(
+				'The secret provider "vault" used in "apiKey" does not exist in this project',
+			);
+		});
+
+		it('should throw listing all inaccessible providers in the provided data', async () => {
+			const data = {
+				apiKey: '={{ $secrets.outsideProvider.key }}',
+				anotherApiKey: '={{ $secrets.anotherOutsideProvider.key }}',
+			};
+
+			accessCheckService.canAccessProviderFromProject = jest.fn().mockResolvedValue(false);
+
+			await expect(
+				validateAccessToReferencedSecretProviders(projectId, data, accessCheckService),
+			).rejects.toThrow(
+				'The secret providers "outsideProvider", "anotherOutsideProvider" do not exist in this project',
+			);
+		});
+
+		describe('bracket notation', () => {
+			it('should pass when project has access to provider referenced using bracket notation', async () => {
+				const data = {
+					apiKey: "={{ $secrets['vault']['mykey'] }}",
+				};
+
+				accessCheckService.canAccessProviderFromProject = jest.fn().mockResolvedValue(true);
+
+				await expect(
+					validateAccessToReferencedSecretProviders(projectId, data, accessCheckService),
+				).resolves.toBeUndefined();
+
+				expect(accessCheckService.canAccessProviderFromProject).toHaveBeenCalledWith(
+					'vault',
+					projectId,
+				);
+			});
+
+			it('should throw error when user lacks access to referenced provider', async () => {
+				const data = {
+					apiKey: "={{ $secrets['vault']['mykey'] }}",
+				};
+
+				accessCheckService.canAccessProviderFromProject = jest.fn().mockResolvedValue(false);
+
+				await expect(
+					validateAccessToReferencedSecretProviders(projectId, data, accessCheckService),
+				).rejects.toThrow(
+					'The secret provider "vault" used in "apiKey" does not exist in this project',
+				);
+			});
+		});
+
+		describe('nested credential data', () => {
+			it('should pass when external secrets in nested objects are accessible', async () => {
+				const data = {
+					config: {
+						database: {
+							password: '={{ $secrets.vault.dbpass }}',
+						},
+					},
+				};
+
+				accessCheckService.canAccessProviderFromProject = jest.fn().mockResolvedValue(true);
+
+				await validateAccessToReferencedSecretProviders(projectId, data, accessCheckService);
+			});
+
+			it('should throw with nested field path when external secrets referenced in nested objects are inaccessible', async () => {
+				const data = {
+					config: {
+						database: {
+							password: '={{ $secrets.vault.dbpass }}',
+						},
+					},
+				};
+
+				accessCheckService.canAccessProviderFromProject = jest.fn().mockResolvedValue(false);
+
+				await expect(
+					validateAccessToReferencedSecretProviders(projectId, data, accessCheckService),
+				).rejects.toThrow(
+					'The secret provider "vault" used in "config.database.password" does not exist in this project',
+				);
 			});
 		});
 	});

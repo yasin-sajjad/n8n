@@ -1776,6 +1776,91 @@ describe('CredentialsService', () => {
 		});
 	});
 
+	describe('prepareUpdateData', () => {
+		const ownerUser = mock<User>({ id: 'owner-id', role: GLOBAL_OWNER_ROLE });
+		describe('external secrets', () => {
+			it('should list all unavailable external secret providers in error message', async () => {
+				credentialsHelper.getCredentialsProperties.mockReturnValue([]);
+				const payload = {
+					name: 'Test Credential',
+					type: 'apiKey',
+					data: {
+						apiKey: '={{ $secrets.outsideProvider.bar }}',
+						anotherApiKey: '={{ $secrets.anotherOutsideProvider.bar }}',
+					},
+					projectId: 'WHwt9vP3keCUvmB5',
+				};
+				const currentData = {
+					name: 'Test Credential',
+					type: 'apiKey',
+					data: {},
+					projectId: 'WHwt9vP3keCUvmB5',
+				};
+				externalSecretsProviderAccessCheckService.canAccessProviderFromProject.mockResolvedValue(
+					false,
+				);
+
+				await expect(service.prepareUpdateData(ownerUser, payload, currentData)).rejects.toThrow(
+					'The secret providers "outsideProvider", "anotherOutsideProvider" do not exist in this project',
+				);
+			});
+
+			it('should throw BadRequestError when referencing external secret provider that is not available in current project', async () => {
+				credentialsHelper.getCredentialsProperties.mockReturnValue([]);
+				const payload = {
+					name: 'Test Credential',
+					type: 'apiKey',
+					data: {
+						apiKey: '={{ $secrets.outsideProvider.bar }}',
+						url: 'https://api.example.com',
+					},
+					projectId: 'WHwt9vP3keCUvmB5',
+				};
+				const currentData = {
+					name: 'Test Credential',
+					type: 'apiKey',
+					data: {},
+					projectId: 'WHwt9vP3keCUvmB5',
+				};
+				externalSecretsProviderAccessCheckService.canAccessProviderFromProject.mockResolvedValue(
+					false,
+				);
+
+				await expect(service.prepareUpdateData(ownerUser, payload, currentData)).rejects.toThrow(
+					'The secret provider "outsideProvider" used in "apiKey" does not exist in this project',
+				);
+			});
+
+			it('should create credential that references external secret provider that is shared with current project', async () => {
+				credentialsHelper.getCredentialsProperties.mockReturnValue([]);
+				const payload = {
+					name: 'Test Credential',
+					type: 'apiKey',
+					data: {
+						apiKey: '={{ $secrets.validProvider.bar }}',
+						url: 'https://api.example.com',
+					},
+					projectId: 'WHwt9vP3keCUvmB5',
+				};
+				const currentData = {
+					name: 'Test Credential',
+					type: 'apiKey',
+					data: {},
+					projectId: 'WHwt9vP3keCUvmB5',
+				};
+
+				externalSecretsProviderAccessCheckService.canAccessProviderFromProject.mockResolvedValue(
+					true,
+				);
+
+				credentialsRepository.create.mockImplementation((data) => ({ ...data }) as any);
+				mockTransactionManager();
+
+				await service.prepareUpdateData(ownerUser, payload, currentData);
+			});
+		});
+	});
+
 	describe('checkCredentialData', () => {
 		const ownerUser = mock<User>({ id: 'owner-id', role: GLOBAL_OWNER_ROLE });
 

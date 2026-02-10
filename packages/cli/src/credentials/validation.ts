@@ -4,6 +4,7 @@ import get from 'lodash/get';
 import type { ICredentialDataDecryptedObject } from 'n8n-workflow';
 
 import { BadRequestError } from '@/errors/response-errors/bad-request.error';
+import type { SecretsProviderAccessCheckService } from '@/modules/external-secrets.ee/secret-provider-access-check.service.ee';
 import { getAllKeyPaths } from '@/utils';
 
 // #region External Secrets
@@ -96,6 +97,88 @@ export function validateExternalSecretsPermissions(
 	if (needsCheck) {
 		if (!hasGlobalScope(user, 'externalSecret:list')) {
 			throw new BadRequestError('Lacking permissions to reference external secrets in credentials');
+		}
+	}
+}
+
+/**
+ * Validates that the project has access to all external secret providers referenced in credential data.
+ *
+ * Call validateExternalSecretsPermissions before this one.
+ *
+ * @param projectId - The project ID to check access for
+ * @param data - The credential data that may contain external secret expressions
+ * @throws BadRequestError if any providers are inaccessible.
+ */
+export async function validateAccessToReferencedSecretProviders(
+	projectId: string,
+	data: ICredentialDataDecryptedObject,
+	externalSecretsProviderAccessCheckService: SecretsProviderAccessCheckService,
+) {
+	const secretPaths = getAllKeyPaths(data, '', [], containsExternalSecretExpression);
+	if (secretPaths.length === 0) {
+		return; // No external secrets referenced, nothing to check
+	}
+
+	// Track which credential fields use which providers
+	const providerToFieldsMap = new Map<string, string[]>();
+
+	for (const path of secretPaths) {
+		const value = get(data, path);
+		if (typeof value === 'string') {
+			const providerKey = extractProviderKey(value);
+			if (providerKey) {
+				if (!providerToFieldsMap.has(providerKey)) {
+					providerToFieldsMap.set(providerKey, []);
+				}
+				const fields = providerToFieldsMap.get(providerKey);
+				if (fields) {
+					fields.push(path);
+				}
+			}
+		}
+	}
+
+	// Validate access for all providers in batch
+	const inaccessibleProviders = new Map<string, string[]>();
+
+	if (providerToFieldsMap.size > 0) {
+		const providerKeys = Array.from(providerToFieldsMap.keys());
+
+		// Check all providers in parallel
+		await Promise.all(
+			providerKeys.map(async (providerKey) => {
+				const hasAccess =
+					await externalSecretsProviderAccessCheckService.canAccessProviderFromProject(
+						providerKey,
+						projectId,
+					);
+
+				if (!hasAccess) {
+					const fields = providerToFieldsMap.get(providerKey);
+					if (fields) {
+						inaccessibleProviders.set(providerKey, fields);
+					}
+				}
+			}),
+		);
+	}
+
+	// Throw error if any providers are inaccessible
+	if (inaccessibleProviders.size > 0) {
+		if (inaccessibleProviders.size === 1) {
+			const [providerKey, fields] = Array.from(inaccessibleProviders.entries())[0];
+			const credentialDataKey = fields[0];
+			throw new BadRequestError(
+				`The secret provider "${providerKey}" used in "${credentialDataKey}" does not exist in this project`,
+			);
+		} else {
+			const providerList = Array.from(inaccessibleProviders.keys())
+				.map((p) => `"${p}"`)
+				.join(', ');
+			throw new BadRequestError(
+				`The secret providers ${providerList} do not exist in this project`,
+			);
 		}
 	}
 }
