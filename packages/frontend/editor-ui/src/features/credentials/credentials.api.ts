@@ -29,6 +29,7 @@ export async function getAllCredentials(
 	includeScopes?: boolean,
 	onlySharedWithMe?: boolean,
 	includeGlobal?: boolean,
+	externalSecretsStore?: string,
 ): Promise<ICredentialsResponse[]> {
 	return await makeRestApiRequest(context, 'GET', '/credentials', {
 		...(includeScopes ? { includeScopes } : {}),
@@ -36,6 +37,7 @@ export async function getAllCredentials(
 		...(filter ? { filter } : {}),
 		...(onlySharedWithMe ? { onlySharedWithMe } : {}),
 		...(typeof includeGlobal === 'boolean' ? { includeGlobal } : {}),
+		...(externalSecretsStore ? { externalSecretsStore } : {}),
 	});
 }
 
