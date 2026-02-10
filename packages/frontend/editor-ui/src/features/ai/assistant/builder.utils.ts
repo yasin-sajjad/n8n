@@ -74,7 +74,6 @@ export async function createBuilderPayload(
 		workflowContext.selectedNodes = selectedNodes;
 	}
 
-
 	// Get feature flags from Posthog
 	const isCodeBuilderEnabled =
 		posthogStore.getVariant(CODE_WORKFLOW_BUILDER_EXPERIMENT.name) ===
