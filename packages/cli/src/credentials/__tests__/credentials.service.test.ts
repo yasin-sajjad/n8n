@@ -83,6 +83,35 @@ describe('CredentialsService', () => {
 
 	beforeEach(() => jest.resetAllMocks());
 
+	/**
+	 * Helper function to mock the credentials repository transaction manager
+	 * @param options - Configuration options
+	 * @param options.credentialId - The ID to assign to saved credentials (default: 'new-cred-id')
+	 * @param options.onSave - Optional callback to capture saved entities
+	 */
+	const mockTransactionManager = (options?: {
+		credentialId?: string;
+		onSave?: (entity: any) => void;
+	}) => {
+		const credentialId = options?.credentialId ?? 'new-cred-id';
+		const onSave = options?.onSave;
+
+		// @ts-expect-error - Mocking manager for testing
+		credentialsRepository.manager = {
+			transaction: jest.fn().mockImplementation(async (callback) => {
+				const mockManager = {
+					save: jest.fn().mockImplementation(async (entity) => {
+						if (onSave) {
+							onSave(entity);
+						}
+						return { ...entity, id: credentialId };
+					}),
+				};
+				return await callback(mockManager);
+			}),
+		};
+	};
+
 	describe('redact', () => {
 		it('should redact sensitive values', () => {
 			const credential = mock<CredentialsEntity>({
@@ -1465,18 +1494,7 @@ describe('CredentialsService', () => {
 				credentialEntityInput = data;
 				return data as any;
 			});
-			// @ts-expect-error - Mocking manager for testing
-			credentialsRepository.manager = {
-				transaction: jest.fn().mockImplementation(async (callback) => {
-					const mockManager = {
-						save: jest.fn().mockImplementation(async (entity) => {
-							savedEntities.push(entity);
-							return { ...entity, id: 'new-cred-id' };
-						}),
-					};
-					return await callback(mockManager);
-				}),
-			};
+			mockTransactionManager({ onSave: (entity) => savedEntities.push(entity) });
 
 			// ACT
 			await service.createUnmanagedCredential(payload, ownerUser);
@@ -1503,18 +1521,7 @@ describe('CredentialsService', () => {
 			// ARRANGE
 			const payload = { ...credentialData }; // no isGlobal field
 			let savedCredential: any;
-			// @ts-expect-error - Mocking manager for testing
-			credentialsRepository.manager = {
-				transaction: jest.fn().mockImplementation(async (callback) => {
-					const mockManager = {
-						save: jest.fn().mockImplementation(async (entity) => {
-							savedCredential = entity;
-							return { ...entity, id: 'new-cred-id' };
-						}),
-					};
-					return await callback(mockManager);
-				}),
-			};
+			mockTransactionManager({ onSave: (entity) => (savedCredential = entity) });
 
 			// ACT
 			await service.createUnmanagedCredential(payload, ownerUser);
@@ -1527,18 +1534,7 @@ describe('CredentialsService', () => {
 			// ARRANGE
 			const payload = { ...credentialData, isGlobal: false };
 			let savedCredential: any;
-			// @ts-expect-error - Mocking manager for testing
-			credentialsRepository.manager = {
-				transaction: jest.fn().mockImplementation(async (callback) => {
-					const mockManager = {
-						save: jest.fn().mockImplementation(async (entity) => {
-							savedCredential = entity;
-							return { ...entity, id: 'new-cred-id' };
-						}),
-					};
-					return await callback(mockManager);
-				}),
-			};
+			mockTransactionManager({ onSave: (entity) => (savedCredential = entity) });
 
 			// ACT
 			await service.createUnmanagedCredential(payload, memberUser);
@@ -1690,6 +1686,9 @@ describe('CredentialsService', () => {
 					true,
 				);
 
+				credentialsRepository.create.mockImplementation((data) => ({ ...data }) as any);
+				mockTransactionManager();
+
 				await service.createUnmanagedCredential(payload, ownerUser);
 			});
 		});
@@ -1766,17 +1765,7 @@ describe('CredentialsService', () => {
 				},
 			]);
 			credentialsRepository.create.mockImplementation((data) => ({ ...data }) as any);
-			// @ts-expect-error - Mocking manager for testing
-			credentialsRepository.manager = {
-				transaction: jest.fn().mockImplementation(async (callback) => {
-					const mockManager = {
-						save: jest.fn().mockImplementation(async (entity) => {
-							return { ...entity, id: 'new-managed-cred-id' };
-						}),
-					};
-					return await callback(mockManager);
-				}),
-			};
+			mockTransactionManager({ credentialId: 'new-managed-cred-id' });
 
 			// ACT
 			const result = await service.createManagedCredential(payload, ownerUser);
