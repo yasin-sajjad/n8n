@@ -24,8 +24,6 @@ import type { ChatPayload } from '../workflow-builder-agent';
 import { CodeBuilderAgent } from './code-builder-agent';
 import { SessionChatHandler } from './handlers/session-chat-handler';
 import type { TokenUsage } from './types';
-import type { EvaluationLogger } from './utils/evaluation-logger';
-
 export type { TokenUsage };
 
 /**
@@ -44,8 +42,6 @@ export interface CodeWorkflowBuilderConfig {
 	 * If not provided, falls back to ~/.n8n/node-definitions.
 	 */
 	nodeDefinitionDirs?: string[];
-	/** Optional evaluation logger for capturing debug info during evals */
-	evalLogger?: EvaluationLogger;
 	/**
 	 * Optional checkpointer for session persistence.
 	 * If provided, enables multi-turn conversation history.
@@ -96,7 +92,6 @@ export class CodeWorkflowBuilder {
 			nodeTypes: config.nodeTypes,
 			logger: config.logger,
 			nodeDefinitionDirs: config.nodeDefinitionDirs,
-			evalLogger: config.evalLogger,
 			enableTextEditor: true,
 			onTokenUsage: config.onTokenUsage,
 			callbacks: config.callbacks,

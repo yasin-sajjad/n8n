@@ -51,7 +51,6 @@ import type { CodeBuilderAgentConfig, TokenUsage } from './types';
 export type { CodeBuilderAgentConfig } from './types';
 import { sanitizeLlmErrorMessage } from '../utils/error-sanitizer';
 import { pushValidationFeedback } from './utils/content-extractors';
-import type { EvaluationLogger } from './utils/evaluation-logger';
 import { calculateNodeChanges } from './utils/node-diff';
 import { NodeTypeParser } from './utils/node-type-parser';
 
@@ -67,7 +66,6 @@ import { NodeTypeParser } from './utils/node-type-parser';
 export class CodeBuilderAgent {
 	private nodeTypeParser: NodeTypeParser;
 	private logger?: Logger;
-	private evalLogger?: EvaluationLogger;
 	private tools: StructuredToolInterface[];
 	private toolsMap: Map<string, StructuredToolInterface>;
 	private parseValidateHandler: ParseValidateHandler;
@@ -92,7 +90,6 @@ export class CodeBuilderAgent {
 	constructor(config: CodeBuilderAgentConfig) {
 		this.nodeTypeParser = new NodeTypeParser(config.nodeTypes);
 		this.logger = config.logger;
-		this.evalLogger = config.evalLogger;
 		this.onTelemetryEvent = config.onTelemetryEvent;
 		this.originalOnTokenUsage = config.onTokenUsage;
 
@@ -139,7 +136,6 @@ export class CodeBuilderAgent {
 		this.finalResponseHandler = new FinalResponseHandler({
 			parseAndValidate: async (code, currentWorkflow) =>
 				await this.parseValidateHandler.parseAndValidate(code, currentWorkflow),
-			evalLogger: config.evalLogger,
 		});
 
 		// Create tools
@@ -174,14 +170,7 @@ export class CodeBuilderAgent {
 				[CODE_BUILDER_THINK_TOOL.toolName, CODE_BUILDER_THINK_TOOL.displayTitle],
 			]),
 			validateToolHandler: this.validateToolHandler,
-			evalLogger: config.evalLogger,
 		});
-	}
-
-	private debugLog(context: string, message: string, data?: Record<string, unknown>): void {
-		if (this.evalLogger) {
-			this.evalLogger.log(`CODE-BUILDER:${context}`, message, data);
-		}
 	}
 
 	/**
@@ -334,8 +323,6 @@ export class CodeBuilderAgent {
 						type: 'workflow-updated',
 						codeSnippet: JSON.stringify(workflow, null, 2),
 						iterationCount: iteration,
-						// Only include sourceCode during evaluations
-						...(this.evalLogger && sourceCode ? { sourceCode } : {}),
 					} as WorkflowUpdateChunk,
 				],
 			};
@@ -368,9 +355,6 @@ export class CodeBuilderAgent {
 			const rawErrorMessage = error instanceof Error ? error.message : String(error);
 			const errorStack = error instanceof Error ? error.stack : undefined;
 			const userFacingMessage = sanitizeLlmErrorMessage(error);
-
-			// Log raw error for internal visibility
-			this.evalLogger?.logError('CODE-BUILDER:FATAL', rawErrorMessage, undefined, errorStack);
 
 			this.logger?.error('Code builder agent failed', {
 				userId,

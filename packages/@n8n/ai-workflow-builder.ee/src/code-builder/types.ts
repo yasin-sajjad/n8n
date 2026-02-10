@@ -14,8 +14,6 @@ import type {
 	ITelemetryTrackProperties,
 } from 'n8n-workflow';
 
-import type { EvaluationLogger } from './utils/evaluation-logger';
-
 // ============================================================================
 // Forked types from types/nodes.ts for code-builder specific features
 // ============================================================================
@@ -107,8 +105,6 @@ export interface CodeBuilderAgentConfig {
 	 * If not provided, falls back to ~/.n8n/node-definitions.
 	 */
 	nodeDefinitionDirs?: string[];
-	/** Optional evaluation logger for capturing debug info during evals */
-	evalLogger?: EvaluationLogger;
 	/**
 	 * Enable the text editor tool for targeted code edits.
 	 * If not specified, auto-enabled for Claude 4.x models.

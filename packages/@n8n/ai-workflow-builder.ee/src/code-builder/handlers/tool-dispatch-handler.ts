@@ -16,7 +16,6 @@ import type { StrReplacement } from './text-editor.types';
 import type { ValidateToolHandler } from './validate-tool-handler';
 import type { StreamOutput, ToolProgressChunk } from '../../types/streaming';
 import type { WarningTracker } from '../state/warning-tracker';
-import type { EvaluationLogger } from '../utils/evaluation-logger';
 
 /**
  * Parse and validate the `replacements` argument from LLM tool calls.
@@ -74,7 +73,6 @@ export interface ToolDispatchHandlerConfig {
 	toolsMap: Map<string, StructuredToolInterface>;
 	toolDisplayTitles?: Map<string, string>;
 	validateToolHandler: ValidateToolHandler;
-	evalLogger?: EvaluationLogger;
 }
 
 /**
@@ -116,13 +114,11 @@ export class ToolDispatchHandler {
 	private toolsMap: Map<string, StructuredToolInterface>;
 	private toolDisplayTitles?: Map<string, string>;
 	private validateToolHandler: ValidateToolHandler;
-	private evalLogger?: EvaluationLogger;
 
 	constructor(config: ToolDispatchHandlerConfig) {
 		this.toolsMap = config.toolsMap;
 		this.toolDisplayTitles = config.toolDisplayTitles;
 		this.validateToolHandler = config.validateToolHandler;
-		this.evalLogger = config.evalLogger;
 	}
 
 	/**
@@ -193,10 +189,6 @@ export class ToolDispatchHandler {
 			}
 			if (result.workflowReady) {
 				workflowReady = true;
-				// Capture source code for evaluations
-				if (this.evalLogger && textEditorHandler) {
-					sourceCode = textEditorHandler.getWorkflowCode() ?? undefined;
-				}
 				break;
 			}
 			if (result.validatePassed) {
@@ -351,15 +343,8 @@ export class ToolDispatchHandler {
 		}
 
 		try {
-			const toolStartTime = Date.now();
 			const result: unknown = await tool.invoke(toolCall.args);
-			const toolDuration = Date.now() - toolStartTime;
-
-			// Serialize result for logging and message
 			const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
-
-			// Log full tool output to evaluation logger
-			this.evalLogger?.logToolCall(toolCall.name, toolCall.args, resultStr, toolDuration);
 
 			// Add tool result to messages
 			messages.push(

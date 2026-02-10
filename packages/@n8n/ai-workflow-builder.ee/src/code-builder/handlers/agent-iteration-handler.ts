@@ -90,13 +90,11 @@ export interface LlmInvocationResult {
  * by the caller using the appropriate handlers.
  */
 export class AgentIterationHandler {
-	private debugLog: DebugLogFn;
 	private onTokenUsage?: (usage: TokenUsage) => void;
 	private callbacks?: Callbacks;
 	private runMetadata?: Record<string, unknown>;
 
 	constructor(config: AgentIterationHandlerConfig = {}) {
-		this.debugLog = config.debugLog ?? (() => {});
 		this.onTokenUsage = config.onTokenUsage;
 		this.callbacks = config.callbacks;
 		this.runMetadata = config.runMetadata;
@@ -129,34 +127,16 @@ export class AgentIterationHandler {
 	async *invokeLlm(
 		params: IterationParams,
 	): AsyncGenerator<StreamOutput, LlmInvocationResult, unknown> {
-		const {
-			llmWithTools,
-			messages,
-			abortSignal,
-			iteration,
-			callbacks: iterationCallbacks,
-		} = params;
-
-		this.debugLog('ITERATION', `========== ITERATION ${iteration} ==========`);
-
-		// Log message history state at start of iteration
-		this.debugLog('ITERATION', 'Message history state', {
-			messageCount: messages.length,
-			messageTypes: messages.map((m) => m._getType()),
-			lastMessageType: messages[messages.length - 1]?._getType(),
-		});
+		const { llmWithTools, messages, abortSignal, callbacks: iterationCallbacks } = params;
 
 		// Check for abort
 		if (abortSignal?.aborted) {
-			this.debugLog('ITERATION', 'Abort signal received');
 			throw new Error('Aborted');
 		}
 
 		// Apply cache markers for prompt caching optimization
 		applySubgraphCacheMarkers(messages);
 
-		// Invoke LLM
-		this.debugLog('ITERATION', 'Invoking LLM with message history...');
 		const llmStartTime = Date.now();
 		const response = await llmWithTools.invoke(messages, {
 			signal: abortSignal,
@@ -182,37 +162,11 @@ export class AgentIterationHandler {
 			this.onTokenUsage({ inputTokens, outputTokens, thinkingTokens });
 		}
 
-		this.debugLog('ITERATION', 'LLM response received', {
-			llmDurationMs,
-			responseId: response.id,
-			hasToolCalls: response.tool_calls && response.tool_calls.length > 0,
-			toolCallCount: response.tool_calls?.length ?? 0,
-			inputTokens,
-			outputTokens,
-		});
-
-		// Log full response content including thinking blocks
-		this.debugLog('ITERATION', 'Full LLM response content', {
-			contentType: typeof response.content,
-			contentIsArray: Array.isArray(response.content),
-			rawContent: response.content,
-		});
-
-		// Extract and log thinking/planning content separately if present
 		const thinkingContent = extractThinkingContent(response);
-		if (thinkingContent) {
-			this.debugLog('ITERATION', '========== AGENT THINKING/PLANNING ==========', {
-				thinkingContent,
-			});
-		}
 
 		// Extract text content from response
 		const textContent = extractTextContent(response);
 		if (textContent) {
-			this.debugLog('ITERATION', 'Streaming text response', {
-				textContentLength: textContent.length,
-				textContent,
-			});
 			const messageChunk: AgentMessageChunk = {
 				role: 'assistant',
 				type: 'message',

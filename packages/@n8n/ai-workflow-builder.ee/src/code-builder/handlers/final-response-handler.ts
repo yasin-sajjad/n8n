@@ -9,7 +9,7 @@ import type { AIMessage, BaseMessage } from '@langchain/core/messages';
 import type { WorkflowJSON } from '@n8n/workflow-sdk';
 
 import type { WarningTracker } from '../state/warning-tracker';
-import type { ParseAndValidateResult, WorkflowCodeOutput, ValidationWarning } from '../types';
+import type { ParseAndValidateResult, WorkflowCodeOutput } from '../types';
 import { extractTextContent, pushValidationFeedback } from '../utils/content-extractors';
 import { extractWorkflowCode } from '../utils/extract-code';
 import { formatWarnings } from '../utils/format-warnings';
@@ -23,20 +23,10 @@ type ParseAndValidateFn = (
 ) => Promise<ParseAndValidateResult>;
 
 /**
- * Evaluation logger interface (subset of what we need)
- */
-interface EvalLoggerInterface {
-	logWarnings: (context: string, warnings: ValidationWarning[]) => void;
-	logError: (context: string, message: string, code?: string, stack?: string) => void;
-}
-
-/**
  * Configuration for FinalResponseHandler
  */
 export interface FinalResponseHandlerConfig {
 	parseAndValidate: ParseAndValidateFn;
-	debugLog?: DebugLogFn;
-	evalLogger?: EvalLoggerInterface;
 }
 
 /**
@@ -82,13 +72,9 @@ export interface FinalResponseResult {
  */
 export class FinalResponseHandler {
 	private parseAndValidate: ParseAndValidateFn;
-	private debugLog: DebugLogFn;
-	private evalLogger?: EvalLoggerInterface;
 
 	constructor(config: FinalResponseHandlerConfig) {
 		this.parseAndValidate = config.parseAndValidate;
-		this.debugLog = config.debugLog ?? (() => {});
-		this.evalLogger = config.evalLogger;
 	}
 
 	/**
@@ -100,16 +86,10 @@ export class FinalResponseHandler {
 	async process(params: FinalResponseParams): Promise<FinalResponseResult> {
 		const { response, currentWorkflow, messages, warningTracker } = params;
 
-		this.debugLog('FINAL_RESPONSE', 'Processing final response (no tool calls)');
-
 		// Parse structured output from response
 		const parseResult = this.parseStructuredOutput(response);
 
 		if (!parseResult.result) {
-			this.debugLog('FINAL_RESPONSE', 'Could not parse structured output', {
-				error: parseResult.error,
-			});
-
 			// Add follow-up message with error
 			pushValidationFeedback(
 				messages,
@@ -124,9 +104,6 @@ export class FinalResponseHandler {
 		}
 
 		const workflowCode = parseResult.result.workflowCode;
-		this.debugLog('FINAL_RESPONSE', 'Parsed workflow code from response', {
-			codeLength: workflowCode.length,
-		});
 
 		// Try to parse and validate the workflow code
 		const parseStartTime = Date.now();
@@ -135,29 +112,15 @@ export class FinalResponseHandler {
 			const result = await this.parseAndValidate(workflowCode, currentWorkflow);
 			const parseDuration = Date.now() - parseStartTime;
 
-			this.debugLog('FINAL_RESPONSE', 'Workflow parsed and validated', {
-				parseDurationMs: parseDuration,
-				workflowId: result.workflow.id,
-				nodeCount: result.workflow.nodes.length,
-				warningCount: result.warnings.length,
-			});
-
 			// Check for new warnings
 			const newWarnings = warningTracker.filterNewWarnings(result.warnings);
 
 			if (newWarnings.length > 0) {
-				this.debugLog('FINAL_RESPONSE', 'New validation warnings found', {
-					newWarningCount: newWarnings.length,
-				});
-
 				// Mark warnings as seen
 				warningTracker.markAsSeen(newWarnings);
 
 				// Format warnings
 				const warningMessages = formatWarnings(newWarnings.slice(0, 5), warningTracker);
-
-				// Log warnings
-				this.evalLogger?.logWarnings('CODE-BUILDER:VALIDATION', newWarnings);
 
 				// Send feedback to agent
 				pushValidationFeedback(
@@ -172,9 +135,6 @@ export class FinalResponseHandler {
 				};
 			}
 
-			// Success - no new warnings
-			this.debugLog('FINAL_RESPONSE', 'No new warnings, workflow ready');
-
 			return {
 				success: true,
 				workflow: result.workflow,
@@ -185,16 +145,6 @@ export class FinalResponseHandler {
 		} catch (parseError) {
 			const parseDuration = Date.now() - parseStartTime;
 			const errorMessage = parseError instanceof Error ? parseError.message : String(parseError);
-			const errorStack = parseError instanceof Error ? parseError.stack : undefined;
-
-			this.debugLog('FINAL_RESPONSE', 'Workflow parsing failed', {
-				parseDurationMs: parseDuration,
-				errorMessage,
-				stack: errorStack,
-			});
-
-			// Log error
-			this.evalLogger?.logError('CODE-BUILDER:PARSE', errorMessage, undefined, errorStack);
 
 			// Send feedback to agent
 			pushValidationFeedback(
@@ -221,30 +171,20 @@ export class FinalResponseHandler {
 	} {
 		const content = extractTextContent(message);
 		if (!content) {
-			this.debugLog('PARSE_OUTPUT', 'No text content to parse');
 			return { result: null, error: 'No text content found in response' };
 		}
-
-		this.debugLog('PARSE_OUTPUT', 'Attempting to extract workflow code', {
-			contentLength: content.length,
-		});
 
 		// Extract code from TypeScript code blocks
 		const workflowCode = extractWorkflowCode(content);
 
 		// Check if we got valid code
 		if (!workflowCode?.includes('workflow')) {
-			this.debugLog('PARSE_OUTPUT', 'No valid workflow code found in content');
 			return {
 				result: null,
 				error:
 					'No valid workflow code found in response. Please provide your code in a ```typescript code block.',
 			};
 		}
-
-		this.debugLog('PARSE_OUTPUT', 'Successfully extracted workflow code', {
-			workflowCodeLength: workflowCode.length,
-		});
 
 		return { result: { workflowCode }, error: null };
 	}

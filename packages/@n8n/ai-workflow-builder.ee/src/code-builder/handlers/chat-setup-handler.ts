@@ -44,7 +44,6 @@ export interface ChatSetupHandlerConfig {
 	llm: BaseChatModel;
 	tools: StructuredToolInterface[];
 	enableTextEditorConfig?: boolean;
-	debugLog: DebugLogFn;
 	parseAndValidate: ParseAndValidateFn;
 	getErrorContext: GetErrorContextFn;
 }
@@ -90,7 +89,6 @@ export class ChatSetupHandler {
 	private llm: BaseChatModel;
 	private tools: StructuredToolInterface[];
 	private enableTextEditorConfig?: boolean;
-	private debugLog: DebugLogFn;
 	private parseAndValidate: ParseAndValidateFn;
 	private getErrorContext: GetErrorContextFn;
 
@@ -98,7 +96,6 @@ export class ChatSetupHandler {
 		this.llm = config.llm;
 		this.tools = config.tools;
 		this.enableTextEditorConfig = config.enableTextEditorConfig;
-		this.debugLog = config.debugLog;
 		this.parseAndValidate = config.parseAndValidate;
 		this.getErrorContext = config.getErrorContext;
 	}
@@ -113,8 +110,6 @@ export class ChatSetupHandler {
 		const { payload, historyContext } = params;
 		const currentWorkflow = payload.workflowContext?.currentWorkflow as WorkflowJSON | undefined;
 
-		this.logWorkflowContext(currentWorkflow);
-
 		// Treat empty workflows (no nodes) as no workflow for code context.
 		// This forces the agent to use `create` instead of editing pre-populated code.
 		const workflowForCodeContext =
@@ -125,7 +120,6 @@ export class ChatSetupHandler {
 
 		// Check if text editor mode should be enabled
 		const textEditorEnabled = this.shouldEnableTextEditor();
-		this.debugLog('CHAT_SETUP', 'Text editor mode', { textEditorEnabled });
 
 		// Build prompt
 		const prompt = buildCodeBuilderPrompt(workflowForCodeContext, historyContext, {
@@ -138,7 +132,6 @@ export class ChatSetupHandler {
 			pinnedNodes: payload.workflowContext?.pinnedNodes,
 			planOutput: payload.planOutput,
 		});
-		this.logPromptBuilt(historyContext, textEditorEnabled);
 
 		// Bind tools to LLM
 		const llmWithTools = this.bindToolsToLlm(textEditorEnabled);
@@ -181,19 +174,6 @@ export class ChatSetupHandler {
 	}
 
 	/**
-	 * Log workflow context information
-	 */
-	private logWorkflowContext(currentWorkflow?: WorkflowJSON): void {
-		if (currentWorkflow) {
-			this.debugLog('CHAT_SETUP', 'Current workflow context provided', {
-				workflowId: currentWorkflow.id,
-				workflowName: currentWorkflow.name,
-				nodeCount: currentWorkflow.nodes?.length ?? 0,
-			});
-		}
-	}
-
-	/**
 	 * Pre-generate workflow code with execution context
 	 */
 	private preGenerateWorkflowCode(
@@ -204,34 +184,13 @@ export class ChatSetupHandler {
 			return undefined;
 		}
 
-		const code = generateWorkflowCode({
+		return generateWorkflowCode({
 			workflow: currentWorkflow,
 			executionSchema: payload.workflowContext?.executionSchema,
 			executionData: payload.workflowContext?.executionData,
 			expressionValues: payload.workflowContext?.expressionValues,
 			valuesExcluded: payload.workflowContext?.valuesExcluded,
 			pinnedNodes: payload.workflowContext?.pinnedNodes,
-		});
-
-		this.debugLog('CHAT_SETUP', 'Pre-generated workflow code with execution context', {
-			codeLength: code.length,
-			hasExecutionSchema: !!payload.workflowContext?.executionSchema,
-			hasExecutionData: !!payload.workflowContext?.executionData,
-			hasExpressionValues: !!payload.workflowContext?.expressionValues,
-		});
-
-		return code;
-	}
-
-	/**
-	 * Log prompt build information
-	 */
-	private logPromptBuilt(historyContext?: HistoryContext, textEditorEnabled?: boolean): void {
-		this.debugLog('CHAT_SETUP', 'Prompt built successfully', {
-			hasHistoryContext: !!historyContext,
-			historyMessagesCount: historyContext?.userMessages?.length ?? 0,
-			hasPreviousSummary: !!historyContext?.previousSummary,
-			textEditorEnabled,
 		});
 	}
 
@@ -241,8 +200,6 @@ export class ChatSetupHandler {
 	 * @returns LLM with tools bound, typed for use with AgentIterationHandler
 	 */
 	private bindToolsToLlm(textEditorEnabled: boolean): LlmWithTools {
-		this.debugLog('CHAT_SETUP', 'Binding tools to LLM...');
-
 		if (!this.llm.bindTools) {
 			throw new Error('LLM does not support bindTools - cannot use tools for node discovery');
 		}
@@ -251,16 +208,7 @@ export class ChatSetupHandler {
 			? [...this.tools, TEXT_EDITOR_TOOL, VALIDATE_TOOL, BATCH_STR_REPLACE_TOOL]
 			: this.tools;
 
-		// bindTools returns a Runnable that accepts BaseMessage[] and returns AIMessage
-		// The type assertion is safe because we're binding tools to a chat model
-		const llmWithTools = this.llm.bindTools(toolsToUse) as LlmWithTools;
-
-		this.debugLog('CHAT_SETUP', 'Tools bound to LLM', {
-			toolCount: toolsToUse.length,
-			includesTextEditor: textEditorEnabled,
-		});
-
-		return llmWithTools;
+		return this.llm.bindTools(toolsToUse) as LlmWithTools;
 	}
 
 	/**
@@ -270,31 +218,8 @@ export class ChatSetupHandler {
 		prompt: ReturnType<typeof buildCodeBuilderPrompt>,
 		userMessage: string,
 	): Promise<BaseMessage[]> {
-		this.debugLog('CHAT_SETUP', 'Formatting initial messages...');
-
 		const formattedMessages = await prompt.formatMessages({ userMessage });
-		const messages: BaseMessage[] = [...formattedMessages];
-
-		this.debugLog('CHAT_SETUP', 'Initial messages formatted', {
-			messageCount: messages.length,
-		});
-
-		// @TODO SECURITY: Avoid logging message content previews - they may contain
-		// credentials or sensitive workflow execution data. Remove or redact before merge.
-		for (let i = 0; i < formattedMessages.length; i++) {
-			const msg = formattedMessages[i];
-			const msgType = msg._getType();
-			const content =
-				typeof msg.content === 'string'
-					? msg.content
-					: JSON.stringify(msg.content).substring(0, 2000);
-			this.debugLog('CHAT_SETUP', `Message ${i + 1} (${msgType})`, {
-				contentLength: typeof msg.content === 'string' ? msg.content.length : 0,
-				contentPreview: content,
-			});
-		}
-
-		return messages;
+		return [...formattedMessages];
 	}
 
 	/**
@@ -311,10 +236,7 @@ export class ChatSetupHandler {
 			return {};
 		}
 
-		// Create text editor handler with debug logging
-		const textEditorHandler = new TextEditorHandler((context, message, data) => {
-			this.debugLog(`TEXT_EDITOR_HANDLER:${context}`, message, data);
-		});
+		const textEditorHandler = new TextEditorHandler();
 
 		// Create text editor tool handler (wraps the text editor handler)
 		const textEditorToolHandler = new TextEditorToolHandler({
@@ -322,7 +244,6 @@ export class ChatSetupHandler {
 			textEditorGetCode: () => textEditorHandler.getWorkflowCode(),
 			parseAndValidate: this.parseAndValidate,
 			getErrorContext: this.getErrorContext,
-			debugLog: this.debugLog,
 		});
 
 		// Pre-populate with the SAME code that's in the system prompt
@@ -330,9 +251,6 @@ export class ChatSetupHandler {
 		if (preGeneratedWorkflowCode) {
 			const codeWithImport = `${SDK_IMPORT_STATEMENT}\n\n${preGeneratedWorkflowCode}`;
 			textEditorHandler.setWorkflowCode(codeWithImport);
-			this.debugLog('CHAT_SETUP', 'Pre-populated text editor with workflow code', {
-				codeLength: codeWithImport.length,
-			});
 		}
 
 		return { textEditorHandler, textEditorToolHandler };

@@ -9,7 +9,6 @@ import type { INodeTypeDescription } from 'n8n-workflow';
 import pLimit from 'p-limit';
 
 import { CodeWorkflowBuilder } from '@/code-builder';
-import { EvaluationLogger } from '@/code-builder/utils/evaluation-logger';
 import type { CoordinationLogEntry } from '@/types/coordination';
 import type { StreamChunk, WorkflowUpdateChunk } from '@/types/streaming';
 import type { SimpleWorkflow } from '@/types/workflow';
@@ -178,7 +177,6 @@ function createCodeWorkflowBuilderGenerator(
 	// Subgraph metrics are not applicable since CodeWorkflowBuilder doesn't use coordination logs.
 	return async (prompt: string, collectors?: GenerationCollectors): Promise<GenerationResult> => {
 		const runId = generateRunId();
-		const evalLogger = new EvaluationLogger();
 
 		// Accumulate token usage across all LLM calls
 		let totalInputTokens = 0;
@@ -187,7 +185,6 @@ function createCodeWorkflowBuilderGenerator(
 		const builder = new CodeWorkflowBuilder({
 			llm: llms.builder,
 			nodeTypes: parsedNodeTypes,
-			evalLogger,
 			nodeDefinitionDirs,
 			onTokenUsage: collectors?.tokenUsage
 				? (usage) => {
