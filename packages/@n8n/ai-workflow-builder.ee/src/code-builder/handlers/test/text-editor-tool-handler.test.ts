@@ -131,7 +131,7 @@ describe('TextEditorToolHandler', () => {
 				messages,
 			});
 
-			const chunks: unknown[] = [];
+			const chunks: StreamOutput[] = [];
 			for await (const chunk of generator) {
 				chunks.push(chunk);
 			}
@@ -139,6 +139,11 @@ describe('TextEditorToolHandler', () => {
 			// Should have create result in messages (no additional validation message on success)
 			expect(messages.length).toBe(1);
 			expect(messages[0]).toBeInstanceOf(ToolMessage);
+
+			// Should yield a WorkflowUpdateChunk for progressive canvas rendering
+			const workflowChunks = chunks.flatMap((c) => c.messages ?? []).filter(isWorkflowUpdateChunk);
+			expect(workflowChunks).toHaveLength(1);
+			expect(jsonParse(workflowChunks[0].codeSnippet)).toEqual(mockWorkflow);
 		});
 
 		it('should auto-validate after create and return workflowReady false on warnings', async () => {
@@ -162,7 +167,7 @@ describe('TextEditorToolHandler', () => {
 				messages,
 			});
 
-			const chunks: unknown[] = [];
+			const chunks: StreamOutput[] = [];
 			for await (const chunk of generator) {
 				chunks.push(chunk);
 			}
@@ -173,6 +178,11 @@ describe('TextEditorToolHandler', () => {
 			const content = (messages[0] as ToolMessage).content as string;
 			expect(content).toContain('File created.');
 			expect(content).toContain('WARN001');
+
+			// Should still yield a WorkflowUpdateChunk even with warnings
+			const workflowChunks = chunks.flatMap((c) => c.messages ?? []).filter(isWorkflowUpdateChunk);
+			expect(workflowChunks).toHaveLength(1);
+			expect(jsonParse(workflowChunks[0].codeSnippet)).toEqual(mockWorkflow);
 		});
 
 		it('should auto-validate after create and return workflowReady false on parse error', async () => {
@@ -186,7 +196,7 @@ describe('TextEditorToolHandler', () => {
 				messages,
 			});
 
-			const chunks: unknown[] = [];
+			const chunks: StreamOutput[] = [];
 			for await (const chunk of generator) {
 				chunks.push(chunk);
 			}
@@ -197,6 +207,10 @@ describe('TextEditorToolHandler', () => {
 			const content = (messages[0] as ToolMessage).content as string;
 			expect(content).toContain('File created.');
 			expect(content).toContain('Parse error');
+
+			// Should NOT yield a WorkflowUpdateChunk when parse fails
+			const workflowChunks = chunks.flatMap((c) => c.messages ?? []).filter(isWorkflowUpdateChunk);
+			expect(workflowChunks).toHaveLength(0);
 		});
 
 		it('should handle text editor execution error', async () => {
@@ -414,7 +428,7 @@ describe('TextEditorToolHandler', () => {
 				warningTracker,
 			});
 
-			const chunks: unknown[] = [];
+			const chunks: StreamOutput[] = [];
 			let iterResult = await generator.next();
 			while (!iterResult.done) {
 				chunks.push(iterResult.value);
@@ -429,6 +443,11 @@ describe('TextEditorToolHandler', () => {
 			// Should have single ToolMessage with create result, no validation warnings
 			expect(messages).toHaveLength(1);
 			expect(messages[0]).toBeInstanceOf(ToolMessage);
+
+			// Should yield a WorkflowUpdateChunk
+			const workflowChunks = chunks.flatMap((c) => c.messages ?? []).filter(isWorkflowUpdateChunk);
+			expect(workflowChunks).toHaveLength(1);
+			expect(jsonParse(workflowChunks[0].codeSnippet)).toEqual(mockWorkflow);
 		});
 
 		it('should yield WorkflowUpdateChunk after successful str_replace when parse succeeds', async () => {

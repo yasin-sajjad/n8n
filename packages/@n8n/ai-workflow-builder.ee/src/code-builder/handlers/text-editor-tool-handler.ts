@@ -149,6 +149,9 @@ export class TextEditorToolHandler {
 					messages,
 					warningTracker,
 				);
+				if (autoValidateResult.workflow) {
+					yield this.createWorkflowUpdateChunk(autoValidateResult.workflow);
+				}
 
 				yield this.createToolProgressChunk('completed', command, toolCallId);
 				return autoValidateResult;
