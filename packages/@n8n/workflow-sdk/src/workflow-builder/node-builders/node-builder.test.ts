@@ -1,6 +1,5 @@
 import { deepCopy } from 'n8n-workflow';
 
-import { splitInBatches } from '../control-flow-builders/split-in-batches';
 import {
 	node,
 	trigger,
@@ -12,6 +11,7 @@ import {
 	switchCase,
 } from './node-builder';
 import { languageModel, memory, tool, outputParser } from './subnode-builders';
+import { splitInBatches } from '../control-flow-builders/split-in-batches';
 
 describe('Node Builder', () => {
 	describe('node()', () => {

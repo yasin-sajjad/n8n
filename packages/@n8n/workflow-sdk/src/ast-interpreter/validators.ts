@@ -324,7 +324,18 @@ export function isAllowedMethod(name: string): boolean {
 const SAFE_JSON_METHODS: Record<string, (...args: unknown[]) => unknown> = {
 	stringify: (...args: unknown[]) =>
 		JSON.stringify(args[0], args[1] as undefined, args[2] as undefined),
-	parse: (...args: unknown[]) => JSON.parse(args[0] as string) as unknown,
+	parse: (...args: unknown[]) => {
+		const input = args[0];
+		if (typeof input !== 'string') {
+			throw new Error(`JSON.parse() expects a string argument, got ${typeof input}`);
+		}
+		try {
+			return JSON.parse(input) as unknown;
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Unknown error';
+			throw new Error(`JSON.parse() failed: ${message}`);
+		}
+	},
 };
 
 /**
