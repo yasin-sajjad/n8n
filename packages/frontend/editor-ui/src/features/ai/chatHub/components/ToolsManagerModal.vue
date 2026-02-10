@@ -123,11 +123,6 @@ const filteredAvailableTools = computed(() => {
 	});
 });
 
-const settingsNodeTypeDescription = computed(() => {
-	if (!settingsNode.value) return null;
-	return nodeTypesStore.getNodeType(settingsNode.value.type);
-});
-
 function getNodeType(tool: ChatHubToolDto): INodeTypeDescription | null {
 	return nodeTypesStore.getNodeType(tool.definition.type, tool.definition.typeVersion);
 }
