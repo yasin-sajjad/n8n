@@ -45,7 +45,7 @@ const credentialsPageUrl = computed(() => ({
 const secretsLabel = computed(() => {
 	const count = props.data.secretsCount;
 	if (count === 1) {
-		return i18n.baseText('settings.secretsProviderConnections.delete.description.secret');
+		return i18n.baseText('settings.secretsProviderConnections.delete.description.oneSecret');
 	}
 	return i18n.baseText('settings.secretsProviderConnections.delete.description.secrets', {
 		interpolate: { count: count.toString() },
@@ -55,7 +55,7 @@ const secretsLabel = computed(() => {
 const credentialsLabel = computed(() => {
 	const count = credentialsCount.value;
 	if (count === 1) {
-		return i18n.baseText('settings.secretsProviderConnections.delete.impact.credential');
+		return i18n.baseText('settings.secretsProviderConnections.delete.impact.oneCredential');
 	}
 	return i18n.baseText('settings.secretsProviderConnections.delete.impact.credentials', {
 		interpolate: { count: count.toString() },
@@ -151,7 +151,6 @@ function onCredentialsLinkClick() {
 							<N8nText size="medium" color="text-base">
 								<RouterLink
 									:to="credentialsPageUrl"
-									:class="$style.credentialsLink"
 									data-test-id="credentials-link"
 									@click="onCredentialsLinkClick"
 								>
@@ -212,15 +211,6 @@ function onCredentialsLinkClick() {
 	display: flex;
 	flex-direction: column;
 	gap: var(--spacing--2xs);
-}
-
-.credentialsLink {
-	color: var(--color--primary);
-	text-decoration: none;
-
-	&:hover {
-		text-decoration: underline;
-	}
 }
 
 .confirmation {

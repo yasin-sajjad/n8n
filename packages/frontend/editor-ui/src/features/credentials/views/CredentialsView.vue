@@ -225,7 +225,7 @@ const initialize = async () => {
 			true,
 			overview.isSharedSubPage,
 			!isPersonalView, // don't include global credentials if personal
-			filters.value.externalSecretsStore,
+			...(filters.value.externalSecretsStore ? [filters.value.externalSecretsStore] : []),
 		),
 		credentialsStore.fetchCredentialTypes(false),
 		...externalSecretRequests,
@@ -247,7 +247,7 @@ credentialsStore.$onAction(({ name, after }) => {
 				true,
 				undefined,
 				undefined,
-				filters.value.externalSecretsStore,
+				...(filters.value.externalSecretsStore ? [filters.value.externalSecretsStore] : []),
 			);
 		});
 	}
