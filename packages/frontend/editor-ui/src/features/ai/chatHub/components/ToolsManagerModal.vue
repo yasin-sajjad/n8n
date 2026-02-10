@@ -2,10 +2,17 @@
 import { v4 as uuidv4 } from 'uuid';
 import Modal from '@/app/components/Modal.vue';
 import { useNodeTypesStore } from '@/app/stores/nodeTypes.store';
-import { useUIStore } from '@/app/stores/ui.store';
-import { TOOL_SETTINGS_MODAL_KEY } from '@/features/ai/chatHub/constants';
 import ToolListItem from './ToolListItem.vue';
-import { N8nHeading, N8nIcon, N8nInput, N8nText } from '@n8n/design-system';
+import ToolSettingsContent from './ToolSettingsContent.vue';
+import {
+	N8nButton,
+	N8nHeading,
+	N8nIcon,
+	N8nIconButton,
+	N8nInlineTextEdit,
+	N8nInput,
+	N8nText,
+} from '@n8n/design-system';
 import { useI18n } from '@n8n/i18n';
 import { createEventBus } from '@n8n/utils/event-bus';
 import { useDebounceFn } from '@vueuse/core';
@@ -41,7 +48,6 @@ function hasInputs(nodeType: INodeTypeDescription): boolean {
 
 const i18n = useI18n();
 const nodeTypesStore = useNodeTypesStore();
-const uiStore = useUIStore();
 const chatStore = useChatStore();
 const toast = useToast();
 
@@ -56,6 +62,16 @@ const setDebouncedSearchQuery = useDebounceFn((value: string) => {
 watch(searchQuery, (newValue) => {
 	void setDebouncedSearchQuery(newValue);
 });
+
+// View switching state
+type ManagerView = 'list' | 'settings';
+const currentView = ref<ManagerView>('list');
+const settingsNode = ref<INode | null>(null);
+const settingsExistingToolNames = ref<string[]>([]);
+const settingsOnConfirm = ref<((node: INode) => void) | null>(null);
+const settingsContentRef = ref<InstanceType<typeof ToolSettingsContent> | null>(null);
+const settingsNodeName = ref('');
+const settingsIsValid = ref(false);
 
 const tools = computed<ChatHubToolDto[]>(() => chatStore.configuredTools);
 
@@ -107,28 +123,39 @@ const filteredAvailableTools = computed(() => {
 	});
 });
 
+const settingsNodeTypeDescription = computed(() => {
+	if (!settingsNode.value) return null;
+	return nodeTypesStore.getNodeType(settingsNode.value.type);
+});
+
 function getNodeType(tool: ChatHubToolDto): INodeTypeDescription | null {
 	return nodeTypesStore.getNodeType(tool.definition.type, tool.definition.typeVersion);
 }
 
-async function handleConfigureTool(tool: ChatHubToolDto) {
+function openSettings(
+	node: INode,
+	existingNames: string[],
+	onConfirm: (configuredNode: INode) => void,
+) {
+	settingsNode.value = node;
+	settingsExistingToolNames.value = existingNames;
+	settingsOnConfirm.value = onConfirm;
+	settingsNodeName.value = node.name;
+	settingsIsValid.value = false;
+	currentView.value = 'settings';
+}
+
+function handleConfigureTool(tool: ChatHubToolDto) {
 	const otherToolNames = tools.value
 		.filter((t) => t.definition.id !== tool.definition.id)
 		.map((t) => t.definition.name);
 
-	uiStore.openModalWithData({
-		name: TOOL_SETTINGS_MODAL_KEY,
-		data: {
-			node: { ...tool.definition },
-			existingToolNames: otherToolNames,
-			onConfirm: async (configuredNode: INode) => {
-				try {
-					await chatStore.updateConfiguredTool(tool.definition.id, configuredNode);
-				} catch (error) {
-					toast.showError(error, i18n.baseText('chatHub.error.updateToolsFailed'));
-				}
-			},
-		},
+	openSettings({ ...tool.definition }, otherToolNames, async (configuredNode: INode) => {
+		try {
+			await chatStore.updateConfiguredTool(tool.definition.id, configuredNode);
+		} catch (error) {
+			toast.showError(error, i18n.baseText('chatHub.error.updateToolsFailed'));
+		}
 	});
 }
 
@@ -161,31 +188,45 @@ function handleAddTool(nodeType: INodeTypeDescription) {
 	const newToolId = uuidv4();
 	const existingNames = tools.value.map((t) => t.definition.name);
 
-	uiStore.openModalWithData({
-		name: TOOL_SETTINGS_MODAL_KEY,
-		data: {
-			node: {
-				type: nodeType.name,
-				typeVersion,
-				parameters: {},
-				id: newToolId,
-				name: nodeType.displayName,
-				position: [0, 0],
-			},
-			existingToolNames: existingNames,
-			onConfirm: async (configuredNode: INode) => {
-				try {
-					await chatStore.addConfiguredTool(configuredNode);
-				} catch (error) {
-					toast.showError(error, i18n.baseText('chatHub.error.updateToolsFailed'));
-				}
-			},
+	openSettings(
+		{
+			type: nodeType.name,
+			typeVersion,
+			parameters: {},
+			id: newToolId,
+			name: nodeType.displayName,
+			position: [0, 0],
 		},
-	});
+		existingNames,
+		async (configuredNode: INode) => {
+			try {
+				await chatStore.addConfiguredTool(configuredNode);
+			} catch (error) {
+				toast.showError(error, i18n.baseText('chatHub.error.updateToolsFailed'));
+			}
+		},
+	);
 }
 
-function handleClose() {
-	modalBus.value.emit('close');
+function handleBack() {
+	currentView.value = 'list';
+	settingsNode.value = null;
+	settingsExistingToolNames.value = [];
+	settingsOnConfirm.value = null;
+	settingsNodeName.value = '';
+	settingsIsValid.value = false;
+}
+
+function handleSave() {
+	const currentNode = settingsContentRef.value?.node;
+	if (!currentNode || !settingsOnConfirm.value) return;
+
+	settingsOnConfirm.value(currentNode);
+	handleBack();
+}
+
+function handleSettingsChangeName(name: string) {
+	settingsContentRef.value?.handleChangeName(name);
 }
 </script>
 
@@ -193,21 +234,47 @@ function handleClose() {
 	<Modal
 		:name="modalName"
 		:event-bus="modalBus"
-		width="710px"
 		:center="true"
+		width="710px"
 		max-width="90vw"
 		max-height="80vh"
-		:scrollable="true"
-		:class="$style.modal"
+		:scrollable="currentView === 'list'"
+		:show-close="currentView === 'list'"
+		:class="[$style.modal, currentView === 'settings' && $style.settingsView]"
 	>
 		<template #header>
-			<N8nHeading tag="h2" size="large">
+			<!-- List view header -->
+			<N8nHeading v-if="currentView === 'list'" tag="h2" size="large">
 				{{ i18n.baseText('chatHub.toolsManager.title') }}
 			</N8nHeading>
+
+			<!-- Settings view header -->
+			<div v-else :class="$style.settingsHeader">
+				<div :class="$style.settingsHeaderLeft">
+					<N8nIconButton
+						icon="arrow-left"
+						text
+						size="large"
+						type="secondary"
+						:class="$style.backButton"
+						@click="handleBack"
+					/>
+					<N8nInlineTextEdit
+						:model-value="settingsNodeName"
+						:max-width="350"
+						:class="$style.title"
+						@update:model-value="handleSettingsChangeName"
+					/>
+				</div>
+				<N8nButton type="primary" size="small" :disabled="!settingsIsValid" @click="handleSave">
+					{{ i18n.baseText('chatHub.toolSettings.confirm') }}
+				</N8nButton>
+			</div>
 		</template>
 
 		<template #content>
-			<div :class="$style.content">
+			<!-- List view (v-show to preserve scroll/search state) -->
+			<div v-show="currentView === 'list'" :class="$style.content">
 				<N8nInput
 					v-model="searchQuery"
 					:placeholder="i18n.baseText('chatHub.toolsManager.searchPlaceholder')"
@@ -270,6 +337,16 @@ function handleClose() {
 					</N8nText>
 				</div>
 			</div>
+
+			<!-- Settings view (v-if for fresh mount/unmount lifecycle) -->
+			<ToolSettingsContent
+				v-if="currentView === 'settings' && settingsNode"
+				ref="settingsContentRef"
+				:initial-node="settingsNode"
+				:existing-tool-names="settingsExistingToolNames"
+				@update:valid="settingsIsValid = $event"
+				@update:node-name="settingsNodeName = $event"
+			/>
 		</template>
 	</Modal>
 </template>
@@ -283,6 +360,55 @@ function handleClose() {
 	:global(.el-dialog__header) {
 		padding: var(--spacing--md) var(--spacing--md) var(--spacing--sm);
 	}
+}
+
+.settingsView {
+	:global(.ndv-connection-hint-notice) {
+		display: none;
+	}
+
+	:global(.modal-content) {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+}
+
+.settingsHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	width: 100%;
+}
+
+.settingsHeaderLeft {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing--3xs);
+	min-width: 0;
+	flex: 1;
+}
+
+.backButton {
+	width: 32px !important;
+	height: 32px !important;
+	padding: var(--spacing--4xs) var(--spacing--2xs);
+	font-size: var(--font-size--md);
+	flex-shrink: 0;
+}
+
+.icon {
+	flex-shrink: 0;
+	flex-grow: 0;
+}
+
+.title {
+	font-size: var(--font-size--md);
+	font-weight: var(--font-weight--regular);
+	line-height: var(--line-height--lg);
+	color: var(--color--text--shade-1);
+	flex: 1;
+	min-width: 0;
 }
 
 .content {
