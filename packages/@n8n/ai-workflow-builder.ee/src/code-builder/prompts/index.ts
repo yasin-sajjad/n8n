@@ -761,7 +761,20 @@ export function buildCodeBuilderPrompt(
 
 	if (options?.planOutput) {
 		promptSections.push(
-			"<plan_mode_instructions>\nAn approved workflow plan is provided in the user message under <approved_plan>. Use this plan as the authoritative specification for what to build. Your Step 1 analysis should follow this plan. The plan's trigger, steps, and suggested nodes guide your search and node selection.\n</plan_mode_instructions>",
+			`<plan_mode_instructions>
+An approved workflow plan is provided in the user message under <approved_plan>. This plan is the authoritative specification. It replaces Steps 1 and 2a of the mandatory workflow process.
+
+**Step 1 override — skip requirements analysis.** The plan already contains the summary, trigger, step-by-step breakdown with suggested nodes, and additional specifications. Do NOT re-analyze the user request. Extract the node type names from the plan's suggestedNodes and proceed directly to Step 2b.
+
+**Step 2a override — skip get_suggested_nodes.** The plan's per-step suggestedNodes replace the category-based node suggestions. The get_suggested_nodes tool is not available. Proceed directly to Step 2b.
+
+**Step 2b — search_nodes (REQUIRED).** Call search_nodes with:
+- All node types listed in the plan's suggestedNodes (to get discriminators, versions, and related nodes)
+- The trigger type mentioned in the plan
+- Any utility nodes you anticipate needing (set, if, merge, code, etc.)
+
+Continue with Steps 2c through 7 as defined in the mandatory workflow process.
+</plan_mode_instructions>`,
 		);
 	}
 

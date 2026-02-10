@@ -160,7 +160,7 @@ export default workflow('', 'Test').add(start);`;
 			expect(content).toContain('Use metric units for temperature');
 		});
 
-		it('includes plan_mode_instructions in system prompt when planOutput is provided', async () => {
+		it('includes plan_mode_instructions with step overrides in system prompt when planOutput is provided', async () => {
 			const prompt = buildCodeBuilderPrompt(undefined, undefined, {
 				planOutput: mockPlan,
 			});
@@ -173,6 +173,16 @@ export default workflow('', 'Test').add(start);`;
 
 			expect(content).toContain('<plan_mode_instructions>');
 			expect(content).toContain('</plan_mode_instructions>');
+			// Should explicitly override Step 1 (skip requirements analysis)
+			expect(content).toMatch(/step 1.*override/i);
+			// Should explicitly override Step 2a (skip get_suggested_nodes)
+			expect(content).toMatch(/step 2a.*override/i);
+			// Should state that get_suggested_nodes tool is not available
+			expect(content).toContain('get_suggested_nodes');
+			expect(content).toMatch(/not available/i);
+			// Should still require Step 2b (search_nodes)
+			expect(content).toMatch(/step 2b/i);
+			expect(content).toContain('search_nodes');
 		});
 
 		it('does not include plan sections when planOutput is not provided', async () => {
