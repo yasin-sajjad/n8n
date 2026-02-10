@@ -2073,6 +2073,7 @@ onBeforeUnmount(() => {
 	display: flex;
 	justify-content: center;
 	align-items: center;
+	gap: var(--spacing--xs);
 	left: 50%;
 	transform: translateX(-50%);
 	bottom: var(--spacing--sm);
@@ -2088,7 +2089,6 @@ onBeforeUnmount(() => {
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		margin-left: 0.625rem;
 
 		&:first-child {
 			margin: 0;
