@@ -1,7 +1,7 @@
 import type { User } from '@n8n/db';
 import { hasGlobalScope } from '@n8n/permissions';
 import get from 'lodash/get';
-import { UnexpectedError, type ICredentialDataDecryptedObject } from 'n8n-workflow';
+import { type ICredentialDataDecryptedObject } from 'n8n-workflow';
 
 import { BadRequestError } from '@/errors/response-errors/bad-request.error';
 import type { SecretsProviderAccessCheckService } from '@/modules/external-secrets.ee/secret-provider-access-check.service.ee';
