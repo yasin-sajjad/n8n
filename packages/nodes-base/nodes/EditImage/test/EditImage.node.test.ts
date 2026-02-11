@@ -1709,7 +1709,7 @@ describe('EditImage Node', () => {
 
 			const expectedX = Math.tan(20 * (Math.PI / 180));
 			const expectedY = Math.tan(10 * (Math.PI / 180));
-			expect(mockSharpInstance.affine).toHaveBeenCalledWith([1, expectedY, expectedX, 1]);
+			expect(mockSharpInstance.affine).toHaveBeenCalledWith([1, expectedX, expectedY, 1]);
 		});
 	});
 });

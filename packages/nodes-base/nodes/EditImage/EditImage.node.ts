@@ -46,9 +46,11 @@ function generateDrawSvg(width: number, height: number, operationData: IDataObje
 	let shapeElement = '';
 	if (operationData.primitive === 'rectangle') {
 		const rx = (operationData.cornerRadius as number) || 0;
-		const w = x2 - x1;
-		const h = y2 - y1;
-		shapeElement = `<rect x="${x1}" y="${y1}" width="${w}" height="${h}" rx="${rx}" fill="${color}"/>`;
+		const rectX = Math.min(x1, x2);
+		const rectY = Math.min(y1, y2);
+		const w = Math.abs(x2 - x1);
+		const h = Math.abs(y2 - y1);
+		shapeElement = `<rect x="${rectX}" y="${rectY}" width="${w}" height="${h}" rx="${rx}" fill="${color}"/>`;
 	} else if (operationData.primitive === 'circle') {
 		const r = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
 		shapeElement = `<circle cx="${x1}" cy="${y1}" r="${r}" fill="${color}"/>`;
@@ -1000,7 +1002,7 @@ export class EditImage implements INodeType {
 				const requiredOperationParameters: {
 					[key: string]: string[];
 				} = {
-					blur: ['blur', 'sigma'],
+					blur: ['sigma'],
 					border: ['borderColor', 'borderWidth', 'borderHeight'],
 					create: ['backgroundColor', 'height', 'width'],
 					crop: ['height', 'positionX', 'positionY', 'width'],
@@ -1176,7 +1178,7 @@ export class EditImage implements INodeType {
 						const degreesX = (operationData.degreesX as number) * (Math.PI / 180);
 						const degreesY = (operationData.degreesY as number) * (Math.PI / 180);
 						imageBuffer = await sharp(imageBuffer!)
-							.affine([1, Math.tan(degreesY), Math.tan(degreesX), 1])
+							.affine([1, Math.tan(degreesX), Math.tan(degreesY), 1])
 							.toBuffer();
 					} else if (operationData.operation === 'text') {
 						const lines: string[] = [];
