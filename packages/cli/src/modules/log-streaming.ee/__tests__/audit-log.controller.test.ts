@@ -16,11 +16,19 @@ describe('AuditLogController', () => {
 	});
 
 	describe('getEvents', () => {
+		const mockUser = {
+			id: 'user-1',
+			email: 'user1@test.com',
+			firstName: 'John',
+			lastName: 'Smith',
+		};
+
 		const mockAuditLog = {
 			id: 'audit-1',
 			eventName: 'n8n.audit.workflow.created',
 			message: 'Workflow created',
 			userId: 'user-1',
+			user: mockUser,
 			timestamp: new Date('2024-01-01T10:00:00.000Z'),
 			payload: { workflowId: 'workflow-123' },
 			createdAt: new Date('2024-01-01T10:00:00.000Z'),
@@ -32,6 +40,7 @@ describe('AuditLogController', () => {
 			eventName: 'n8n.audit.workflow.updated',
 			message: 'Workflow updated',
 			userId: null,
+			user: null,
 			timestamp: new Date('2024-01-02T10:00:00.000Z'),
 			payload: { workflowId: 'workflow-456' },
 			createdAt: new Date('2024-01-02T10:00:00.000Z'),
@@ -141,13 +150,29 @@ describe('AuditLogController', () => {
 			expect(result[0]).toHaveProperty('timestamp');
 			expect(result[0]).toHaveProperty('payload');
 			expect(result[0]).toHaveProperty('userId');
+			expect(result[0]).toHaveProperty('user');
 			// Entity-specific fields should be stripped by zod parse
 			expect(result[0]).not.toHaveProperty('createdAt');
 			expect(result[0]).not.toHaveProperty('updatedAt');
 			expect(result[0]).not.toHaveProperty('message');
 		});
 
-		it('should handle events with null userId', async () => {
+		it('should include user data in parsed output', async () => {
+			auditLogService.getEvents.mockResolvedValue([mockAuditLog]);
+
+			const req = mock<AuthenticatedRequest>();
+			const result = await controller.getEvents(req, {}, {});
+
+			expect(result).toHaveLength(1);
+			expect(result[0].user).toEqual({
+				id: 'user-1',
+				email: 'user1@test.com',
+				firstName: 'John',
+				lastName: 'Smith',
+			});
+		});
+
+		it('should handle events with null userId and null user', async () => {
 			auditLogService.getEvents.mockResolvedValue([mockAuditLog2]);
 
 			const req = mock<AuthenticatedRequest>();
@@ -155,6 +180,7 @@ describe('AuditLogController', () => {
 
 			expect(result).toHaveLength(1);
 			expect(result[0].userId).toBeNull();
+			expect(result[0].user).toBeNull();
 		});
 	});
 });

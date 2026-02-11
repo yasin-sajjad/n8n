@@ -1,4 +1,5 @@
 import type { AuditLogFilterDto } from '@n8n/api-types';
+import { UserRepository } from '@n8n/db';
 import { Service } from '@n8n/di';
 import type { FindOptionsWhere } from '@n8n/typeorm';
 import { LessThan, MoreThan, And } from '@n8n/typeorm';
@@ -11,6 +12,7 @@ import { LogStreamingDestinationService } from './log-streaming-destination.serv
 export class AuditLogService {
 	constructor(
 		private readonly auditLogRepository: AuditLogRepository,
+		private readonly userRepository: UserRepository,
 		private readonly logStreamingDestinationService: LogStreamingDestinationService,
 	) {}
 
@@ -37,13 +39,18 @@ export class AuditLogService {
 			take: 50,
 			order: { timestamp: 'DESC' },
 			where,
+			relations: ['user'],
 		});
 
 		const bufferedEvents = this.getFilteredBufferedEvents(filter);
 
-		return [...bufferedEvents, ...dbEvents]
+		const events = [...bufferedEvents, ...dbEvents]
 			.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
 			.slice(0, 50);
+
+		await this.enrichBufferedEventsWithUsers(events);
+
+		return events;
 	}
 
 	private getFilteredBufferedEvents(filter: AuditLogFilterDto): AuditLog[] {
@@ -60,5 +67,18 @@ export class AuditLogService {
 			if (beforeDate && event.timestamp >= beforeDate) return false;
 			return true;
 		});
+	}
+
+	private async enrichBufferedEventsWithUsers(events: AuditLog[]): Promise<void> {
+		const bufferedWithUserId = events.filter((e) => e.userId && !e.user);
+		if (bufferedWithUserId.length === 0) return;
+
+		const userIds = [...new Set(bufferedWithUserId.map((e) => e.userId!))];
+		const users = await this.userRepository.findManyByIds(userIds);
+		const userMap = new Map(users.map((u) => [u.id, u]));
+
+		for (const event of bufferedWithUserId) {
+			event.user = userMap.get(event.userId!) ?? null;
+		}
 	}
 }

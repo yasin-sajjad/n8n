@@ -1,3 +1,4 @@
+import type { UserRepository } from '@n8n/db';
 import { mock } from 'jest-mock-extended';
 import { And, LessThan, MoreThan } from '@n8n/typeorm';
 
@@ -9,6 +10,7 @@ import { AuditLogService } from '../audit-log.service';
 
 describe('AuditLogService', () => {
 	const auditLogRepository = mock<AuditLogRepository>();
+	const userRepository = mock<UserRepository>();
 	const logStreamingDestinationService = mock<LogStreamingDestinationService>();
 	const dbDestination = mock<MessageEventBusDestinationDatabase>();
 
@@ -18,7 +20,12 @@ describe('AuditLogService', () => {
 		jest.clearAllMocks();
 		logStreamingDestinationService.getDatabaseDestination.mockReturnValue(dbDestination);
 		dbDestination.getBufferedEvents.mockReturnValue([]);
-		service = new AuditLogService(auditLogRepository, logStreamingDestinationService);
+		userRepository.findManyByIds.mockResolvedValue([]);
+		service = new AuditLogService(
+			auditLogRepository,
+			userRepository,
+			logStreamingDestinationService,
+		);
 	});
 
 	describe('getEvents', () => {
@@ -54,6 +61,7 @@ describe('AuditLogService', () => {
 				take: 50,
 				order: { timestamp: 'DESC' },
 				where: {},
+				relations: ['user'],
 			});
 		});
 
@@ -68,6 +76,7 @@ describe('AuditLogService', () => {
 				take: 50,
 				order: { timestamp: 'DESC' },
 				where: { eventName: 'n8n.audit.workflow.created' },
+				relations: ['user'],
 			});
 		});
 
@@ -81,6 +90,7 @@ describe('AuditLogService', () => {
 				take: 50,
 				order: { timestamp: 'DESC' },
 				where: { userId: 'user-1' },
+				relations: ['user'],
 			});
 		});
 
@@ -95,6 +105,7 @@ describe('AuditLogService', () => {
 				take: 50,
 				order: { timestamp: 'DESC' },
 				where: { timestamp: MoreThan(new Date(afterDate)) },
+				relations: ['user'],
 			});
 		});
 
@@ -109,6 +120,7 @@ describe('AuditLogService', () => {
 				take: 50,
 				order: { timestamp: 'DESC' },
 				where: { timestamp: LessThan(new Date(beforeDate)) },
+				relations: ['user'],
 			});
 		});
 
@@ -126,6 +138,7 @@ describe('AuditLogService', () => {
 				where: {
 					timestamp: And(MoreThan(new Date(afterDate)), LessThan(new Date(beforeDate))),
 				},
+				relations: ['user'],
 			});
 		});
 
@@ -150,6 +163,7 @@ describe('AuditLogService', () => {
 					userId: 'user-1',
 					timestamp: And(MoreThan(new Date(afterDate)), LessThan(new Date(beforeDate))),
 				},
+				relations: ['user'],
 			});
 		});
 
@@ -311,6 +325,105 @@ describe('AuditLogService', () => {
 
 			expect(result).toHaveLength(1);
 			expect(result[0].id).toBe('db-1');
+		});
+
+		it('should enrich buffered events with user data', async () => {
+			const bufferedWithUser = {
+				...bufferedEvent,
+				userId: 'user-2',
+				user: undefined,
+			} as unknown as AuditLog;
+
+			auditLogRepository.find.mockResolvedValue([]);
+			dbDestination.getBufferedEvents.mockReturnValue([bufferedWithUser]);
+			userRepository.findManyByIds.mockResolvedValue([
+				{ id: 'user-2', email: 'user2@test.com', firstName: 'Jane', lastName: 'Doe' },
+			] as never);
+
+			const result = await service.getEvents({});
+
+			expect(result).toHaveLength(1);
+			expect(userRepository.findManyByIds).toHaveBeenCalledWith(['user-2']);
+			expect(result[0].user).toEqual(
+				expect.objectContaining({ id: 'user-2', email: 'user2@test.com' }),
+			);
+		});
+
+		it('should not call userRepository when no buffered events have userId', async () => {
+			const bufferedNoUser = {
+				...bufferedEvent,
+				userId: null,
+				user: undefined,
+			} as unknown as AuditLog;
+
+			auditLogRepository.find.mockResolvedValue([]);
+			dbDestination.getBufferedEvents.mockReturnValue([bufferedNoUser]);
+
+			await service.getEvents({});
+
+			expect(userRepository.findManyByIds).not.toHaveBeenCalled();
+		});
+
+		it('should not enrich db events that already have user from LEFT JOIN', async () => {
+			const dbEventWithUser = {
+				...dbEvent,
+				user: { id: 'user-1', email: 'user1@test.com', firstName: 'John', lastName: 'Smith' },
+			} as unknown as AuditLog;
+
+			auditLogRepository.find.mockResolvedValue([dbEventWithUser]);
+			dbDestination.getBufferedEvents.mockReturnValue([]);
+
+			const result = await service.getEvents({});
+
+			expect(result).toHaveLength(1);
+			expect(userRepository.findManyByIds).not.toHaveBeenCalled();
+			expect(result[0].user).toEqual(
+				expect.objectContaining({ id: 'user-1', email: 'user1@test.com' }),
+			);
+		});
+
+		it('should set user to null for buffered events with userId of deleted user', async () => {
+			const bufferedDeletedUser = {
+				...bufferedEvent,
+				userId: 'deleted-user',
+				user: undefined,
+			} as unknown as AuditLog;
+
+			auditLogRepository.find.mockResolvedValue([]);
+			dbDestination.getBufferedEvents.mockReturnValue([bufferedDeletedUser]);
+			userRepository.findManyByIds.mockResolvedValue([]);
+
+			const result = await service.getEvents({});
+
+			expect(result).toHaveLength(1);
+			expect(result[0].user).toBeNull();
+		});
+
+		it('should deduplicate userIds when enriching buffered events', async () => {
+			const buffered1 = {
+				...bufferedEvent,
+				id: 'buf-1',
+				userId: 'user-2',
+				user: undefined,
+			} as unknown as AuditLog;
+			const buffered2 = {
+				...bufferedEvent,
+				id: 'buf-2',
+				userId: 'user-2',
+				timestamp: new Date('2024-01-03T10:00:00.000Z'),
+				user: undefined,
+			} as unknown as AuditLog;
+
+			auditLogRepository.find.mockResolvedValue([]);
+			dbDestination.getBufferedEvents.mockReturnValue([buffered1, buffered2]);
+			userRepository.findManyByIds.mockResolvedValue([
+				{ id: 'user-2', email: 'user2@test.com', firstName: 'Jane', lastName: 'Doe' },
+			] as never);
+
+			const result = await service.getEvents({});
+
+			expect(result).toHaveLength(2);
+			expect(userRepository.findManyByIds).toHaveBeenCalledWith(['user-2']);
 		});
 	});
 });

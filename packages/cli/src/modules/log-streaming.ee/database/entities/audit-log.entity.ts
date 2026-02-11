@@ -1,5 +1,5 @@
-import { DateTimeColumn, JsonColumn, WithTimestampsAndStringId } from '@n8n/db';
-import { Column, Entity, PrimaryColumn } from '@n8n/typeorm';
+import { DateTimeColumn, JsonColumn, User, WithTimestampsAndStringId } from '@n8n/db';
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn, type Relation } from '@n8n/typeorm';
 
 @Entity({ name: 'audit_log' })
 export class AuditLog extends WithTimestampsAndStringId {
@@ -11,6 +11,10 @@ export class AuditLog extends WithTimestampsAndStringId {
 
 	@Column('text')
 	message: string;
+
+	@ManyToOne(() => User, { nullable: true })
+	@JoinColumn({ name: 'userId' })
+	user: Relation<User> | null;
 
 	@Column('varchar', { length: 255, nullable: true })
 	userId: string | null;

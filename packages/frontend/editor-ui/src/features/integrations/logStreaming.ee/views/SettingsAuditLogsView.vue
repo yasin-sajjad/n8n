@@ -86,30 +86,24 @@ const eventNames = ref<string[]>([
 const columns = computed<DatatableColumn[]>(() => [
 	{
 		id: 0,
-		path: 'timestamp',
-		label: i18n.baseText('settings.auditLogs.table.header.timestamp'),
-		classes: ['audit-log-timestamp-column'],
-	},
-	{
-		id: 1,
 		path: 'eventName',
 		label: i18n.baseText('settings.auditLogs.table.header.event'),
 		classes: ['audit-log-event-column'],
 	},
 	{
-		id: 2,
-		path: 'message',
-		label: i18n.baseText('settings.auditLogs.table.header.message'),
-		classes: ['audit-log-message-column'],
+		id: 1,
+		path: 'timestamp',
+		label: i18n.baseText('settings.auditLogs.table.header.timestamp'),
+		classes: ['audit-log-timestamp-column'],
 	},
 	{
-		id: 3,
+		id: 2,
 		path: 'userId',
 		label: i18n.baseText('settings.auditLogs.table.header.user'),
 		classes: ['audit-log-user-column'],
 	},
 	{
-		id: 4,
+		id: 3,
 		path: 'payload',
 		label: i18n.baseText('settings.auditLogs.table.header.details'),
 		classes: ['audit-log-details-column'],
@@ -132,6 +126,9 @@ function getMessage(log: AuditLogResource): string {
 }
 
 function getUserDisplay(log: AuditLogResource): string {
+	if (log.user) {
+		return log.user.email;
+	}
 	if (!log.userId) {
 		return i18n.baseText('settings.auditLogs.table.row.system');
 	}
@@ -336,12 +333,6 @@ onBeforeUnmount(() => {
 					<N8nText :class="$style.eventName" color="text-dark" size="small" bold>
 						{{ data.eventName }}
 					</N8nText>
-				</td>
-				<td>
-					<N8nText v-if="getMessage(data)" color="text-base" size="small">
-						{{ getMessage(data) }}
-					</N8nText>
-					<N8nText v-else color="text-light" size="small" italic> — </N8nText>
 				</td>
 				<td>
 					<div :class="$style.userCell">
