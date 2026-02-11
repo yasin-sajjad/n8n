@@ -1,6 +1,8 @@
 import { Service } from '@n8n/di';
 import { DataSource, EntityManager, Repository } from '@n8n/typeorm';
 
+import { ChatHubAgent } from './chat-hub-agent.entity';
+import { ChatHubSession } from './chat-hub-session.entity';
 import { ChatHubTool, type IChatHubTool } from './chat-hub-tool.entity';
 
 @Service()
@@ -65,31 +67,33 @@ export class ChatHubToolRepository extends Repository<ChatHubTool> {
 
 	async getToolsForSession(sessionId: string, trx?: EntityManager): Promise<ChatHubTool[]> {
 		const em = trx ?? this.manager;
-		return await em
-			.createQueryBuilder(ChatHubTool, 'tool')
-			.innerJoin('chat_hub_session_tools', 'st', 'st.toolId = tool.id')
-			.where('st.sessionId = :sessionId', { sessionId })
+		const session = await em
+			.createQueryBuilder(ChatHubSession, 'session')
+			.innerJoinAndSelect('session.tools', 'tool')
+			.where('session.id = :sessionId', { sessionId })
 			.orderBy('tool.createdAt', 'ASC')
-			.getMany();
+			.getOne();
+		return session?.tools ?? [];
 	}
 
 	async getToolsForAgent(agentId: string, trx?: EntityManager): Promise<ChatHubTool[]> {
 		const em = trx ?? this.manager;
-		return await em
-			.createQueryBuilder(ChatHubTool, 'tool')
-			.innerJoin('chat_hub_agent_tools', 'at', 'at.toolId = tool.id')
-			.where('at.agentId = :agentId', { agentId })
+		const agent = await em
+			.createQueryBuilder(ChatHubAgent, 'agent')
+			.innerJoinAndSelect('agent.tools', 'tool')
+			.where('agent.id = :agentId', { agentId })
 			.orderBy('tool.createdAt', 'ASC')
-			.getMany();
+			.getOne();
+		return agent?.tools ?? [];
 	}
 
 	async getToolIdsForSession(sessionId: string, trx?: EntityManager): Promise<string[]> {
 		const em = trx ?? this.manager;
 		const rows = await em
-			.createQueryBuilder()
-			.select('st.toolId', 'toolId')
-			.from('chat_hub_session_tools', 'st')
-			.where('st.sessionId = :sessionId', { sessionId })
+			.createQueryBuilder(ChatHubSession, 'session')
+			.innerJoin('session.tools', 'tool')
+			.select('tool.id', 'toolId')
+			.where('session.id = :sessionId', { sessionId })
 			.getRawMany<{ toolId: string }>();
 		return rows.map((r) => r.toolId);
 	}
@@ -97,49 +101,31 @@ export class ChatHubToolRepository extends Repository<ChatHubTool> {
 	async getToolIdsForAgent(agentId: string, trx?: EntityManager): Promise<string[]> {
 		const em = trx ?? this.manager;
 		const rows = await em
-			.createQueryBuilder()
-			.select('at.toolId', 'toolId')
-			.from('chat_hub_agent_tools', 'at')
-			.where('at.agentId = :agentId', { agentId })
+			.createQueryBuilder(ChatHubAgent, 'agent')
+			.innerJoin('agent.tools', 'tool')
+			.select('tool.id', 'toolId')
+			.where('agent.id = :agentId', { agentId })
 			.getRawMany<{ toolId: string }>();
 		return rows.map((r) => r.toolId);
 	}
 
 	async setSessionTools(sessionId: string, toolIds: string[], trx?: EntityManager): Promise<void> {
 		const em = trx ?? this.manager;
+		const currentToolIds = await this.getToolIdsForSession(sessionId, em);
 		await em
 			.createQueryBuilder()
-			.delete()
-			.from('chat_hub_session_tools')
-			.where('sessionId = :sessionId', { sessionId })
-			.execute();
-
-		if (toolIds.length > 0) {
-			await em
-				.createQueryBuilder()
-				.insert()
-				.into('chat_hub_session_tools')
-				.values(toolIds.map((toolId) => ({ sessionId, toolId })))
-				.execute();
-		}
+			.relation(ChatHubSession, 'tools')
+			.of(sessionId)
+			.addAndRemove(toolIds, currentToolIds);
 	}
 
 	async setAgentTools(agentId: string, toolIds: string[], trx?: EntityManager): Promise<void> {
 		const em = trx ?? this.manager;
+		const currentToolIds = await this.getToolIdsForAgent(agentId, em);
 		await em
 			.createQueryBuilder()
-			.delete()
-			.from('chat_hub_agent_tools')
-			.where('agentId = :agentId', { agentId })
-			.execute();
-
-		if (toolIds.length > 0) {
-			await em
-				.createQueryBuilder()
-				.insert()
-				.into('chat_hub_agent_tools')
-				.values(toolIds.map((toolId) => ({ agentId, toolId })))
-				.execute();
-		}
+			.relation(ChatHubAgent, 'tools')
+			.of(agentId)
+			.addAndRemove(toolIds, currentToolIds);
 	}
 }

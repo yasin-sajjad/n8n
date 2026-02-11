@@ -58,7 +58,7 @@ describe('ChatHubToolService', () => {
 		logger.scoped.mockReturnValue(logger);
 
 		// withTransaction calls manager.transaction when no trx is passed
-		chatToolRepository.manager = mockManager;
+		Object.defineProperty(chatToolRepository, 'manager', { value: mockManager });
 		mockManager.transaction.mockImplementation(async (fn: unknown) => {
 			return await (fn as (em: EntityManager) => Promise<unknown>)(mockManager);
 		});

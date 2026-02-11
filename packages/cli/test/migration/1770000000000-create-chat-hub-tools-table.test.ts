@@ -312,12 +312,14 @@ describe('CreateChatHubToolsTable Migration', () => {
 				expect(agentsInfo.find((col: { name: string }) => col.name === 'tools')).toBeUndefined();
 			} else if (context.isPostgres) {
 				const sessionsResult = await context.queryRunner.query(
-					"SELECT column_name FROM information_schema.columns WHERE table_name = 'chat_hub_sessions' AND column_name = 'tools'",
+					"SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND column_name = 'tools'",
+					[`${context.tablePrefix}chat_hub_sessions`],
 				);
 				expect(sessionsResult).toHaveLength(0);
 
 				const agentsResult = await context.queryRunner.query(
-					"SELECT column_name FROM information_schema.columns WHERE table_name = 'chat_hub_agents' AND column_name = 'tools'",
+					"SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND column_name = 'tools'",
+					[`${context.tablePrefix}chat_hub_agents`],
 				);
 				expect(agentsResult).toHaveLength(0);
 			}

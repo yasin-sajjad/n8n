@@ -48,6 +48,7 @@ beforeEach(async () => {
 		'ChatHubMessage',
 		'ChatHubSession',
 		'ChatHubAgent',
+		'ChatHubTool',
 		'ExecutionEntity',
 		'WorkflowEntity',
 		'SharedCredentials',
