@@ -8,7 +8,7 @@ import { ChatHubToolsModal } from './components/ChatHubToolsModal';
 
 export class ChatHubChatPage extends BasePage {
 	readonly sidebar = new ChatHubSidebar(this.page.locator('#sidebar'));
-	readonly toolsModal = new ChatHubToolsModal(this.page.getByTestId('toolsSelectorModal-modal'));
+	readonly toolsModal = new ChatHubToolsModal(this.page.getByTestId('toolsManagerModal-modal'));
 	readonly credModal = new ChatHubCredentialModal(
 		this.page.getByTestId('chatCredentialSelectorModal-modal'),
 	);

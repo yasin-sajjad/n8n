@@ -11,7 +11,7 @@
 				"max_tokens": 8192,
 				"tools": [
 					{
-						"name": "Search_web_in_Jina_AI",
+						"name": "Jina_AI_Tool",
 						"description": "Search web in Jina AI",
 						"input_schema": {
 							"type": "object",
