@@ -114,17 +114,30 @@ export class CollaborationState {
 	 */
 	readonly writeLockTtl = 2 * Time.minutes.toMilliseconds;
 
-	async setWriteLock(workflowId: Workflow['id'], clientId: string) {
+	/**
+	 * TTL for client-to-user mappings. Slightly longer than lock TTL to ensure
+	 * we can still identify lock owners even after lock expires.
+	 */
+	readonly clientMappingTtl = 150 * Time.seconds.toMilliseconds;
+
+	async setWriteLock(workflowId: Workflow['id'], clientId: string, userId: User['id']) {
 		const cacheKey = this.formWriteLockCacheKey(workflowId);
+		const mappingKey = this.formClientMappingKey(workflowId, clientId);
 		await this.cache.set(cacheKey, clientId, this.writeLockTtl);
+		await this.cache.set(mappingKey, userId, this.clientMappingTtl);
 	}
 
 	async renewWriteLock(workflowId: Workflow['id'], clientId: string) {
 		const cacheKey = this.formWriteLockCacheKey(workflowId);
+		const mappingKey = this.formClientMappingKey(workflowId, clientId);
 		const currentHolder = await this.getWriteLock(workflowId);
 
 		if (currentHolder === clientId) {
+			const userId = await this.getUserIdForClient(workflowId, clientId);
 			await this.cache.set(cacheKey, clientId, this.writeLockTtl);
+			if (userId) {
+				await this.cache.set(mappingKey, userId, this.clientMappingTtl);
+			}
 		}
 	}
 
@@ -141,5 +154,18 @@ export class CollaborationState {
 
 	private formWriteLockCacheKey(workflowId: Workflow['id']) {
 		return `collaboration:write-lock:${workflowId}`;
+	}
+
+	private formClientMappingKey(workflowId: Workflow['id'], clientId: string) {
+		return `collaboration:client-mapping:${workflowId}:${clientId}`;
+	}
+
+	async getUserIdForClient(
+		workflowId: Workflow['id'],
+		clientId: string,
+	): Promise<User['id'] | null> {
+		const mappingKey = this.formClientMappingKey(workflowId, clientId);
+		const userId = await this.cache.get<User['id']>(mappingKey);
+		return userId ?? null;
 	}
 }

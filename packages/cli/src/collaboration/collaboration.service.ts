@@ -16,7 +16,8 @@ import type {
 import { parseWorkflowMessage } from './collaboration.message';
 
 import { CollaborationState } from '@/collaboration/collaboration.state';
-import { ForbiddenError } from '@/errors/response-errors/forbidden.error';
+import { ConflictError } from '@/errors/response-errors/conflict.error';
+import { LockedError } from '@/errors/response-errors/locked.error';
 import { Push } from '@/push';
 import type { OnPushMessage } from '@/push/types';
 import { AccessService } from '@/services/access.service';
@@ -148,7 +149,7 @@ export class CollaborationService {
 			return;
 		}
 
-		await this.state.setWriteLock(workflowId, clientId);
+		await this.state.setWriteLock(workflowId, clientId, userId);
 
 		await this.sendWriteAccessAcquiredMessage(workflowId, userId, clientId);
 	}
@@ -250,19 +251,40 @@ export class CollaborationService {
 	}
 
 	/**
-	 * Validates that if a write lock exists for a workflow, the requesting user holds it.
-	 * Throws ForbiddenError if another user has the write lock.
+	 * Validates that if a write lock exists for a workflow, the requesting client holds it.
+	 * Throws ConflictError (409) if same user but different tab holds the lock.
+	 * Throws LockedError (423) if different user holds the lock.
 	 */
 	async validateWriteLock(
 		userId: User['id'],
+		clientId: string | undefined,
 		workflowId: Workflow['id'],
 		action: string,
 	): Promise<void> {
-		const writeLockHolder = await this.getWriteLock(userId, workflowId);
-		if (writeLockHolder && writeLockHolder !== userId) {
-			throw new ForbiddenError(
-				`Cannot ${action} workflow - another user currently has write access`,
+		if (!clientId) {
+			return;
+		}
+
+		const lockHolderClientId = await this.state.getWriteLock(workflowId);
+
+		if (!lockHolderClientId) {
+			return;
+		}
+
+		if (lockHolderClientId === clientId) {
+			return;
+		}
+
+		const lockHolderUserId = await this.state.getUserIdForClient(workflowId, lockHolderClientId);
+
+		if (lockHolderUserId === userId) {
+			// Same user, different tab
+			throw new ConflictError(
+				`Cannot ${action} workflow - you have this workflow open in another tab`,
 			);
+		} else {
+			// Different user
+			throw new LockedError(`Cannot ${action} workflow - another user currently has write access`);
 		}
 	}
 }

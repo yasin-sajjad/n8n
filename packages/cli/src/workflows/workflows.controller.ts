@@ -441,8 +441,9 @@ export class WorkflowsController {
 		@Body body: UpdateWorkflowDto,
 	) {
 		const forceSave = req.query.forceSave === 'true';
+		const clientId = req.headers['x-client-id'] as string | undefined;
 
-		await this.collaborationService.validateWriteLock(req.user.id, workflowId, 'update');
+		await this.collaborationService.validateWriteLock(req.user.id, clientId, workflowId, 'update');
 
 		let updateData = new WorkflowEntity();
 		const { tags, parentFolderId, aiBuilderAssisted, expectedChecksum, autosaved, ...rest } = body;
@@ -500,7 +501,9 @@ export class WorkflowsController {
 	@Delete('/:workflowId')
 	@ProjectScope('workflow:delete')
 	async delete(req: AuthenticatedRequest, _res: Response, @Param('workflowId') workflowId: string) {
-		await this.collaborationService.validateWriteLock(req.user.id, workflowId, 'delete');
+		const clientId = req.headers['x-client-id'] as string | undefined;
+
+		await this.collaborationService.validateWriteLock(req.user.id, clientId, workflowId, 'delete');
 
 		const workflow = await this.workflowService.delete(req.user, workflowId);
 		if (!workflow) {
@@ -524,7 +527,9 @@ export class WorkflowsController {
 		@Param('workflowId') workflowId: string,
 		@Body body: ArchiveWorkflowDto,
 	) {
-		await this.collaborationService.validateWriteLock(req.user.id, workflowId, 'archive');
+		const clientId = req.headers['x-client-id'] as string | undefined;
+
+		await this.collaborationService.validateWriteLock(req.user.id, clientId, workflowId, 'archive');
 
 		const { expectedChecksum } = body;
 
@@ -555,7 +560,14 @@ export class WorkflowsController {
 		_res: Response,
 		@Param('workflowId') workflowId: string,
 	) {
-		await this.collaborationService.validateWriteLock(req.user.id, workflowId, 'unarchive');
+		const clientId = req.headers['x-client-id'] as string | undefined;
+
+		await this.collaborationService.validateWriteLock(
+			req.user.id,
+			clientId,
+			workflowId,
+			'unarchive',
+		);
 
 		const workflow = await this.workflowService.unarchive(req.user, workflowId);
 		if (!workflow) {
@@ -583,7 +595,14 @@ export class WorkflowsController {
 		@Param('workflowId') workflowId: string,
 		@Body body: ActivateWorkflowDto,
 	) {
-		await this.collaborationService.validateWriteLock(req.user.id, workflowId, 'activate');
+		const clientId = req.headers['x-client-id'] as string | undefined;
+
+		await this.collaborationService.validateWriteLock(
+			req.user.id,
+			clientId,
+			workflowId,
+			'activate',
+		);
 
 		const { versionId, name, description, expectedChecksum } = body;
 
@@ -610,7 +629,14 @@ export class WorkflowsController {
 		@Param('workflowId') workflowId: string,
 		@Body body: DeactivateWorkflowDto,
 	) {
-		await this.collaborationService.validateWriteLock(req.user.id, workflowId, 'deactivate');
+		const clientId = req.headers['x-client-id'] as string | undefined;
+
+		await this.collaborationService.validateWriteLock(
+			req.user.id,
+			clientId,
+			workflowId,
+			'deactivate',
+		);
 
 		const { expectedChecksum } = body;
 
