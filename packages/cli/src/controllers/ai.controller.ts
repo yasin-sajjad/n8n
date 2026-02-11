@@ -9,6 +9,7 @@ import {
 	AiSessionRetrievalRequestDto,
 	AiUsageSettingsRequestDto,
 	AiTruncateMessagesRequestDto,
+	AiGenerateVersionDescriptionRequestDto,
 } from '@n8n/api-types';
 import { AuthenticatedRequest } from '@n8n/db';
 import { Body, Get, Licensed, Post, RestController, GlobalScope } from '@n8n/decorators';
@@ -185,6 +186,20 @@ export class AiController {
 				}
 			}
 
+			assert(e instanceof Error);
+			throw new InternalServerError(e.message, e);
+		}
+	}
+
+	@Post('/generate-version-description')
+	async generateVersionDescription(
+		req: AuthenticatedRequest,
+		_: Response,
+		@Body payload: AiGenerateVersionDescriptionRequestDto,
+	): Promise<{ name: string; description: string }> {
+		try {
+			return await this.aiService.generateVersionDescription(payload, req.user);
+		} catch (e) {
 			assert(e instanceof Error);
 			throw new InternalServerError(e.message, e);
 		}

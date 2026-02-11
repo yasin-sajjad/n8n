@@ -402,6 +402,24 @@ export type AssistantProcessOptions = {
 	excludeParameterValues?: boolean;
 };
 
+export namespace GenerateVersionDescriptionRequest {
+	export interface WorkflowVersionPayload {
+		nodes: INode[];
+		connections: Record<string, unknown>;
+	}
+
+	export interface RequestPayload {
+		workflowName: string;
+		currentVersion: WorkflowVersionPayload;
+		previousVersion?: WorkflowVersionPayload;
+	}
+
+	export interface ResponsePayload {
+		name: string;
+		description: string;
+	}
+}
+
 // Type guards for ChatRequest messages
 export function isTextMessage(msg: ChatRequest.MessageResponse): msg is ChatRequest.TextMessage {
 	return 'type' in msg && msg.type === 'message' && 'text' in msg;

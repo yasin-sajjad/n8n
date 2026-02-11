@@ -18,15 +18,24 @@ import type { INodeUi } from '@/Interface';
 import type { IUsedCredential } from '@/features/credentials/credentials.types';
 import WorkflowActivationErrorMessage from '@/app/components/WorkflowActivationErrorMessage.vue';
 import { generateVersionName } from '@/features/workflows/workflowHistory/utils';
+import { useSettingsStore } from '@/app/stores/settings.store';
+import { useRootStore } from '@n8n/stores/useRootStore';
+import { useWorkflowHistoryStore } from '@/features/workflows/workflowHistory/workflowHistory.store';
+import { generateVersionDescription } from '@/features/ai/assistant/assistant.api';
+import type { GenerateVersionDescriptionRequest } from '@/features/ai/assistant/assistant.types';
 
 const modalBus = createEventBus();
 const i18n = useI18n();
 
 const workflowsStore = useWorkflowsStore();
 const credentialsStore = useCredentialsStore();
-const { showMessage } = useToast();
+const settingsStore = useSettingsStore();
+const rootStore = useRootStore();
+const workflowHistoryStore = useWorkflowHistoryStore();
+const { showMessage, showError } = useToast();
 const workflowActivate = useWorkflowActivate();
 const publishing = ref(false);
+const generatingAi = ref(false);
 
 const publishForm = useTemplateRef<InstanceType<typeof WorkflowVersionForm>>('publishForm');
 
@@ -55,6 +64,10 @@ const inputsDisabled = computed(() => {
 
 const isPublishDisabled = computed(() => {
 	return inputsDisabled.value || versionName.value.trim().length === 0;
+});
+
+const showAiGenerate = computed(() => {
+	return settingsStore.isAskAiEnabled && wfHasAnyChanges.value && !inputsDisabled.value;
 });
 
 type WorkflowPublishCalloutId = 'noTrigger' | 'nodeIssues' | 'noChanges';
@@ -135,6 +148,50 @@ const shouldShowFreeAiCreditsWarning = computed((): boolean => {
 
 	return hasActiveNodeUsingCredential(workflowsStore.allNodes, managedOpenAiCredentialId);
 });
+
+async function handleGenerateWithAi() {
+	if (generatingAi.value) return;
+
+	generatingAi.value = true;
+
+	try {
+		const currentVersion = {
+			nodes: workflowsStore.allNodes,
+			connections: workflowsStore.allConnections as Record<string, unknown>,
+		};
+
+		let previousVersion: GenerateVersionDescriptionRequest.WorkflowVersionPayload | undefined;
+
+		const activeVersion = workflowsStore.workflow.activeVersion;
+		if (activeVersion?.versionId) {
+			try {
+				const prevVersionData = await workflowHistoryStore.getWorkflowVersion(
+					workflowsStore.workflow.id,
+					activeVersion.versionId,
+				);
+				previousVersion = {
+					nodes: prevVersionData.nodes,
+					connections: prevVersionData.connections as Record<string, unknown>,
+				};
+			} catch {
+				// Continue without previous version if fetch fails
+			}
+		}
+
+		const result = await generateVersionDescription(rootStore.restApiContext, {
+			workflowName: workflowsStore.workflow.name,
+			currentVersion,
+			previousVersion,
+		});
+
+		versionName.value = result.name;
+		description.value = result.description;
+	} catch (error) {
+		showError(error, i18n.baseText('workflows.publishModal.generateWithAi.error'));
+	} finally {
+		generatingAi.value = false;
+	}
+}
 
 async function displayActivationError() {
 	let errorMessage: string | VNode;
@@ -259,9 +316,12 @@ async function handlePublish() {
 					v-model:version-name="versionName"
 					v-model:description="description"
 					:disabled="inputsDisabled"
+					:show-ai-generate="showAiGenerate"
+					:ai-generate-loading="generatingAi"
 					version-name-test-id="workflow-publish-version-name-input"
 					description-test-id="workflow-publish-description-input"
 					@submit="handlePublish"
+					@generate-with-ai="handleGenerateWithAi"
 				/>
 				<div :class="$style.actions">
 					<N8nButton

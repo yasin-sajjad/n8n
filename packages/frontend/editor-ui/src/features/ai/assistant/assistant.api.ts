@@ -5,6 +5,7 @@ import type { IRestApiContext } from '@n8n/rest-api-client';
 import type {
 	AskAiRequest,
 	ChatRequest,
+	GenerateVersionDescriptionRequest,
 	ReplaceCodeRequest,
 } from '@/features/ai/assistant/assistant.types';
 import { makeRestApiRequest, streamRequest } from '@n8n/rest-api-client';
@@ -121,6 +122,13 @@ export async function getBuilderCredits(ctx: IRestApiContext): Promise<{
 	creditsClaimed: number;
 }> {
 	return await makeRestApiRequest(ctx, 'GET', '/ai/build/credits');
+}
+
+export async function generateVersionDescription(
+	ctx: IRestApiContext,
+	payload: GenerateVersionDescriptionRequest.RequestPayload,
+): Promise<GenerateVersionDescriptionRequest.ResponsePayload> {
+	return await makeRestApiRequest(ctx, 'POST', '/ai/generate-version-description', payload);
 }
 
 export async function truncateBuilderMessages(
