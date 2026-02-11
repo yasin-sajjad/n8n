@@ -157,6 +157,10 @@ async function handleGenerateWithAi() {
 
 	generatingAi.value = true;
 
+	// Snapshot current values to detect manual edits during generation
+	const nameAtStart = versionName.value;
+	const descAtStart = description.value;
+
 	try {
 		const currentVersion = {
 			nodes: workflowsStore.allNodes,
@@ -187,8 +191,11 @@ async function handleGenerateWithAi() {
 			previousVersion,
 		});
 
-		versionName.value = result.name;
-		description.value = result.description;
+		// Only apply if the user hasn't manually edited during generation
+		if (versionName.value === nameAtStart && description.value === descAtStart) {
+			versionName.value = result.name;
+			description.value = result.description;
+		}
 	} catch (error) {
 		showError(error, i18n.baseText('workflows.publishModal.generateWithAi.error'));
 	} finally {
