@@ -361,7 +361,7 @@ function handleSettingsChangeName(name: string) {
 <style lang="scss" module>
 .modal {
 	:global(.el-dialog__body) {
-		padding: var(--spacing--sm) var(--spacing--md);
+		padding: var(--spacing--sm) 0 var(--spacing--sm) var(--spacing--md);
 	}
 
 	:global(.el-dialog__header) {
@@ -370,6 +370,10 @@ function handleSettingsChangeName(name: string) {
 }
 
 .settingsView {
+	:global(.el-dialog__body) {
+		padding-right: var(--spacing--md);
+	}
+
 	:global(.ndv-connection-hint-notice) {
 		display: none;
 	}
@@ -422,6 +426,7 @@ function handleSettingsChangeName(name: string) {
 	display: flex;
 	flex-direction: column;
 	gap: var(--spacing--sm);
+	padding-right: var(--spacing--md);
 }
 
 .searchInput {
