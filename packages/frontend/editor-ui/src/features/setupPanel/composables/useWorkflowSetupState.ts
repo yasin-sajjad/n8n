@@ -1,6 +1,7 @@
-import { computed, type Ref } from 'vue';
+import { computed, watch, type Ref } from 'vue';
 
 import type { INodeUi } from '@/Interface';
+import type { ICredentialDataDecryptedObject } from 'n8n-workflow';
 import type { NodeSetupState } from '../setupPanel.types';
 
 import { useWorkflowsStore } from '@/app/stores/workflows.store';
@@ -12,6 +13,7 @@ import { useToast } from '@/app/composables/useToast';
 import { useI18n } from '@n8n/i18n';
 
 import { getNodeCredentialTypes, buildNodeSetupState } from '../setupPanel.utils';
+import { useSetupPanelStore } from '../setupPanel.store';
 
 /**
  * Composable that manages workflow setup state for credential configuration.
@@ -27,6 +29,7 @@ export const useWorkflowSetupState = (nodes?: Ref<INodeUi[]>) => {
 	const workflowState = injectWorkflowState();
 	const toast = useToast();
 	const i18n = useI18n();
+	const setupPanelStore = useSetupPanelStore();
 
 	const sourceNodes = computed(() => nodes?.value ?? workflowsStore.allNodes);
 
@@ -94,6 +97,7 @@ export const useWorkflowSetupState = (nodes?: Ref<INodeUi[]>) => {
 				credentialTypeToNodeNames.value,
 				isTrigger,
 				hasTriggerExecutedSuccessfully(node.name),
+				setupPanelStore.isCredentialPendingTest,
 			),
 		),
 	);
@@ -117,6 +121,75 @@ export const useWorkflowSetupState = (nodes?: Ref<INodeUi[]>) => {
 		);
 	});
 
+	// Plain Set (not reactive) used only as a guard against duplicate in-flight requests
+	const credentialsBeingTested = new Set<string>();
+
+	/**
+	 * Tests a saved credential in the background and updates the pending test state.
+	 * Fetches the credential's redacted data first so the backend can unredact and test.
+	 * On any failure (fetch, test error, non-testable) removes the pending state so the
+	 * credential doesn't get stuck without a checkmark permanently.
+	 */
+	async function testCredentialInBackground(
+		credentialId: string,
+		credentialName: string,
+		credentialType: string,
+	) {
+		if (credentialsBeingTested.has(credentialId)) return;
+		credentialsBeingTested.add(credentialId);
+		try {
+			const credentialResponse = await credentialsStore.getCredentialData({ id: credentialId });
+			if (!credentialResponse?.data || typeof credentialResponse.data === 'string') {
+				setupPanelStore.removePendingTest(credentialId);
+				return;
+			}
+
+			const { ownedBy, sharedWithProjects, ...data } = credentialResponse.data;
+			const result = await credentialsStore.testCredential({
+				id: credentialId,
+				name: credentialName,
+				type: credentialType,
+				data: data as ICredentialDataDecryptedObject,
+			});
+			if (result.status === 'OK') {
+				setupPanelStore.removePendingTest(credentialId);
+			}
+		} catch {
+			setupPanelStore.removePendingTest(credentialId);
+		} finally {
+			credentialsBeingTested.delete(credentialId);
+		}
+	}
+
+	/**
+	 * Auto-test all pre-existing selected credentials on initial load.
+	 * Runs once when nodes become available so checkmarks reflect actual validity.
+	 * Subsequent credential selections are handled by setCredential.
+	 */
+	let initialTestDone = false;
+	watch(
+		nodesRequiringSetup,
+		(entries) => {
+			if (initialTestDone || entries.length === 0) return;
+			initialTestDone = true;
+
+			for (const { node, credentialTypes } of entries) {
+				for (const credType of credentialTypes) {
+					const credValue = node.credentials?.[credType];
+					const selectedId = typeof credValue === 'string' ? undefined : credValue?.id;
+					if (!selectedId) continue;
+
+					const cred = credentialsStore.getCredentialById(selectedId);
+					if (!cred) continue;
+
+					setupPanelStore.addPendingTest(selectedId);
+					void testCredentialInBackground(selectedId, cred.name, credType);
+				}
+			}
+		},
+		{ immediate: true },
+	);
+
 	/**
 	 * Sets a credential for a node and auto-assigns it to other nodes in setup panel that need it.
 	 * @param nodeName
@@ -132,6 +205,9 @@ export const useWorkflowSetupState = (nodes?: Ref<INodeUi[]>) => {
 		if (!node) return;
 
 		const credentialDetails = { id: credentialId, name: credential.name };
+
+		setupPanelStore.addPendingTest(credentialId);
+		void testCredentialInBackground(credentialId, credential.name, credentialType);
 
 		workflowState.updateNodeProperties({
 			name: nodeName,

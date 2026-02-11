@@ -229,6 +229,50 @@ describe('setupPanel.utils', () => {
 			expect(isNodeSetupComplete([])).toBe(true);
 		});
 
+		it('should return false when credential is pending test', () => {
+			const requirements: NodeCredentialRequirement[] = [
+				{
+					credentialType: 'testApi',
+					credentialDisplayName: 'Test',
+					selectedCredentialId: 'cred-1',
+					issues: [],
+					nodesWithSameCredential: [],
+				},
+			];
+			const isPending = (id: string) => id === 'cred-1';
+
+			expect(isNodeSetupComplete(requirements, isPending)).toBe(false);
+		});
+
+		it('should return true when isCredentialPendingTest returns false', () => {
+			const requirements: NodeCredentialRequirement[] = [
+				{
+					credentialType: 'testApi',
+					credentialDisplayName: 'Test',
+					selectedCredentialId: 'cred-1',
+					issues: [],
+					nodesWithSameCredential: [],
+				},
+			];
+			const isPending = () => false;
+
+			expect(isNodeSetupComplete(requirements, isPending)).toBe(true);
+		});
+
+		it('should be backward-compatible when isCredentialPendingTest is not provided', () => {
+			const requirements: NodeCredentialRequirement[] = [
+				{
+					credentialType: 'testApi',
+					credentialDisplayName: 'Test',
+					selectedCredentialId: 'cred-1',
+					issues: [],
+					nodesWithSameCredential: [],
+				},
+			];
+
+			expect(isNodeSetupComplete(requirements)).toBe(true);
+		});
+
 		it('should return false if any one of multiple requirements is incomplete', () => {
 			const requirements: NodeCredentialRequirement[] = [
 				{
@@ -290,6 +334,28 @@ describe('setupPanel.utils', () => {
 			const result = buildNodeSetupState(node, ['apiA', 'apiB'], displayNameLookup, nodeNames);
 
 			expect(result.credentialRequirements).toHaveLength(2);
+			expect(result.isComplete).toBe(false);
+		});
+
+		it('should mark node incomplete when credential is pending test', () => {
+			const node = createNode({
+				credentials: {
+					testApi: { id: 'cred-1', name: 'Test' },
+				},
+			});
+			const nodeNames = new Map([['testApi', ['TestNode']]]);
+			const isPending = (id: string) => id === 'cred-1';
+
+			const result = buildNodeSetupState(
+				node,
+				['testApi'],
+				displayNameLookup,
+				nodeNames,
+				false,
+				false,
+				isPending,
+			);
+
 			expect(result.isComplete).toBe(false);
 		});
 	});
