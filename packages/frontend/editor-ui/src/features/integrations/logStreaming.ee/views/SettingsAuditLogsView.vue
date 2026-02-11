@@ -350,20 +350,14 @@ onBeforeUnmount(() => {
 			<template #default="{ data }">
 				<tr data-test-id="audit-log-row">
 					<td>
-						<N8nText color="text-base" size="small">
-							{{ formatTimestamp(data.timestamp) }}
-						</N8nText>
-					</td>
-					<td>
 						<N8nText :class="$style.eventName" color="text-dark" size="small" bold>
 							{{ formatEventName(data.eventName) }}
 						</N8nText>
 					</td>
 					<td>
-						<N8nText v-if="getMessage(data)" color="text-base" size="small">
-							{{ getMessage(data) }}
+						<N8nText color="text-base" size="small">
+							{{ formatTimestamp(data.timestamp) }}
 						</N8nText>
-						<N8nText v-else color="text-light" size="small" italic> — </N8nText>
 					</td>
 					<td>
 						<div :class="$style.userCell">

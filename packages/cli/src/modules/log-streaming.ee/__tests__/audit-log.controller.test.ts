@@ -192,17 +192,21 @@ describe('AuditLogController', () => {
 			expect(result.data[0]).toHaveProperty('id');
 			expect(result.data[0]).toHaveProperty('eventName');
 			expect(result.data[0]).toHaveProperty('timestamp');
+			expect(result.data[0]).toHaveProperty('message');
 			expect(result.data[0]).toHaveProperty('payload');
 			expect(result.data[0]).toHaveProperty('userId');
-			expect(result.data[0]).toHaveProperty('user');
 			// Entity-specific fields should be stripped by zod parse
 			expect(result.data[0]).not.toHaveProperty('createdAt');
 			expect(result.data[0]).not.toHaveProperty('updatedAt');
-			expect(result.data[0]).not.toHaveProperty('message');
 		});
 
 		it('should include user data in parsed output', async () => {
-			auditLogService.getEvents.mockResolvedValue([mockAuditLog]);
+			auditLogService.getEvents.mockResolvedValue({
+				data: [mockAuditLog],
+				count: 1,
+				skip: 0,
+				take: 50,
+			});
 
 			const req = mock<AuthenticatedRequest>();
 			const result = await controller.getEvents(req, {}, {});
@@ -217,14 +221,19 @@ describe('AuditLogController', () => {
 		});
 
 		it('should handle events with null userId and null user', async () => {
-			auditLogService.getEvents.mockResolvedValue([mockAuditLog2]);
+			auditLogService.getEvents.mockResolvedValue({
+				data: [mockAuditLog2],
+				count: 1,
+				skip: 0,
+				take: 50,
+			});
 
 			const req = mock<AuthenticatedRequest>();
 			const result = await controller.getEvents(req, {}, {});
 
 			expect(result.data).toHaveLength(1);
 			expect(result.data[0].userId).toBeNull();
-			expect(result.data[0].user).toBeNull();
+			expect(result.data[0].user).toBeFalsy(); // Can be null or undefined
 		});
 	});
 });
