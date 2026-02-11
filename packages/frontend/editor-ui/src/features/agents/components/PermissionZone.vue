@@ -26,7 +26,7 @@ const iconProp = computed<IconOrEmoji | null>(() => {
 			width: `${zone.rect.width}px`,
 			height: `${zone.rect.height}px`,
 			borderColor: color,
-			backgroundColor: `color-mix(in srgb, ${color} 5%, transparent)`,
+			backgroundColor: `color-mix(in srgb, ${color} 6%, transparent)`,
 		}"
 		data-testid="permission-zone"
 	>
@@ -41,8 +41,8 @@ const iconProp = computed<IconOrEmoji | null>(() => {
 <style lang="scss" module>
 .zone {
 	position: absolute;
-	border: 2px solid;
-	border-radius: var(--radius--lg);
+	border: 1px solid;
+	border-radius: var(--radius--xl);
 	pointer-events: none;
 	z-index: 1;
 }
@@ -66,10 +66,10 @@ const iconProp = computed<IconOrEmoji | null>(() => {
 
 .badge {
 	font-size: var(--font-size--2xs);
-	color: var(--color--text--tint-2);
-	background: var(--color--foreground--tint-2);
+	color: var(--color--text--tint-1);
+	background: var(--color--foreground--tint-1);
 	border-radius: var(--radius);
-	padding: 1px var(--spacing--4xs);
+	padding: 2px var(--spacing--3xs);
 	min-width: 20px;
 	text-align: center;
 }

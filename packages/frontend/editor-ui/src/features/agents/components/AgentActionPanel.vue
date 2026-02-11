@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { N8nButton, N8nHeading, N8nIcon, N8nText } from '@n8n/design-system';
 import { useAgentPanelStore } from '../agentPanel.store';
 import AgentAvatarComp from './AgentAvatar.vue';
+import AgentTaskAccordion from './AgentTaskAccordion.vue';
+import AgentStatsAccordion from './AgentStatsAccordion.vue';
+import AgentActivityAccordion from './AgentActivityAccordion.vue';
 
 const panelStore = useAgentPanelStore();
 const taskPrompt = ref('');
@@ -11,6 +14,15 @@ const isEditingName = ref(false);
 const editName = ref('');
 const isEditingAvatar = ref(false);
 const editAvatar = ref('');
+
+const uptimeDisplay = computed(() => {
+	const uptime = panelStore.statusData?.stats.uptime;
+	if (!uptime) return null;
+	const d = Math.floor(uptime / 86400);
+	const h = Math.floor((uptime % 86400) / 3600);
+	const m = Math.floor((uptime % 3600) / 60);
+	return `${d}d ${h}h ${m}m`;
+});
 
 watch(
 	() => panelStore.panelAgentId,
@@ -164,6 +176,33 @@ async function onRunTask() {
 				<N8nText v-else color="text-light" size="small">No workflows accessible</N8nText>
 			</section>
 
+			<!-- Status Header -->
+			<section v-if="panelStore.statusData" :class="$style.statusHeader">
+				<div :class="$style.statusRow">
+					<span
+						:class="[
+							$style.statusIndicator,
+							panelStore.statusData.runningTasks.length > 0
+								? $style.statusActive
+								: $style.statusIdle,
+						]"
+					/>
+					<N8nText size="small" bold>
+						{{ panelStore.statusData.runningTasks.length > 0 ? 'Active' : 'Idle' }}
+					</N8nText>
+					<N8nText v-if="uptimeDisplay" color="text-light" size="xsmall" :class="$style.uptime">
+						Uptime: {{ uptimeDisplay }}
+					</N8nText>
+				</div>
+			</section>
+
+			<!-- Agent Status Accordions -->
+			<section v-if="panelStore.statusData" :class="$style.accordionSection">
+				<AgentTaskAccordion :tasks="panelStore.statusData.runningTasks" />
+				<AgentStatsAccordion :stats="panelStore.statusData.stats" />
+				<AgentActivityAccordion :activity="panelStore.statusData.recentActivity" />
+			</section>
+
 			<!-- Credentials -->
 			<section :class="$style.section">
 				<div :class="$style.sectionTitle">Credentials</div>
@@ -207,6 +246,7 @@ async function onRunTask() {
 					:disabled="!taskPrompt.trim() || panelStore.isSubmitting"
 					:loading="panelStore.isSubmitting"
 					size="medium"
+					type="primary"
 					data-testid="agent-run-task"
 					:class="$style.runBtn"
 					@click="onRunTask"
@@ -555,5 +595,42 @@ async function onRunTask() {
 .stepResult {
 	color: var(--color--text--tint-2);
 	font-style: italic;
+}
+
+.statusHeader {
+	padding: var(--spacing--xs) var(--spacing--lg);
+	border-bottom: var(--border);
+	background: var(--color--foreground--tint-2);
+}
+
+.statusRow {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing--2xs);
+}
+
+.statusIndicator {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.statusActive {
+	background: var(--color--success);
+	box-shadow: 0 0 6px var(--color--success);
+}
+
+.statusIdle {
+	background: var(--color--text--tint-2);
+}
+
+.uptime {
+	margin-left: auto;
+}
+
+.accordionSection {
+	padding: 0 var(--spacing--lg) var(--spacing--sm);
+	border-bottom: var(--border);
 }
 </style>

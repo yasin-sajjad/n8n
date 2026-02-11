@@ -1,16 +1,14 @@
-import { CreateAgentDto, UpdateAgentDto } from '@n8n/api-types';
+import { Logger } from '@n8n/backend-common';
 import type { User } from '@n8n/db';
 import {
-	AuthenticatedRequest,
 	GLOBAL_MEMBER_ROLE,
 	UserRepository,
 	WorkflowRepository,
 	ProjectRelationRepository,
 	ProjectRepository,
 } from '@n8n/db';
-import { RestController, Body, Get, Post, Patch, Param } from '@n8n/decorators';
+import { Service } from '@n8n/di';
 import crypto from 'node:crypto';
-import type { Response } from 'express';
 import {
 	CHAT_TRIGGER_NODE_TYPE,
 	FORM_TRIGGER_NODE_TYPE,
@@ -32,19 +30,14 @@ import { WorkflowRunner } from '@/workflow-runner';
 import { WorkflowFinderService } from '@/workflows/workflow-finder.service';
 import { WorkflowSharingService } from '@/workflows/workflow-sharing.service';
 
+import type { LlmMessage, TaskResult, TaskStep } from './agents.types';
+
 const LLM_API_KEY = process.env.N8N_AGENT_LLM_API_KEY ?? '';
 const LLM_BASE_URL = process.env.N8N_AGENT_LLM_BASE_URL ?? 'https://api.anthropic.com';
 const LLM_MODEL = process.env.N8N_AGENT_LLM_MODEL ?? 'claude-sonnet-4-5-20250929';
 const MAX_ITERATIONS = 15;
 const MAX_DELEGATION_DEPTH = 2;
 const EXECUTION_TIMEOUT_MS = 120_000;
-
-const AGENT_ROLES: Record<string, string> = {
-	'agent-docs-curator@internal.n8n.local': 'Knowledge Base',
-	'agent-issue-triager@internal.n8n.local': 'Bug Analysis',
-	'agent-qa@internal.n8n.local': 'Test Strategy',
-	'agent-messenger@internal.n8n.local': 'Comms & Alerts',
-};
 
 const SUPPORTED_TRIGGERS: Record<string, string> = {
 	[MANUAL_TRIGGER_NODE_TYPE]: 'Manual Trigger',
@@ -54,20 +47,8 @@ const SUPPORTED_TRIGGERS: Record<string, string> = {
 	[SCHEDULE_TRIGGER_NODE_TYPE]: 'Schedule Trigger',
 };
 
-interface LlmMessage {
-	role: 'system' | 'user' | 'assistant';
-	content: string;
-}
-
-interface TaskStep {
-	action: string;
-	workflowName?: string;
-	toAgent?: string;
-	result?: string;
-}
-
-@RestController('/agents')
-export class AgentsController {
+@Service()
+export class AgentsService {
 	constructor(
 		private readonly userRepository: UserRepository,
 		private readonly workflowRepository: WorkflowRepository,
@@ -78,10 +59,12 @@ export class AgentsController {
 		private readonly workflowFinderService: WorkflowFinderService,
 		private readonly workflowRunner: WorkflowRunner,
 		private readonly activeExecutions: ActiveExecutions,
-	) {}
+		private readonly logger: Logger,
+	) {
+		this.logger = this.logger.scoped('agents');
+	}
 
-	@Post('/')
-	async createAgent(_req: AuthenticatedRequest, _res: Response, @Body payload: CreateAgentDto) {
+	async createAgent(payload: { firstName: string; avatar?: string | null }) {
 		const email = `agent-${crypto.randomUUID().slice(0, 8)}@internal.n8n.local`;
 
 		const { user } = await this.userRepository.createUserWithProject({
@@ -103,13 +86,7 @@ export class AgentsController {
 		};
 	}
 
-	@Patch('/:agentId')
-	async updateAgent(
-		_req: AuthenticatedRequest,
-		_res: Response,
-		@Param('agentId') agentId: string,
-		@Body payload: UpdateAgentDto,
-	) {
+	async updateAgent(agentId: string, payload: { firstName?: string; avatar?: string | null }) {
 		const agent = await this.userRepository.findOneBy({ id: agentId });
 
 		if (!agent || agent.type !== 'agent') {
@@ -134,12 +111,7 @@ export class AgentsController {
 		};
 	}
 
-	@Get('/:agentId/capabilities')
-	async getCapabilities(
-		_req: AuthenticatedRequest,
-		_res: Response,
-		@Param('agentId') agentId: string,
-	) {
+	async getCapabilities(agentId: string) {
 		const agentUser = await this.userRepository.findOne({
 			where: { id: agentId },
 			relations: ['role'],
@@ -186,17 +158,7 @@ export class AgentsController {
 		};
 	}
 
-	@Post('/:agentId/task')
-	async dispatchTask(req: AuthenticatedRequest, _res: Response, @Param('agentId') agentId: string) {
-		const { prompt } = req.body as { prompt: string };
-		return await this.executeAgentTask(agentId, prompt, 0);
-	}
-
-	private async executeAgentTask(
-		agentId: string,
-		prompt: string,
-		depth: number,
-	): Promise<{ status: string; summary?: string; steps: TaskStep[]; message?: string }> {
+	async executeTask(agentId: string, prompt: string, depth: number): Promise<TaskResult> {
 		const agentUser = await this.userRepository.findOne({
 			where: { id: agentId },
 			relations: ['role'],
@@ -215,7 +177,6 @@ export class AgentsController {
 			};
 		}
 
-		// Fetch capabilities for LLM context
 		const workflowIds = await this.workflowSharingService.getSharedWorkflowIds(agentUser, {
 			scopes: ['workflow:read'],
 		});
@@ -231,17 +192,12 @@ export class AgentsController {
 			active: w.active,
 		}));
 
-		// Fetch other agents for delegation (only if depth allows)
-		const otherAgents: Array<{ firstName: string; role: string }> = [];
+		const otherAgents: Array<{ firstName: string }> = [];
 		if (depth < MAX_DELEGATION_DEPTH) {
 			const allAgents = await this.userRepository.find({ where: { type: 'agent' } });
 			for (const a of allAgents) {
 				if (a.id !== agentId) {
-					const agentDef = AGENT_ROLES[a.email];
-					otherAgents.push({
-						firstName: a.firstName,
-						role: agentDef ?? '',
-					});
+					otherAgents.push({ firstName: a.firstName });
 				}
 			}
 		}
@@ -249,17 +205,16 @@ export class AgentsController {
 		const agentName = `${agentUser.firstName} ${agentUser.lastName}`.trim();
 		const steps: TaskStep[] = [];
 
-		const systemPrompt = buildSystemPrompt(agentName, workflowList, otherAgents, depth);
+		const systemPrompt = this.buildSystemPrompt(agentName, workflowList, otherAgents, depth);
 		const messages: LlmMessage[] = [
 			{ role: 'system', content: systemPrompt },
 			{ role: 'user', content: prompt },
 		];
 
 		for (let i = 0; i < MAX_ITERATIONS; i++) {
-			const llmResponse = await callLlm(messages);
+			const llmResponse = await this.callLlm(messages);
 			messages.push({ role: 'assistant', content: llmResponse });
 
-			// Strip markdown code fences if present
 			const cleaned = llmResponse
 				.replace(/^```(?:json)?\s*/i, '')
 				.replace(/\s*```\s*$/, '')
@@ -326,7 +281,7 @@ export class AgentsController {
 					});
 				} else {
 					try {
-						const result = await this.executeAgentTask(targetAgent.id, parsed.message, depth + 1);
+						const result = await this.executeTask(targetAgent.id, parsed.message, depth + 1);
 						const observation = `Agent "${parsed.toAgent}" responded: ${result.summary ?? 'No summary'}`;
 						steps[steps.length - 1].result = result.status === 'completed' ? 'success' : 'failed';
 						messages.push({ role: 'user', content: `Observation: ${observation}` });
@@ -373,17 +328,17 @@ export class AgentsController {
 		const nodes = workflow.activeVersion?.nodes ?? workflow.nodes ?? [];
 		const connections = workflow.activeVersion?.connections ?? workflow.connections ?? {};
 
-		const triggerNode = findSupportedTrigger(nodes);
+		const triggerNode = this.findSupportedTrigger(nodes);
 		if (!triggerNode) {
 			throw new Error(
 				`Workflow has no supported trigger. Supported: ${Object.values(SUPPORTED_TRIGGERS).join(', ')}`,
 			);
 		}
 
-		const pinData = buildPinData(triggerNode, agentPrompt);
+		const pinData = this.buildPinData(triggerNode, agentPrompt);
 
 		const runData: IWorkflowExecutionDataProcess = {
-			executionMode: getExecutionMode(triggerNode),
+			executionMode: this.getExecutionMode(triggerNode),
 			workflowData: { ...workflow, nodes, connections },
 			userId: user.id,
 			startNodes: [{ name: triggerNode.name, sourceData: null }],
@@ -424,111 +379,110 @@ export class AgentsController {
 
 		return { success, executionId, data: data.data.resultData };
 	}
-}
 
-function findSupportedTrigger(nodes: INode[]): INode | undefined {
-	const supported = Object.keys(SUPPORTED_TRIGGERS);
-	return nodes.find((node) => supported.includes(node.type) && !node.disabled);
-}
-
-function getExecutionMode(node: INode): WorkflowExecuteMode {
-	switch (node.type) {
-		case WEBHOOK_NODE_TYPE:
-			return 'webhook';
-		case CHAT_TRIGGER_NODE_TYPE:
-			return 'chat';
-		case MANUAL_TRIGGER_NODE_TYPE:
-			return 'manual';
-		default:
-			return 'trigger';
+	private findSupportedTrigger(nodes: INode[]): INode | undefined {
+		const supported = Object.keys(SUPPORTED_TRIGGERS);
+		return nodes.find((node) => supported.includes(node.type) && !node.disabled);
 	}
-}
 
-function buildPinData(node: INode, agentPrompt?: string): IPinData {
-	switch (node.type) {
-		case MANUAL_TRIGGER_NODE_TYPE:
-			return {
-				[node.name]: [
-					{
-						json: {
-							triggeredByAgent: true,
-							timestamp: new Date().toISOString(),
-							...(agentPrompt ? { message: agentPrompt } : {}),
-						},
-					},
-				],
-			};
-		case WEBHOOK_NODE_TYPE:
-			return {
-				[node.name]: [{ json: { headers: {}, query: {}, body: {} } }],
-			};
-		case CHAT_TRIGGER_NODE_TYPE:
-			return {
-				[node.name]: [
-					{
-						json: {
-							sessionId: `agent-${Date.now()}`,
-							action: 'sendMessage',
-							chatInput: 'Triggered by agent',
-						},
-					},
-				],
-			};
-		case FORM_TRIGGER_NODE_TYPE:
-			return {
-				[node.name]: [
-					{
-						json: {
-							submittedAt: new Date().toISOString(),
-							formMode: 'agent',
-						},
-					},
-				],
-			};
-		case SCHEDULE_TRIGGER_NODE_TYPE:
-			return {
-				[node.name]: [
-					{
-						json: {
-							timestamp: new Date().toISOString(),
-							triggeredByAgent: true,
-						},
-					},
-				],
-			};
-		default:
-			return {};
+	private getExecutionMode(node: INode): WorkflowExecuteMode {
+		switch (node.type) {
+			case WEBHOOK_NODE_TYPE:
+				return 'webhook';
+			case CHAT_TRIGGER_NODE_TYPE:
+				return 'chat';
+			case MANUAL_TRIGGER_NODE_TYPE:
+				return 'manual';
+			default:
+				return 'trigger';
+		}
 	}
-}
 
-function buildSystemPrompt(
-	agentName: string,
-	workflows: Array<{ id: string; name: string; active: boolean }>,
-	otherAgents: Array<{ firstName: string; role: string }>,
-	depth: number,
-): string {
-	const workflowList = workflows
-		.map((w) => `- ${w.name} (id: ${w.id}, active: ${w.active})`)
-		.join('\n');
+	private buildPinData(node: INode, agentPrompt?: string): IPinData {
+		switch (node.type) {
+			case MANUAL_TRIGGER_NODE_TYPE:
+				return {
+					[node.name]: [
+						{
+							json: {
+								triggeredByAgent: true,
+								timestamp: new Date().toISOString(),
+								...(agentPrompt ? { message: agentPrompt } : {}),
+							},
+						},
+					],
+				};
+			case WEBHOOK_NODE_TYPE:
+				return {
+					[node.name]: [{ json: { headers: {}, query: {}, body: {} } }],
+				};
+			case CHAT_TRIGGER_NODE_TYPE:
+				return {
+					[node.name]: [
+						{
+							json: {
+								sessionId: `agent-${Date.now()}`,
+								action: 'sendMessage',
+								chatInput: 'Triggered by agent',
+							},
+						},
+					],
+				};
+			case FORM_TRIGGER_NODE_TYPE:
+				return {
+					[node.name]: [
+						{
+							json: {
+								submittedAt: new Date().toISOString(),
+								formMode: 'agent',
+							},
+						},
+					],
+				};
+			case SCHEDULE_TRIGGER_NODE_TYPE:
+				return {
+					[node.name]: [
+						{
+							json: {
+								timestamp: new Date().toISOString(),
+								triggeredByAgent: true,
+							},
+						},
+					],
+				};
+			default:
+				return {};
+		}
+	}
 
-	let agentSection = '';
-	if (depth < MAX_DELEGATION_DEPTH && otherAgents.length > 0) {
-		const agentList = otherAgents.map((a) => `- ${a.firstName} (${a.role})`).join('\n');
-		agentSection = `
+	private buildSystemPrompt(
+		agentName: string,
+		workflows: Array<{ id: string; name: string; active: boolean }>,
+		otherAgents: Array<{ firstName: string }>,
+		depth: number,
+	): string {
+		const workflowList = workflows
+			.map((w) => `- ${w.name} (id: ${w.id}, active: ${w.active})`)
+			.join('\n');
+
+		let agentSection = '';
+		if (depth < MAX_DELEGATION_DEPTH && otherAgents.length > 0) {
+			const agentList = otherAgents.map((a) => `- ${a.firstName}`).join('\n');
+			agentSection = `
 
 You can also delegate tasks to other agents:
 ${agentList}
 
 To send a message to another agent:
 {"action": "send_message", "toAgent": "<firstName>", "message": "<what you need them to do>"}`;
-	}
+		}
 
-	const validActions =
-		depth < MAX_DELEGATION_DEPTH
-			? '"execute_workflow", "send_message", or "complete"'
-			: '"execute_workflow" or "complete"';
+		const validActions =
+			depth < MAX_DELEGATION_DEPTH
+				? '"execute_workflow", "send_message", or "complete"'
+				: '"execute_workflow" or "complete"';
 
-	return `You are ${agentName}, an autonomous AI agent in an n8n workflow automation system.
+		return `You are ${agentName}, an autonomous AI agent in an n8n workflow automation system.
 
 You have access to these workflows:
 ${workflowList || '(none)'}
@@ -547,37 +501,37 @@ When the task is complete (after seeing all results):
 {"action": "complete", "summary": "<what was accomplished>"}
 
 If asked to run something multiple times, execute it once, wait for the result, then execute again.`;
-}
-
-async function callLlm(messages: LlmMessage[]): Promise<string> {
-	// Extract system message — Anthropic puts it as a top-level param
-	const systemMessage = messages.find((m) => m.role === 'system')?.content ?? '';
-	const conversationMessages = messages
-		.filter((m) => m.role !== 'system')
-		.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
-
-	const response = await fetch(`${LLM_BASE_URL}/v1/messages`, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-			'x-api-key': LLM_API_KEY,
-			'anthropic-version': '2023-06-01',
-		},
-		body: JSON.stringify({
-			model: LLM_MODEL,
-			system: systemMessage,
-			messages: conversationMessages,
-			temperature: 0.2,
-			max_tokens: 1024,
-		}),
-	});
-
-	if (!response.ok) {
-		throw new Error(`LLM API returned ${response.status}: ${await response.text()}`);
 	}
 
-	const data = (await response.json()) as {
-		content: Array<{ type: string; text: string }>;
-	};
-	return data.content.find((c) => c.type === 'text')?.text ?? '';
+	private async callLlm(messages: LlmMessage[]): Promise<string> {
+		const systemMessage = messages.find((m) => m.role === 'system')?.content ?? '';
+		const conversationMessages = messages
+			.filter((m) => m.role !== 'system')
+			.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+
+		const response = await fetch(`${LLM_BASE_URL}/v1/messages`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'x-api-key': LLM_API_KEY,
+				'anthropic-version': '2023-06-01',
+			},
+			body: JSON.stringify({
+				model: LLM_MODEL,
+				system: systemMessage,
+				messages: conversationMessages,
+				temperature: 0.2,
+				max_tokens: 1024,
+			}),
+		});
+
+		if (!response.ok) {
+			throw new Error(`LLM API returned ${response.status}: ${await response.text()}`);
+		}
+
+		const data = (await response.json()) as {
+			content: Array<{ type: string; text: string }>;
+		};
+		return data.content.find((c) => c.type === 'text')?.text ?? '';
+	}
 }

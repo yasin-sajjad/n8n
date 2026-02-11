@@ -16,50 +16,6 @@ import type {
 	ConnectionLine,
 } from './agents.types';
 
-interface AgentDemoStats {
-	role: string;
-	status: 'idle' | 'active' | 'busy';
-	tasksCompleted: number;
-	lastActive: string;
-	resourceUsage: number;
-	workflowCount: number;
-}
-
-const AGENT_DEMO_STATS: Record<string, AgentDemoStats> = {
-	'agent-docs-curator@internal.n8n.local': {
-		role: 'Knowledge Base',
-		status: 'idle',
-		tasksCompleted: 47,
-		lastActive: '12m ago',
-		resourceUsage: 0.15,
-		workflowCount: 2,
-	},
-	'agent-issue-triager@internal.n8n.local': {
-		role: 'Bug Analysis',
-		status: 'active',
-		tasksCompleted: 128,
-		lastActive: 'now',
-		resourceUsage: 0.62,
-		workflowCount: 3,
-	},
-	'agent-qa@internal.n8n.local': {
-		role: 'Test Strategy',
-		status: 'busy',
-		tasksCompleted: 89,
-		lastActive: '2m ago',
-		resourceUsage: 0.84,
-		workflowCount: 4,
-	},
-	'agent-messenger@internal.n8n.local': {
-		role: 'Comms & Alerts',
-		status: 'active',
-		tasksCompleted: 213,
-		lastActive: '1m ago',
-		resourceUsage: 0.31,
-		workflowCount: 1,
-	},
-};
-
 function parseAvatar(avatarString: string | null | undefined, initials: string): AgentAvatar {
 	if (!avatarString) {
 		return { type: 'initials', value: initials || '??' };
@@ -70,12 +26,20 @@ function parseAvatar(avatarString: string | null | undefined, initials: string):
 	return { type: 'emoji', value: avatarString };
 }
 
-const DEFAULT_POSITIONS: Array<{ x: number; y: number }> = [
-	{ x: 80, y: 60 },
-	{ x: 350, y: 60 },
-	{ x: 80, y: 260 },
-	{ x: 350, y: 260 },
-];
+const CARD_GRID_COLS = 3;
+const CARD_GRID_START_X = 80;
+const CARD_GRID_START_Y = 60;
+const CARD_GRID_SPACING_X = 280;
+const CARD_GRID_SPACING_Y = 160;
+
+function getDefaultPosition(index: number): { x: number; y: number } {
+	const col = index % CARD_GRID_COLS;
+	const row = Math.floor(index / CARD_GRID_COLS);
+	return {
+		x: CARD_GRID_START_X + col * CARD_GRID_SPACING_X,
+		y: CARD_GRID_START_Y + row * CARD_GRID_SPACING_Y,
+	};
+}
 
 const CANVAS_PADDING = 24;
 const ZONE_GAP = 16;
@@ -112,28 +76,20 @@ export const useAgentsStore = defineStore('agents', () => {
 
 		agents.value = agentUsers.map((user, index) => {
 			const initials = `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase();
-			const stats = AGENT_DEMO_STATS[user.email] ?? {
-				role: 'Agent',
-				status: 'idle' as const,
-				tasksCompleted: 0,
-				lastActive: 'never',
-				resourceUsage: 0,
-				workflowCount: 0,
-			};
 			return {
 				id: user.id,
 				firstName: user.firstName,
 				lastName: user.lastName,
 				email: user.email,
-				role: stats.role,
+				role: 'Agent',
 				avatar: parseAvatar(user.avatar, initials),
-				status: stats.status,
-				position: DEFAULT_POSITIONS[index % DEFAULT_POSITIONS.length],
+				status: 'idle' as const,
+				position: getDefaultPosition(index),
 				zoneId: null,
-				workflowCount: stats.workflowCount,
-				tasksCompleted: stats.tasksCompleted,
-				lastActive: stats.lastActive,
-				resourceUsage: stats.resourceUsage,
+				workflowCount: 0,
+				tasksCompleted: 0,
+				lastActive: '-',
+				resourceUsage: 0,
 			};
 		});
 	};
@@ -337,7 +293,7 @@ export const useAgentsStore = defineStore('agents', () => {
 			role: 'Agent',
 			avatar: parseAvatar(response.avatar, initials),
 			status: 'idle',
-			position: DEFAULT_POSITIONS[agents.value.length % DEFAULT_POSITIONS.length],
+			position: getDefaultPosition(agents.value.length),
 			zoneId: null,
 			workflowCount: 0,
 			tasksCompleted: 0,

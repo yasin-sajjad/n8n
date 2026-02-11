@@ -57,3 +57,31 @@ export interface AgentTaskDispatchResponse {
 	steps?: Array<{ action: string; workflowName?: string; toAgent?: string; result?: string }>;
 	message?: string;
 }
+
+export interface AgentRunningTask {
+	executionId: string;
+	workflowId: string;
+	workflowName: string;
+	startedAt: Date;
+	status: 'running' | 'completed' | 'error';
+}
+
+export interface AgentActivityEntry {
+	timestamp: Date;
+	action: string;
+	workflowName?: string;
+	result?: 'success' | 'error';
+	duration?: number;
+}
+
+export interface AgentStatusData {
+	runningTasks: AgentRunningTask[];
+	recentActivity: AgentActivityEntry[];
+	stats: {
+		tasksCompleted: number;
+		tasksFailed: number;
+		successRate: number;
+		avgDuration: number;
+		uptime: number;
+	};
+}

@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import type { AgentNode } from './agents.types';
 import AgentAvatarComp from './components/AgentAvatar.vue';
+import { useAgentPanelStore } from './agentPanel.store';
 
 const props = defineProps<{
 	agent: AgentNode;
@@ -13,20 +14,36 @@ const emit = defineEmits<{
 	dragStart: [id: string, event: PointerEvent];
 }>();
 
+const panelStore = useAgentPanelStore();
+
+const mockData = computed(() => panelStore.getStatusDataForAgent(props.agent.firstName));
+
+const workflowCount = computed(() => mockData.value.runningTasks.length);
+const tasksCompleted = computed(() => mockData.value.stats.tasksCompleted);
+const lastActive = computed(() => {
+	const activity = mockData.value.recentActivity[0];
+	if (!activity) return '-';
+	const seconds = Math.floor((Date.now() - activity.timestamp.getTime()) / 1000);
+	if (seconds < 60) return 'just now';
+	const minutes = Math.floor(seconds / 60);
+	if (minutes < 60) return `${minutes}m ago`;
+	const hours = Math.floor(minutes / 60);
+	return `${hours}h ago`;
+});
+
 const statusConfig: Record<string, { color: string; label: string }> = {
-	idle: { color: 'var(--color--foreground--tint-1)', label: 'Idle' },
+	idle: { color: 'var(--color--text--tint-2)', label: 'Idle' },
 	active: { color: 'var(--color--success)', label: 'Active' },
 	busy: { color: 'var(--color--warning)', label: 'Busy' },
 };
 
-const status = computed(() => statusConfig[props.agent.status] ?? statusConfig.idle);
-
-const resourceBarColor = computed(() => {
-	const usage = props.agent.resourceUsage;
-	if (usage > 0.7) return 'var(--color--warning)';
-	if (usage > 0.4) return 'var(--color--success)';
-	return 'var(--color--foreground--tint-1)';
+const agentStatus = computed(() => {
+	if (mockData.value.runningTasks.length > 1) return 'busy';
+	if (mockData.value.runningTasks.length === 1) return 'active';
+	return 'idle';
 });
+
+const status = computed(() => statusConfig[agentStatus.value] ?? statusConfig.idle);
 
 function onPointerDown(event: PointerEvent) {
 	emit('dragStart', props.agent.id, event);
@@ -61,33 +78,19 @@ function onPointerDown(event: PointerEvent) {
 		<!-- Stats row -->
 		<div :class="$style.statsRow">
 			<div :class="$style.stat">
-				<span :class="$style.statValue">{{ agent.workflowCount }}</span>
-				<span :class="$style.statLabel">workflows</span>
+				<span :class="$style.statValue">{{ workflowCount }}</span>
+				<span :class="$style.statLabel">running</span>
 			</div>
 			<div :class="$style.statDivider" />
 			<div :class="$style.stat">
-				<span :class="$style.statValue">{{ agent.tasksCompleted }}</span>
+				<span :class="$style.statValue">{{ tasksCompleted }}</span>
 				<span :class="$style.statLabel">tasks</span>
 			</div>
 			<div :class="$style.statDivider" />
 			<div :class="$style.stat">
-				<span :class="$style.statValue">{{ agent.lastActive }}</span>
+				<span :class="$style.statValue">{{ lastActive }}</span>
 				<span :class="$style.statLabel">last active</span>
 			</div>
-		</div>
-
-		<!-- Resource bar -->
-		<div :class="$style.resourceRow">
-			<div :class="$style.resourceTrack">
-				<div
-					:class="$style.resourceFill"
-					:style="{
-						width: `${agent.resourceUsage * 100}%`,
-						backgroundColor: resourceBarColor,
-					}"
-				/>
-			</div>
-			<span :class="$style.resourceLabel">{{ Math.round(agent.resourceUsage * 100) }}%</span>
 		</div>
 	</div>
 </template>
@@ -99,33 +102,29 @@ function onPointerDown(event: PointerEvent) {
 	flex-direction: column;
 	gap: var(--spacing--2xs);
 	padding: var(--spacing--xs) var(--spacing--sm);
-	background: var(--color--background);
-	border: var(--border);
+	background: var(--color--foreground--tint-2);
+	border: 1px solid var(--color--foreground--tint-1);
 	border-radius: var(--radius--lg);
-	box-shadow:
-		0 1px 3px color-mix(in srgb, var(--color--text) 6%, transparent),
-		0 1px 2px color-mix(in srgb, var(--color--text) 4%, transparent);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 	cursor: grab;
 	user-select: none;
 	z-index: 3;
 	transition:
 		box-shadow 0.15s ease,
+		border-color 0.15s ease,
 		transform 0.15s ease;
-	min-width: 220px;
+	min-width: 230px;
 	max-width: 260px;
 
 	&:hover {
-		box-shadow:
-			0 4px 12px color-mix(in srgb, var(--color--text) 10%, transparent),
-			0 2px 4px color-mix(in srgb, var(--color--text) 6%, transparent);
+		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+		border-color: var(--color--foreground);
 		transform: translateY(-1px);
 	}
 
 	&:active {
 		cursor: grabbing;
-		box-shadow:
-			0 8px 20px color-mix(in srgb, var(--color--text) 14%, transparent),
-			0 4px 8px color-mix(in srgb, var(--color--text) 8%, transparent);
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 		transform: translateY(-2px);
 	}
 }
@@ -171,7 +170,7 @@ function onPointerDown(event: PointerEvent) {
 
 .role {
 	font-size: var(--font-size--3xs);
-	color: var(--color--text--tint-2);
+	color: var(--color--text--tint-1);
 	white-space: nowrap;
 }
 
@@ -181,7 +180,7 @@ function onPointerDown(event: PointerEvent) {
 	gap: var(--spacing--4xs);
 	padding: 2px var(--spacing--3xs);
 	border-radius: var(--radius);
-	background: color-mix(in srgb, var(--status--color) 12%, transparent);
+	background: color-mix(in srgb, var(--status--color) 15%, transparent);
 	flex-shrink: 0;
 	margin-left: auto;
 }
@@ -205,8 +204,8 @@ function onPointerDown(event: PointerEvent) {
 	display: flex;
 	align-items: center;
 	gap: var(--spacing--2xs);
-	padding-top: var(--spacing--4xs);
-	border-top: 1px solid var(--color--foreground--tint-2);
+	padding-top: var(--spacing--2xs);
+	border-top: 1px solid var(--color--foreground);
 }
 
 .stat {
@@ -224,41 +223,14 @@ function onPointerDown(event: PointerEvent) {
 
 .statLabel {
 	font-size: var(--font-size--3xs);
-	color: var(--color--text--tint-2);
+	color: var(--color--text--tint-1);
 	white-space: nowrap;
 }
 
 .statDivider {
 	width: 1px;
 	height: 12px;
-	background: var(--color--foreground--tint-2);
+	background: var(--color--foreground);
 	flex-shrink: 0;
-}
-
-.resourceRow {
-	display: flex;
-	align-items: center;
-	gap: var(--spacing--2xs);
-}
-
-.resourceTrack {
-	flex: 1;
-	height: 4px;
-	background: var(--color--foreground--tint-2);
-	border-radius: 2px;
-	overflow: hidden;
-}
-
-.resourceFill {
-	height: 100%;
-	border-radius: 2px;
-	transition: width 0.3s ease;
-}
-
-.resourceLabel {
-	font-size: var(--font-size--3xs);
-	color: var(--color--text--tint-2);
-	min-width: 28px;
-	text-align: right;
 }
 </style>
