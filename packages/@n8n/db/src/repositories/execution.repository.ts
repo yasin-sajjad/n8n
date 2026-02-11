@@ -1111,7 +1111,7 @@ export class ExecutionRepository extends Repository<ExecutionEntity> {
 			.leftJoin(AnnotationTagMapping, 'atm', 'atm.annotationId = e.annotation_id')
 			.leftJoin(AnnotationTagEntity, 'ate', 'ate.id = atm.tagId')
 			.leftJoin(ExecutionMetadata, 'md', 'md.executionId = e.id')
-			.groupBy('e.id, ate.id, ate.name');
+			.groupBy('e.id');
 
 		// Sort the final result after the joins again, because there is no
 		// guarantee that the order is unchanged after performing joins. Especially
