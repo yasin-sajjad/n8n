@@ -44,8 +44,7 @@ export const useCollaborationStore = defineStore(STORES.COLLABORATION, () => {
 	const collaborators = ref<Collaborator[]>([]);
 
 	// Write-lock state for single-write mode
-	const currentWriterClientId = ref<string | null>(null);
-	const currentWriterUserId = ref<string | null>(null);
+	const currentWriterLock = ref<{ userId: string; clientId: string } | null>(null);
 	const lastActivityTime = ref<number>(Date.now());
 	const activityCheckInterval = ref<number | null>(null);
 
@@ -63,24 +62,27 @@ export const useCollaborationStore = defineStore(STORES.COLLABORATION, () => {
 	let refreshCanvasCallback: ((workflow: IWorkflowDb) => void) | null = null;
 
 	// Computed properties for write-lock state
+	const isCurrentTabWriter = computed(() => {
+		return currentWriterLock.value?.clientId === rootStore.pushRef;
+	});
+
 	const isCurrentUserWriter = computed(() => {
-		return currentWriterClientId.value === rootStore.pushRef;
+		return currentWriterLock.value?.userId === usersStore.currentUserId;
 	});
 
 	const currentWriter = computed(() => {
-		if (!currentWriterUserId.value) return null;
-		return collaborators.value.find((c) => c.user.id === currentWriterUserId.value);
+		return collaborators.value.find((c) => c.user.id === currentWriterLock.value?.userId) ?? null;
 	});
 
 	const isAnyoneWriting = computed(() => {
-		return currentWriterClientId.value !== null;
+		return currentWriterLock.value !== null;
 	});
 
 	const shouldBeReadOnly = computed(() => {
-		return isAnyoneWriting.value && !isCurrentUserWriter.value;
+		return isAnyoneWriting.value && !isCurrentTabWriter.value;
 	});
 
-	async function fetchWriteLockState(): Promise<string | null> {
+	async function fetchWriteLockState(): Promise<{ clientId: string; userId: string } | null> {
 		try {
 			const { workflowId } = workflowsStore;
 			if (!workflowsStore.isWorkflowSaved[workflowId]) {
@@ -91,7 +93,7 @@ export const useCollaborationStore = defineStore(STORES.COLLABORATION, () => {
 				rootStore.restApiContext,
 				workflowId,
 			);
-			return response.clientId;
+			return response;
 		} catch {
 			return null;
 		}
@@ -131,7 +133,7 @@ export const useCollaborationStore = defineStore(STORES.COLLABORATION, () => {
 	};
 
 	const sendWriteLockHeartbeat = () => {
-		if (!isCurrentUserWriter.value || !collaboratingWorkflowId.value) {
+		if (!isCurrentTabWriter.value || !collaboratingWorkflowId.value) {
 			stopWriteLockHeartbeat();
 			return;
 		}
@@ -167,12 +169,11 @@ export const useCollaborationStore = defineStore(STORES.COLLABORATION, () => {
 			return;
 		}
 
-		const writeLockClientId = await fetchWriteLockState();
+		const writeLock = await fetchWriteLockState();
 
 		// If lock is gone on backend but still exists in frontend, clear it
-		if (!writeLockClientId && currentWriterClientId.value) {
-			currentWriterClientId.value = null;
-			currentWriterUserId.value = null;
+		if (!writeLock && currentWriterLock.value) {
+			currentWriterLock.value = null;
 			stopLockStatePolling();
 		}
 	};
@@ -196,7 +197,7 @@ export const useCollaborationStore = defineStore(STORES.COLLABORATION, () => {
 	}
 
 	function requestWriteAccess() {
-		if (isCurrentUserWriter.value) {
+		if (isCurrentTabWriter.value) {
 			return true;
 		}
 
@@ -217,8 +218,7 @@ export const useCollaborationStore = defineStore(STORES.COLLABORATION, () => {
 	}
 
 	function releaseWriteAccess() {
-		currentWriterClientId.value = null;
-		currentWriterUserId.value = null;
+		currentWriterLock.value = null;
 		stopWriteLockHeartbeat();
 
 		if (!collaboratingWorkflowId.value) {
@@ -237,7 +237,7 @@ export const useCollaborationStore = defineStore(STORES.COLLABORATION, () => {
 	}
 
 	function checkInactivity() {
-		if (!isCurrentUserWriter.value) return;
+		if (!isCurrentTabWriter.value) return;
 
 		// Don't release write lock while AI Builder is streaming
 		if (builderStore.streaming) {
@@ -268,7 +268,7 @@ export const useCollaborationStore = defineStore(STORES.COLLABORATION, () => {
 	}
 
 	async function handleWorkflowUpdate() {
-		if (isCurrentUserWriter.value || !collaboratingWorkflowId.value) {
+		if (isCurrentTabWriter.value || !collaboratingWorkflowId.value) {
 			return;
 		}
 
@@ -288,15 +288,14 @@ export const useCollaborationStore = defineStore(STORES.COLLABORATION, () => {
 	}
 
 	function handleWriteLockHolderLeft() {
-		if (!currentWriterUserId.value) return;
+		if (!currentWriterLock.value) return;
 
 		const writerStillPresent = collaborators.value.some(
-			(c) => c.user.id === currentWriterUserId.value,
+			(c) => c.user.id === currentWriterLock.value?.userId,
 		);
 
 		if (!writerStillPresent) {
-			currentWriterClientId.value = null;
-			currentWriterUserId.value = null;
+			currentWriterLock.value = null;
 		}
 	}
 
@@ -309,12 +308,12 @@ export const useCollaborationStore = defineStore(STORES.COLLABORATION, () => {
 		collaboratingWorkflowId.value = workflowsStore.workflowId;
 
 		// Fetch current write-lock state from backend to restore state after page refresh
-		const writeLockClientId = await fetchWriteLockState();
-		if (writeLockClientId) {
-			currentWriterClientId.value = writeLockClientId;
+		const writeLock = await fetchWriteLockState();
+		if (writeLock) {
+			currentWriterLock.value = writeLock;
 
-			// If current user holds the lock, restart the heartbeat
-			if (isCurrentUserWriter.value) {
+			// If current tab holds the lock, restart the heartbeat
+			if (isCurrentTabWriter.value) {
 				startWriteLockHeartbeat();
 			} else {
 				// If someone else has the lock, start polling
@@ -336,11 +335,13 @@ export const useCollaborationStore = defineStore(STORES.COLLABORATION, () => {
 				event.type === 'writeAccessAcquired' &&
 				event.data.workflowId === collaboratingWorkflowId.value
 			) {
-				currentWriterClientId.value = event.data.clientId;
-				currentWriterUserId.value = event.data.userId;
+				currentWriterLock.value = {
+					clientId: event.data.clientId,
+					userId: event.data.userId,
+				};
 
-				// Start heartbeat and record activity if current user acquired the lock
-				if (isCurrentUserWriter.value) {
+				// Start heartbeat and record activity if current tab acquired the lock
+				if (isCurrentTabWriter.value) {
 					recordActivity();
 					startWriteLockHeartbeat();
 					stopLockStatePolling();
@@ -355,8 +356,7 @@ export const useCollaborationStore = defineStore(STORES.COLLABORATION, () => {
 				event.type === 'writeAccessReleased' &&
 				event.data.workflowId === collaboratingWorkflowId.value
 			) {
-				currentWriterClientId.value = null;
-				currentWriterUserId.value = null;
+				currentWriterLock.value = null;
 				stopWriteLockHeartbeat();
 				stopLockStatePolling();
 				return;
@@ -387,7 +387,7 @@ export const useCollaborationStore = defineStore(STORES.COLLABORATION, () => {
 		stopWriteLockHeartbeat();
 		stopLockStatePolling();
 		stopInactivityCheck();
-		if (isCurrentUserWriter.value) {
+		if (isCurrentTabWriter.value) {
 			releaseWriteAccess();
 		}
 		pushStore.clearQueue();
@@ -396,14 +396,14 @@ export const useCollaborationStore = defineStore(STORES.COLLABORATION, () => {
 			clearTimeout(unloadTimeout.value);
 		}
 		collaboratingWorkflowId.value = null;
-		currentWriterClientId.value = null;
-		currentWriterUserId.value = null;
+		currentWriterLock.value = null;
 		collaborators.value = [];
 	}
 
 	return {
 		collaborators,
 		currentWriter,
+		isCurrentTabWriter,
 		isCurrentUserWriter,
 		isAnyoneWriting,
 		shouldBeReadOnly,

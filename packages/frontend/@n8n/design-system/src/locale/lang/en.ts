@@ -77,6 +77,7 @@ export default {
 	'aiAssistant.builder.canvas.thinking': 'Working...',
 	'aiAssistant.builder.streamAbortedMessage': 'Task aborted',
 	'collaboration.canvas.editing': '{user} is currently editing',
+	'collaboration.canvas.editingAnotherTab': 'Another tab is currently editing',
 	'inlineAskAssistantButton.asked': 'Asked',
 	'iconPicker.button.defaultToolTip': 'Choose icon',
 	'iconPicker.tabs.icons': 'Icons',

@@ -3,13 +3,16 @@ import { Time } from '@n8n/constants';
 import type { User } from '@n8n/db';
 import { Service } from '@n8n/di';
 import type { Workflow } from 'n8n-workflow';
+import { jsonParse } from 'n8n-workflow';
 
 import { CacheService } from '@/services/cache/cache.service';
 
-type WorkflowCacheHash = Record<User['id'], Iso8601DateTimeString>;
+// clientId -> "userId|lastSeen"
+type WorkflowCacheHash = Record<string, string>;
 interface CacheEntry {
 	userId: string;
 	lastSeen: string;
+	clientId: string;
 }
 
 /**
@@ -32,30 +35,30 @@ export class CollaborationState {
 	constructor(private readonly cache: CacheService) {}
 
 	/**
-	 * Mark user active for given workflow
+	 * Mark client (tab) active for given workflow
 	 */
-	async addCollaborator(workflowId: Workflow['id'], userId: User['id']) {
+	async addCollaborator(workflowId: Workflow['id'], userId: User['id'], clientId: string) {
 		const cacheKey = this.formWorkflowCacheKey(workflowId);
 		const cacheEntry: WorkflowCacheHash = {
-			[userId]: new Date().toISOString(),
+			[clientId]: `${userId}|${new Date().toISOString()}`,
 		};
 
 		await this.cache.setHash(cacheKey, cacheEntry);
 	}
 
 	/**
-	 * Remove user from workflow's active users
+	 * Remove client (tab) from workflow's active collaborators
 	 */
-	async removeCollaborator(workflowId: Workflow['id'], userId: User['id']) {
+	async removeCollaborator(workflowId: Workflow['id'], clientId: string) {
 		const cacheKey = this.formWorkflowCacheKey(workflowId);
 
-		await this.cache.deleteFromHash(cacheKey, userId);
+		await this.cache.deleteFromHash(cacheKey, clientId);
 	}
 
 	async getCollaborators(workflowId: Workflow['id']): Promise<CacheEntry[]> {
 		const cacheKey = this.formWorkflowCacheKey(workflowId);
 
-		const cacheValue = await this.cache.getHash<Iso8601DateTimeString>(cacheKey);
+		const cacheValue = await this.cache.getHash<string>(cacheKey);
 		if (!cacheValue) {
 			return [];
 		}
@@ -67,7 +70,16 @@ export class CollaborationState {
 			void this.removeExpiredCollaborators(workflowId, expired);
 		}
 
-		return stillActive;
+		// Deduplicate by userId - keep the most recent entry for each user
+		const userMap = new Map<string, CacheEntry>();
+		for (const entry of stillActive) {
+			const existing = userMap.get(entry.userId);
+			if (!existing || new Date(entry.lastSeen) > new Date(existing.lastSeen)) {
+				userMap.set(entry.userId, entry);
+			}
+		}
+
+		return Array.from(userMap.values());
 	}
 
 	private formWorkflowCacheKey(workflowId: Workflow['id']) {
@@ -89,18 +101,27 @@ export class CollaborationState {
 		return [expired, stillActive];
 	}
 
-	private async removeExpiredCollaborators(workflowId: Workflow['id'], expiredUsers: CacheEntry[]) {
+	private async removeExpiredCollaborators(
+		workflowId: Workflow['id'],
+		expiredClients: CacheEntry[],
+	) {
 		const cacheKey = this.formWorkflowCacheKey(workflowId);
 		await Promise.all(
-			expiredUsers.map(async (user) => await this.cache.deleteFromHash(cacheKey, user.userId)),
+			expiredClients.map(
+				async (client) => await this.cache.deleteFromHash(cacheKey, client.clientId),
+			),
 		);
 	}
 
 	private cacheHashToCollaborators(workflowCacheEntry: WorkflowCacheHash): CacheEntry[] {
-		return Object.entries(workflowCacheEntry).map(([userId, lastSeen]) => ({
-			userId,
-			lastSeen,
-		}));
+		return Object.entries(workflowCacheEntry).map(([clientId, value]) => {
+			const [userId, lastSeen] = value.split('|');
+			return {
+				userId,
+				lastSeen,
+				clientId,
+			};
+		});
 	}
 
 	private hasSessionExpired(lastSeenString: Iso8601DateTimeString) {
@@ -114,37 +135,34 @@ export class CollaborationState {
 	 */
 	readonly writeLockTtl = 2 * Time.minutes.toMilliseconds;
 
-	/**
-	 * TTL for client-to-user mappings. Slightly longer than lock TTL to ensure
-	 * we can still identify lock owners even after lock expires.
-	 */
-	readonly clientMappingTtl = 150 * Time.seconds.toMilliseconds;
-
 	async setWriteLock(workflowId: Workflow['id'], clientId: string, userId: User['id']) {
 		const cacheKey = this.formWriteLockCacheKey(workflowId);
-		const mappingKey = this.formClientMappingKey(workflowId, clientId);
-		await this.cache.set(cacheKey, clientId, this.writeLockTtl);
-		await this.cache.set(mappingKey, userId, this.clientMappingTtl);
+		const lockData = JSON.stringify({ clientId, userId });
+		await this.cache.set(cacheKey, lockData, this.writeLockTtl);
 	}
 
 	async renewWriteLock(workflowId: Workflow['id'], clientId: string) {
 		const cacheKey = this.formWriteLockCacheKey(workflowId);
-		const mappingKey = this.formClientMappingKey(workflowId, clientId);
-		const currentHolder = await this.getWriteLock(workflowId);
+		const currentLock = await this.getWriteLock(workflowId);
 
-		if (currentHolder === clientId) {
-			const userId = await this.getUserIdForClient(workflowId, clientId);
-			await this.cache.set(cacheKey, clientId, this.writeLockTtl);
-			if (userId) {
-				await this.cache.set(mappingKey, userId, this.clientMappingTtl);
-			}
+		if (currentLock?.clientId === clientId) {
+			// Re-store the same lock data with renewed TTL
+			const lockData = JSON.stringify(currentLock);
+			await this.cache.set(cacheKey, lockData, this.writeLockTtl);
 		}
 	}
 
-	async getWriteLock(workflowId: Workflow['id']): Promise<string | null> {
+	async getWriteLock(
+		workflowId: Workflow['id'],
+	): Promise<{ clientId: string; userId: string } | null> {
 		const cacheKey = this.formWriteLockCacheKey(workflowId);
-		const clientId = await this.cache.get<string>(cacheKey);
-		return clientId ?? null;
+		const lockData = await this.cache.get<string>(cacheKey);
+
+		if (!lockData) {
+			return null;
+		}
+
+		return jsonParse<{ clientId: string; userId: string }>(lockData);
 	}
 
 	async releaseWriteLock(workflowId: Workflow['id']) {
@@ -154,18 +172,5 @@ export class CollaborationState {
 
 	private formWriteLockCacheKey(workflowId: Workflow['id']) {
 		return `collaboration:write-lock:${workflowId}`;
-	}
-
-	private formClientMappingKey(workflowId: Workflow['id'], clientId: string) {
-		return `collaboration:client-mapping:${workflowId}:${clientId}`;
-	}
-
-	async getUserIdForClient(
-		workflowId: Workflow['id'],
-		clientId: string,
-	): Promise<User['id'] | null> {
-		const mappingKey = this.formClientMappingKey(workflowId, clientId);
-		const userId = await this.cache.get<User['id']>(mappingKey);
-		return userId ?? null;
 	}
 }

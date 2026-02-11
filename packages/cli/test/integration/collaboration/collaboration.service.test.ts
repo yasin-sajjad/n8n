@@ -111,8 +111,8 @@ describe('CollaborationService', () => {
 			const sendToUsersSpy = jest.spyOn(pushService, 'sendToUsers');
 
 			// Act
-			await sendWorkflowOpenedMessage(workflow.id, owner.id);
-			await sendWorkflowOpenedMessage(workflow.id, memberWithAccess.id);
+			await sendWorkflowOpenedMessage(workflow.id, owner.id, 'owner-client-id');
+			await sendWorkflowOpenedMessage(workflow.id, memberWithAccess.id, 'member-client-id');
 
 			// Assert
 			expect(sendToUsersSpy).toHaveBeenNthCalledWith(
@@ -185,12 +185,12 @@ describe('CollaborationService', () => {
 		it('should emit collaboratorsChanged after workflowClosed when there are active users', async () => {
 			// Arrange
 			const sendToUsersSpy = jest.spyOn(pushService, 'sendToUsers');
-			await sendWorkflowOpenedMessage(workflow.id, owner.id);
-			await sendWorkflowOpenedMessage(workflow.id, memberWithAccess.id);
+			await sendWorkflowOpenedMessage(workflow.id, owner.id, 'owner-client-id');
+			await sendWorkflowOpenedMessage(workflow.id, memberWithAccess.id, 'member-client-id');
 			sendToUsersSpy.mockClear();
 
 			// Act
-			await sendWorkflowClosedMessage(workflow.id, owner.id);
+			await sendWorkflowClosedMessage(workflow.id, owner.id, 'owner-client-id');
 
 			// Assert
 			expect(sendToUsersSpy).toHaveBeenCalledWith(
@@ -270,18 +270,18 @@ describe('CollaborationService', () => {
 		it('should allow lock acquisition after release', async () => {
 			// Arrange
 			const sendToUsersSpy = jest.spyOn(pushService, 'sendToUsers');
-			await sendWorkflowOpenedMessage(workflow.id, owner.id);
-			await sendWorkflowOpenedMessage(workflow.id, memberWithAccess.id);
+			await sendWorkflowOpenedMessage(workflow.id, owner.id, 'owner-client-id');
+			await sendWorkflowOpenedMessage(workflow.id, memberWithAccess.id, 'member-client-id');
 
 			// Owner acquires the lock
-			await sendWriteAccessRequestedMessage(workflow.id, owner.id);
+			await sendWriteAccessRequestedMessage(workflow.id, owner.id, 'owner-client-id');
 
 			// Owner releases the lock
-			await sendWriteAccessReleaseRequestedMessage(workflow.id, owner.id);
+			await sendWriteAccessReleaseRequestedMessage(workflow.id, owner.id, 'owner-client-id');
 			sendToUsersSpy.mockClear();
 
 			// Act - Member tries to acquire the lock
-			await sendWriteAccessRequestedMessage(workflow.id, memberWithAccess.id);
+			await sendWriteAccessRequestedMessage(workflow.id, memberWithAccess.id, 'member-client-id');
 
 			// Assert - Member should successfully acquire the lock
 			expect(sendToUsersSpy).toHaveBeenCalledWith(
@@ -290,7 +290,7 @@ describe('CollaborationService', () => {
 					data: {
 						workflowId: workflow.id,
 						userId: memberWithAccess.id,
-						clientId: 'test-client-id',
+						clientId: 'member-client-id',
 					},
 				},
 				[owner.id, memberWithAccess.id],
@@ -347,7 +347,10 @@ describe('CollaborationService', () => {
 			const lockHolder = await collaborationService.getWriteLock(memberWithAccess.id, workflow.id);
 
 			// Assert
-			expect(lockHolder).toBe('test-client-id');
+			expect(lockHolder).toEqual({
+				clientId: 'test-client-id',
+				userId: owner.id,
+			});
 		});
 
 		it('should return null for user without read access', async () => {

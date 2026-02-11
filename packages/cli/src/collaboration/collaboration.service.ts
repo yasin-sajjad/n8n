@@ -73,7 +73,7 @@ export class CollaborationService {
 
 	private async handleWorkflowOpened(
 		userId: User['id'],
-		_clientId: string,
+		clientId: string,
 		msg: WorkflowOpenedMessage,
 	) {
 		const { workflowId } = msg;
@@ -82,7 +82,7 @@ export class CollaborationService {
 			return;
 		}
 
-		await this.state.addCollaborator(workflowId, userId);
+		await this.state.addCollaborator(workflowId, userId, clientId);
 
 		await this.sendWorkflowUsersChangedMessage(workflowId);
 	}
@@ -99,13 +99,13 @@ export class CollaborationService {
 		}
 
 		// If the user closing the workflow holds the write lock, release it
-		const currentLockHolder = await this.state.getWriteLock(workflowId);
-		if (currentLockHolder === clientId) {
+		const currentLock = await this.state.getWriteLock(workflowId);
+		if (currentLock?.clientId === clientId) {
 			await this.state.releaseWriteLock(workflowId);
 			await this.sendWriteAccessReleasedMessage(workflowId);
 		}
 
-		await this.state.removeCollaborator(workflowId, userId);
+		await this.state.removeCollaborator(workflowId, clientId);
 
 		await this.sendWorkflowUsersChangedMessage(workflowId);
 	}
@@ -144,8 +144,8 @@ export class CollaborationService {
 		}
 
 		// Check if someone else already holds the write lock
-		const currentLockHolder = await this.state.getWriteLock(workflowId);
-		if (currentLockHolder && currentLockHolder !== clientId) {
+		const currentLock = await this.state.getWriteLock(workflowId);
+		if (currentLock && currentLock.clientId !== clientId) {
 			return;
 		}
 
@@ -161,9 +161,9 @@ export class CollaborationService {
 	) {
 		const { workflowId } = msg;
 
-		const currentLockHolder = await this.state.getWriteLock(workflowId);
+		const currentLock = await this.state.getWriteLock(workflowId);
 
-		if (currentLockHolder !== clientId) {
+		if (currentLock?.clientId !== clientId) {
 			return;
 		}
 
@@ -247,17 +247,7 @@ export class CollaborationService {
 			return null;
 		}
 
-		const clientId = await this.state.getWriteLock(workflowId);
-		if (!clientId) {
-			return null;
-		}
-
-		const lockHolderUserId = await this.state.getUserIdForClient(workflowId, clientId);
-		if (!lockHolderUserId) {
-			return null;
-		}
-
-		return { clientId, userId: lockHolderUserId };
+		return await this.state.getWriteLock(workflowId);
 	}
 
 	/**
@@ -275,19 +265,17 @@ export class CollaborationService {
 			return;
 		}
 
-		const lockHolderClientId = await this.state.getWriteLock(workflowId);
+		const lock = await this.state.getWriteLock(workflowId);
 
-		if (!lockHolderClientId) {
+		if (!lock) {
 			return;
 		}
 
-		if (lockHolderClientId === clientId) {
+		if (lock.clientId === clientId) {
 			return;
 		}
 
-		const lockHolderUserId = await this.state.getUserIdForClient(workflowId, lockHolderClientId);
-
-		if (lockHolderUserId === userId) {
+		if (lock.userId === userId) {
 			// Same user, different tab
 			throw new ConflictError(
 				`Cannot ${action} workflow - you have this workflow open in another tab`,

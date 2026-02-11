@@ -314,6 +314,10 @@ const isCanvasReadOnly = computed(() => {
 	);
 });
 
+const isWriterAnotherTab = computed(() => {
+	return collaborationStore.isCurrentUserWriter && !collaborationStore.isCurrentTabWriter;
+});
+
 const showFallbackNodes = computed(() => triggerNodes.value.length === 0);
 
 const keyBindingsEnabled = computed(() => {
@@ -1997,8 +2001,9 @@ onBeforeUnmount(() => {
 			</N8nCallout>
 
 			<N8nCanvasCollaborationPill
-				v-if="collaborationStore.currentWriter && !collaborationStore.isCurrentUserWriter"
+				v-if="collaborationStore.currentWriter && !collaborationStore.isCurrentTabWriter"
 				:first-name="collaborationStore.currentWriter.user.firstName"
+				:is-another-tab="isWriterAnotherTab"
 				:last-name="collaborationStore.currentWriter.user.lastName"
 				:class="$style.canvasCenterPill"
 			/>
