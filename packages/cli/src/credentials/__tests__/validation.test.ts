@@ -296,7 +296,7 @@ describe('Credentials Validation', () => {
 			await expect(
 				validateAccessToReferencedSecretProviders(projectId, data, accessCheckService),
 			).rejects.toThrow(
-				'The secret providers "outsideProvider", "anotherOutsideProvider" do not exist in this project',
+				'The secret providers "outsideProvider" (used in "apiKey"), "anotherOutsideProvider" (used in "anotherApiKey") do not exist in this project',
 			);
 		});
 
@@ -365,6 +365,61 @@ describe('Credentials Validation', () => {
 					'The secret provider "vault" used in "config.database.password" does not exist in this project',
 				);
 			});
+		});
+
+		it('should show all credential property names when single inaccessible provider is used in multiple fields', async () => {
+			const data = {
+				apiKey: '={{ $secrets.vault.key1 }}',
+				password: '={{ $secrets.vault.key2 }}',
+			};
+
+			accessCheckService.canAccessProviderFromProject = jest.fn().mockResolvedValue(false);
+
+			await expect(
+				validateAccessToReferencedSecretProviders(projectId, data, accessCheckService),
+			).rejects.toThrow(
+				'The secret provider "vault" used in "apiKey", "password" does not exist in this project',
+			);
+		});
+
+		it('should show credential property names next to inaccessible providers for multiple inaccessible providers', async () => {
+			const data = {
+				apiKey: '={{ $secrets.vault.key }}',
+				token: '={{ $secrets.aws.secret }}',
+				password: '={{ $secrets.aws.pass }}',
+			};
+
+			accessCheckService.canAccessProviderFromProject = jest.fn().mockResolvedValue(false);
+
+			await expect(
+				validateAccessToReferencedSecretProviders(projectId, data, accessCheckService),
+			).rejects.toThrow(
+				'The secret providers "vault" (used in "apiKey"), "aws" (used in "token", "password") do not exist in this project',
+			);
+		});
+
+		it('should throw BadRequestError when external secret expression has no valid provider key', async () => {
+			const data = {
+				apiKey: '={{ $secrets.!invalid }}',
+			};
+
+			await expect(
+				validateAccessToReferencedSecretProviders(projectId, data, accessCheckService),
+			).rejects.toThrow(
+				'Could not find a valid external secret vault name inside "={{ $secrets.!invalid }}" used in "apiKey"',
+			);
+		});
+
+		it('should throw BadRequestError when external secret expression has empty provider key', async () => {
+			const data = {
+				token: "={{ $secrets[''] }}",
+			};
+
+			await expect(
+				validateAccessToReferencedSecretProviders(projectId, data, accessCheckService),
+			).rejects.toThrow(
+				'Could not find a valid external secret vault name inside "={{ $secrets[\'\'] }}" used in "token',
+			);
 		});
 	});
 });

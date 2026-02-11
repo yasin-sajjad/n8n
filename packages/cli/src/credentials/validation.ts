@@ -1,7 +1,7 @@
 import type { User } from '@n8n/db';
 import { hasGlobalScope } from '@n8n/permissions';
 import get from 'lodash/get';
-import type { ICredentialDataDecryptedObject } from 'n8n-workflow';
+import { UnexpectedError, type ICredentialDataDecryptedObject } from 'n8n-workflow';
 
 import { BadRequestError } from '@/errors/response-errors/bad-request.error';
 import type { SecretsProviderAccessCheckService } from '@/modules/external-secrets.ee/secret-provider-access-check.service.ee';
@@ -108,6 +108,7 @@ export function validateExternalSecretsPermissions(
  *
  * @param projectId - The project ID to check access for
  * @param data - The credential data that may contain external secret expressions
+ * @param externalSecretsProviderAccessCheckService - Service to check provider access
  * @throws BadRequestError if any providers are inaccessible.
  */
 export async function validateAccessToReferencedSecretProviders(
@@ -120,64 +121,71 @@ export async function validateAccessToReferencedSecretProviders(
 		return; // No external secrets referenced, nothing to check
 	}
 
-	// Track which credential fields use which providers
-	const providerToFieldsMap = new Map<string, string[]>();
+	// Track which credential properties use which providers
+	const providerToCredentialPropertyMap = new Map<string, string[]>();
 
-	for (const path of secretPaths) {
-		const value = get(data, path);
-		if (typeof value === 'string') {
-			const providerKey = extractProviderKey(value);
-			if (providerKey) {
-				if (!providerToFieldsMap.has(providerKey)) {
-					providerToFieldsMap.set(providerKey, []);
-				}
-				const fields = providerToFieldsMap.get(providerKey);
-				if (fields) {
-					fields.push(path);
-				}
+	for (const credentialProperty of secretPaths) {
+		const expressionString = get(data, credentialProperty);
+		if (typeof expressionString === 'string') {
+			const providerKey = extractProviderKey(expressionString);
+			if (providerKey === null) {
+				throw new BadRequestError(
+					`Could not find a valid external secret vault name inside "${expressionString}" used in "${credentialProperty}"`,
+				);
 			}
+
+			const credentialProperties = providerToCredentialPropertyMap.get(providerKey) ?? [];
+			credentialProperties.push(credentialProperty);
+			providerToCredentialPropertyMap.set(providerKey, credentialProperties);
 		}
 	}
 
-	// Validate access for all providers in batch
-	const inaccessibleProviders = new Map<string, string[]>();
-
-	if (providerToFieldsMap.size > 0) {
-		const providerKeys = Array.from(providerToFieldsMap.keys());
-
-		// Check all providers in parallel
-		await Promise.all(
-			providerKeys.map(async (providerKey) => {
-				const hasAccess =
-					await externalSecretsProviderAccessCheckService.canAccessProviderFromProject(
-						providerKey,
-						projectId,
-					);
-
-				if (!hasAccess) {
-					const fields = providerToFieldsMap.get(providerKey);
-					if (fields) {
-						inaccessibleProviders.set(providerKey, fields);
-					}
-				}
-			}),
-		);
+	// Early return if no valid providers found
+	if (providerToCredentialPropertyMap.size === 0) {
+		return;
 	}
+
+	// map of inaccessible providerKey -> list of credential properties that reference it
+	const inaccessibleProviders = new Map<string, string[]>();
+	const providerKeys = Array.from(providerToCredentialPropertyMap.keys());
+
+	await Promise.all(
+		providerKeys.map(async (providerKey) => {
+			const hasAccess =
+				await externalSecretsProviderAccessCheckService.canAccessProviderFromProject(
+					providerKey,
+					projectId,
+				);
+
+			if (!hasAccess) {
+				const credentialProperties = providerToCredentialPropertyMap.get(providerKey) ?? [];
+				if (credentialProperties.length > 0) {
+					inaccessibleProviders.set(providerKey, credentialProperties);
+				}
+			}
+		}),
+	);
 
 	// Throw error if any providers are inaccessible
 	if (inaccessibleProviders.size > 0) {
+		const formatCredentialPropertyList = (properties: string[]): string => {
+			return properties.map((f) => `"${f}"`).join(', ');
+		};
 		if (inaccessibleProviders.size === 1) {
-			const [providerKey, fields] = Array.from(inaccessibleProviders.entries())[0];
-			const credentialDataKey = fields[0];
+			const [providerKey, credentialProperties] = Array.from(inaccessibleProviders.entries())[0];
+			const credentialPropertyList = formatCredentialPropertyList(credentialProperties);
 			throw new BadRequestError(
-				`The secret provider "${providerKey}" used in "${credentialDataKey}" does not exist in this project`,
+				`The secret provider "${providerKey}" used in ${credentialPropertyList} does not exist in this project`,
 			);
 		} else {
-			const providerList = Array.from(inaccessibleProviders.keys())
-				.map((p) => `"${p}"`)
+			const providerDetails = Array.from(inaccessibleProviders.entries())
+				.map(([provider, fields]) => {
+					const credentialPopertyList = formatCredentialPropertyList(fields);
+					return `"${provider}" (used in ${credentialPopertyList})`;
+				})
 				.join(', ');
 			throw new BadRequestError(
-				`The secret providers ${providerList} do not exist in this project`,
+				`The secret providers ${providerDetails} do not exist in this project`,
 			);
 		}
 	}

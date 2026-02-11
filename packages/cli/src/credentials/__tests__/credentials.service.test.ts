@@ -1646,7 +1646,7 @@ describe('CredentialsService', () => {
 				);
 
 				await expect(service.createUnmanagedCredential(payload, ownerUser)).rejects.toThrow(
-					'The secret providers "outsideProvider", "anotherOutsideProvider" do not exist in this project',
+					'The secret providers "outsideProvider" (used in "apiKey"), "anotherOutsideProvider" (used in "anotherApiKey") do not exist in this project',
 				);
 			});
 
@@ -1801,7 +1801,7 @@ describe('CredentialsService', () => {
 				);
 
 				await expect(service.prepareUpdateData(ownerUser, payload, currentData)).rejects.toThrow(
-					'The secret providers "outsideProvider", "anotherOutsideProvider" do not exist in this project',
+					'The secret providers "outsideProvider" (used in "apiKey"), "anotherOutsideProvider" (used in "anotherApiKey") do not exist in this project',
 				);
 			});
 
