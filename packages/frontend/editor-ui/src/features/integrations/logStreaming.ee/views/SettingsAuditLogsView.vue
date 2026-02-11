@@ -5,9 +5,9 @@ import { getAuditLogs } from '@n8n/rest-api-client';
 import { useDocumentTitle } from '@/app/composables/useDocumentTitle';
 import { useI18n } from '@n8n/i18n';
 import { useRootStore } from '@n8n/stores/useRootStore';
+import { useUsersStore } from '@/features/settings/users/users.store';
 import { useDebounce } from '@/app/composables/useDebounce';
 import ResourcesListLayout from '@/app/components/layouts/ResourcesListLayout.vue';
-import AuditLogPayload from '../components/AuditLogPayload.vue';
 import type { BaseFilters, DatatableColumn } from '@/Interface';
 import { ElDatePicker } from 'element-plus';
 import {
@@ -16,9 +16,9 @@ import {
 	N8nSelect,
 	N8nOption,
 	N8nText,
-	N8nInput,
 	N8nCheckbox,
 	N8nTooltip,
+	N8nBadge,
 } from '@n8n/design-system';
 
 interface AuditLogResource extends AuditLogEvent {
@@ -31,9 +31,12 @@ interface AuditLogFilters extends BaseFilters {
 	userId: string;
 }
 
+const DATE_TIME_MASK = 'YYYY-MM-DD HH:mm';
+
 const documentTitle = useDocumentTitle();
 const i18n = useI18n();
 const rootStore = useRootStore();
+const usersStore = useUsersStore();
 const { debounce } = useDebounce();
 
 const auditLogs = ref<AuditLogResource[]>([]);
@@ -49,7 +52,9 @@ const filters = ref<AuditLogFilters>({
 	userId: '',
 });
 
-const dateRange = ref<[Date, Date] | null>(null);
+const startDate = ref('');
+const endDate = ref('');
+const userFilter = ref('');
 
 // Pagination state
 const currentPage = ref(1);
@@ -107,16 +112,16 @@ const columns = computed<DatatableColumn[]>(() => [
 		label: i18n.baseText('settings.auditLogs.table.header.user'),
 		classes: ['audit-log-user-column'],
 	},
-	{
-		id: 3,
-		path: 'payload',
-		label: i18n.baseText('settings.auditLogs.table.header.details'),
-		classes: ['audit-log-details-column'],
-	},
 ]);
 
+function prettifyEventName(eventName: string): string {
+	const label = eventName.replace('n8n.audit.', '');
+	if (label.length === 0) return eventName;
+	return label[0].toUpperCase() + label.substring(1).replaceAll('.', ' ');
+}
+
 function displayName(log: AuditLogResource): string {
-	return log.eventName;
+	return prettifyEventName(log.eventName);
 }
 
 function formatEventName(eventName: string): string {
@@ -166,10 +171,8 @@ async function fetchAuditLogs() {
 		if (filters.value.eventName) filterParams.eventName = filters.value.eventName;
 		if (filters.value.userId) filterParams.userId = filters.value.userId;
 
-		if (dateRange.value && dateRange.value.length === 2) {
-			filterParams.after = dateRange.value[0].toISOString();
-			filterParams.before = dateRange.value[1].toISOString();
-		}
+		if (startDate.value) filterParams.after = new Date(startDate.value).toISOString();
+		if (endDate.value) filterParams.before = new Date(endDate.value).toISOString();
 
 		// Add pagination parameters
 		filterParams.skip = (currentPage.value - 1) * pageSize.value;
@@ -232,8 +235,9 @@ watch(autoRefresh, (enabled) => {
 	}
 });
 
-onMounted(() => {
+onMounted(async () => {
 	documentTitle.set(i18n.baseText('settings.auditLogs.heading'));
+	await usersStore.fetchUsers();
 });
 
 onBeforeUnmount(() => {
@@ -394,6 +398,23 @@ onBeforeUnmount(() => {
 	font-family: var(--font-family--monospace, 'Courier New', monospace);
 }
 
+.infoBadge {
+	cursor: help;
+	flex-shrink: 0;
+}
+
+.jsonTooltip {
+	margin: 0;
+	padding: var(--spacing--sm);
+	font-size: var(--font-size--sm);
+	line-height: var(--line-height--xl);
+	white-space: pre;
+	font-family: var(--font-family--monospace, 'Courier New', monospace);
+	min-width: 450px;
+	max-height: 500px;
+	overflow: auto;
+}
+
 .userCell {
 	display: flex;
 	flex-direction: column;
@@ -402,5 +423,49 @@ onBeforeUnmount(() => {
 
 .userEmail {
 	font-size: var(--font-size--2xs);
+}
+
+.dates {
+	display: flex;
+	border: 1px solid var(--color--foreground);
+	border-radius: var(--radius);
+	white-space: nowrap;
+	align-items: center;
+}
+
+.divider {
+	padding: 0 var(--spacing--2xs);
+	line-height: 100%;
+}
+</style>
+
+<style lang="scss">
+.n8n-tooltip.audit-log-payload-tooltip {
+	max-width: none;
+	padding: 0;
+}
+</style>
+
+<style lang="scss" scoped>
+:deep(.el-date-editor) {
+	input {
+		height: 36px;
+		border: 0;
+		padding-right: 0;
+	}
+
+	.el-input__prefix {
+		color: var(--color--foreground--shade-1);
+	}
+
+	&:last-of-type {
+		input {
+			padding-left: 0;
+		}
+
+		.el-input__prefix {
+			display: none;
+		}
+	}
 }
 </style>

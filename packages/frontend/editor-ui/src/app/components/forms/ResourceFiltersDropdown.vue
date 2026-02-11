@@ -202,6 +202,7 @@ onBeforeMount(async () => {
 
 .filters-dropdown {
 	width: 280px;
+	max-width: 100%;
 }
 
 .filters-dropdown-footer {
