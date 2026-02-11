@@ -1,6 +1,6 @@
 import { LICENSE_FEATURES } from '@n8n/constants';
 import type { ModuleInterface } from '@n8n/decorators';
-import { BackendModule } from '@n8n/decorators';
+import { BackendModule, OnShutdown } from '@n8n/decorators';
 import { Container } from '@n8n/di';
 
 /**
@@ -24,6 +24,15 @@ export class LogStreamingModule implements ModuleInterface {
 		const destinationService = Container.get(LogStreamingDestinationService);
 		await destinationService.loadDestinationsFromDb();
 		await destinationService.initialize();
+
+		const { AuditLogPruningService } = await import('./audit-log-pruning.service');
+		Container.get(AuditLogPruningService).init();
+	}
+
+	@OnShutdown()
+	async shutdown() {
+		const { AuditLogPruningService } = await import('./audit-log-pruning.service');
+		Container.get(AuditLogPruningService).shutdown();
 	}
 
 	async entities() {
