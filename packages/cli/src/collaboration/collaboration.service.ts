@@ -38,13 +38,14 @@ export class CollaborationService {
 	init() {
 		this.push.on('message', async (event: OnPushMessage) => {
 			try {
-				await this.handleUserMessage(event.userId, event.msg);
+				await this.handleUserMessage(event.userId, event.pushRef, event.msg);
 			} catch (error) {
 				this.errorReporter.error(
 					new UnexpectedError('Error handling CollaborationService push message', {
 						extra: {
 							msg: event.msg,
 							userId: event.userId,
+							pushRef: event.pushRef,
 						},
 						cause: error,
 					}),
@@ -53,23 +54,27 @@ export class CollaborationService {
 		});
 	}
 
-	async handleUserMessage(userId: User['id'], msg: unknown) {
+	async handleUserMessage(userId: User['id'], clientId: string, msg: unknown) {
 		const workflowMessage = await parseWorkflowMessage(msg);
 
 		if (workflowMessage.type === 'workflowOpened') {
-			await this.handleWorkflowOpened(userId, workflowMessage);
+			await this.handleWorkflowOpened(userId, clientId, workflowMessage);
 		} else if (workflowMessage.type === 'workflowClosed') {
-			await this.handleWorkflowClosed(userId, workflowMessage);
+			await this.handleWorkflowClosed(userId, clientId, workflowMessage);
 		} else if (workflowMessage.type === 'writeAccessRequested') {
-			await this.handleWriteAccessRequested(userId, workflowMessage);
+			await this.handleWriteAccessRequested(userId, clientId, workflowMessage);
 		} else if (workflowMessage.type === 'writeAccessReleaseRequested') {
-			await this.handleWriteAccessReleaseRequested(userId, workflowMessage);
+			await this.handleWriteAccessReleaseRequested(userId, clientId, workflowMessage);
 		} else if (workflowMessage.type === 'writeAccessHeartbeat') {
-			await this.handleWriteAccessHeartbeat(userId, workflowMessage);
+			await this.handleWriteAccessHeartbeat(userId, clientId, workflowMessage);
 		}
 	}
 
-	private async handleWorkflowOpened(userId: User['id'], msg: WorkflowOpenedMessage) {
+	private async handleWorkflowOpened(
+		userId: User['id'],
+		_clientId: string,
+		msg: WorkflowOpenedMessage,
+	) {
 		const { workflowId } = msg;
 
 		if (!(await this.accessService.hasReadAccess(userId, workflowId))) {
@@ -81,7 +86,11 @@ export class CollaborationService {
 		await this.sendWorkflowUsersChangedMessage(workflowId);
 	}
 
-	private async handleWorkflowClosed(userId: User['id'], msg: WorkflowClosedMessage) {
+	private async handleWorkflowClosed(
+		userId: User['id'],
+		_clientId: string,
+		msg: WorkflowClosedMessage,
+	) {
 		const { workflowId } = msg;
 
 		if (!(await this.accessService.hasReadAccess(userId, workflowId))) {
@@ -122,7 +131,11 @@ export class CollaborationService {
 		this.push.sendToUsers({ type: 'collaboratorsChanged', data: msgData }, userIds);
 	}
 
-	private async handleWriteAccessRequested(userId: User['id'], msg: WriteAccessRequestedMessage) {
+	private async handleWriteAccessRequested(
+		userId: User['id'],
+		_clientId: string,
+		msg: WriteAccessRequestedMessage,
+	) {
 		const { workflowId } = msg;
 
 		if (!(await this.accessService.hasWriteAccess(userId, workflowId))) {
@@ -142,6 +155,7 @@ export class CollaborationService {
 
 	private async handleWriteAccessReleaseRequested(
 		userId: User['id'],
+		_clientId: string,
 		msg: WriteAccessReleaseRequestedMessage,
 	) {
 		const { workflowId } = msg;
@@ -156,7 +170,11 @@ export class CollaborationService {
 		await this.sendWriteAccessReleasedMessage(workflowId);
 	}
 
-	private async handleWriteAccessHeartbeat(userId: User['id'], msg: WriteAccessHeartbeatMessage) {
+	private async handleWriteAccessHeartbeat(
+		userId: User['id'],
+		_clientId: string,
+		msg: WriteAccessHeartbeatMessage,
+	) {
 		const { workflowId } = msg;
 
 		// Renew the write lock TTL if the user holds it

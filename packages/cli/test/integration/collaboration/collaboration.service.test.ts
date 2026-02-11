@@ -59,7 +59,7 @@ describe('CollaborationService', () => {
 			workflowId,
 		};
 
-		return await collaborationService.handleUserMessage(userId, openMessage);
+		return await collaborationService.handleUserMessage(userId, 'test-client-id', openMessage);
 	};
 
 	const sendWorkflowClosedMessage = async (workflowId: string, userId: string) => {
@@ -68,7 +68,7 @@ describe('CollaborationService', () => {
 			workflowId,
 		};
 
-		return await collaborationService.handleUserMessage(userId, openMessage);
+		return await collaborationService.handleUserMessage(userId, 'test-client-id', openMessage);
 	};
 
 	const sendWriteAccessRequestedMessage = async (workflowId: string, userId: string) => {
@@ -77,7 +77,7 @@ describe('CollaborationService', () => {
 			workflowId,
 		};
 
-		return await collaborationService.handleUserMessage(userId, message);
+		return await collaborationService.handleUserMessage(userId, 'test-client-id', message);
 	};
 
 	const sendWriteAccessReleaseRequestedMessage = async (workflowId: string, userId: string) => {
@@ -86,7 +86,7 @@ describe('CollaborationService', () => {
 			workflowId,
 		};
 
-		return await collaborationService.handleUserMessage(userId, message);
+		return await collaborationService.handleUserMessage(userId, 'test-client-id', message);
 	};
 
 	describe('workflow opened message', () => {
