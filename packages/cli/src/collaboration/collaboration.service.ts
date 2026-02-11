@@ -88,7 +88,7 @@ export class CollaborationService {
 
 	private async handleWorkflowClosed(
 		userId: User['id'],
-		_clientId: string,
+		clientId: string,
 		msg: WorkflowClosedMessage,
 	) {
 		const { workflowId } = msg;
@@ -99,7 +99,7 @@ export class CollaborationService {
 
 		// If the user closing the workflow holds the write lock, release it
 		const currentLockHolder = await this.state.getWriteLock(workflowId);
-		if (currentLockHolder === userId) {
+		if (currentLockHolder === clientId) {
 			await this.state.releaseWriteLock(workflowId);
 			await this.sendWriteAccessReleasedMessage(workflowId);
 		}
@@ -133,7 +133,7 @@ export class CollaborationService {
 
 	private async handleWriteAccessRequested(
 		userId: User['id'],
-		_clientId: string,
+		clientId: string,
 		msg: WriteAccessRequestedMessage,
 	) {
 		const { workflowId } = msg;
@@ -144,25 +144,25 @@ export class CollaborationService {
 
 		// Check if someone else already holds the write lock
 		const currentLockHolder = await this.state.getWriteLock(workflowId);
-		if (currentLockHolder && currentLockHolder !== userId) {
+		if (currentLockHolder && currentLockHolder !== clientId) {
 			return;
 		}
 
-		await this.state.setWriteLock(workflowId, userId);
+		await this.state.setWriteLock(workflowId, clientId);
 
 		await this.sendWriteAccessAcquiredMessage(workflowId, userId);
 	}
 
 	private async handleWriteAccessReleaseRequested(
-		userId: User['id'],
-		_clientId: string,
+		_userId: User['id'],
+		clientId: string,
 		msg: WriteAccessReleaseRequestedMessage,
 	) {
 		const { workflowId } = msg;
 
 		const currentLockHolder = await this.state.getWriteLock(workflowId);
 
-		if (currentLockHolder !== userId) {
+		if (currentLockHolder !== clientId) {
 			return;
 		}
 
@@ -171,14 +171,14 @@ export class CollaborationService {
 	}
 
 	private async handleWriteAccessHeartbeat(
-		userId: User['id'],
-		_clientId: string,
+		_userId: User['id'],
+		clientId: string,
 		msg: WriteAccessHeartbeatMessage,
 	) {
 		const { workflowId } = msg;
 
-		// Renew the write lock TTL if the user holds it
-		await this.state.renewWriteLock(workflowId, userId);
+		// Renew the write lock TTL if the client holds it
+		await this.state.renewWriteLock(workflowId, clientId);
 	}
 
 	private async sendWriteAccessAcquiredMessage(workflowId: Workflow['id'], userId: User['id']) {
@@ -236,7 +236,7 @@ export class CollaborationService {
 	 * after page refresh, since write-lock is persisted in backend cache
 	 * but lost in frontend memory
 	 */
-	async getWriteLock(userId: User['id'], workflowId: Workflow['id']): Promise<User['id'] | null> {
+	async getWriteLock(userId: User['id'], workflowId: Workflow['id']): Promise<string | null> {
 		if (!(await this.accessService.hasReadAccess(userId, workflowId))) {
 			return null;
 		}

@@ -114,24 +114,24 @@ export class CollaborationState {
 	 */
 	readonly writeLockTtl = 2 * Time.minutes.toMilliseconds;
 
-	async setWriteLock(workflowId: Workflow['id'], userId: User['id']) {
+	async setWriteLock(workflowId: Workflow['id'], clientId: string) {
 		const cacheKey = this.formWriteLockCacheKey(workflowId);
-		await this.cache.set(cacheKey, userId, this.writeLockTtl);
+		await this.cache.set(cacheKey, clientId, this.writeLockTtl);
 	}
 
-	async renewWriteLock(workflowId: Workflow['id'], userId: User['id']) {
+	async renewWriteLock(workflowId: Workflow['id'], clientId: string) {
 		const cacheKey = this.formWriteLockCacheKey(workflowId);
 		const currentHolder = await this.getWriteLock(workflowId);
 
-		if (currentHolder === userId) {
-			await this.cache.set(cacheKey, userId, this.writeLockTtl);
+		if (currentHolder === clientId) {
+			await this.cache.set(cacheKey, clientId, this.writeLockTtl);
 		}
 	}
 
-	async getWriteLock(workflowId: Workflow['id']): Promise<User['id'] | null> {
+	async getWriteLock(workflowId: Workflow['id']): Promise<string | null> {
 		const cacheKey = this.formWriteLockCacheKey(workflowId);
-		const userId = await this.cache.get<User['id']>(cacheKey);
-		return userId ?? null;
+		const clientId = await this.cache.get<string>(cacheKey);
+		return clientId ?? null;
 	}
 
 	async releaseWriteLock(workflowId: Workflow['id']) {
