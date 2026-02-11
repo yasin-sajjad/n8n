@@ -1287,7 +1287,11 @@ Respond the title only:`,
 			(node) => node.type === CHAT_NODE_TYPE,
 		);
 
-		if (chatResponseNodes.length > 0 && responseMode !== 'responseNodes') {
+		if (
+			chatResponseNodes.length > 0 &&
+			responseMode !== 'responseNodes' &&
+			scheduledTriggerResponseMode !== 'responseNodes'
+		) {
 			throw new BadRequestError(
 				'Chat nodes are not supported with the selected response mode. Please set the response mode to "Using Response Nodes" or remove the nodes from the workflow.',
 			);

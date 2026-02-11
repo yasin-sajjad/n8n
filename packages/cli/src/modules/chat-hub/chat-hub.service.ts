@@ -769,6 +769,10 @@ export class ChatHubService {
 		humanMessage: string,
 		processedAttachments: IBinaryData[],
 	) {
+		if (!workflow.responseMode) {
+			return;
+		}
+
 		await this.chatHubExecutionService.executeChatWorkflowWithCleanup(
 			user,
 			model,
@@ -779,7 +783,7 @@ export class ChatHubService {
 			retryOfMessageId,
 			// responseMode is guaranteed non-null here because sendHumanMessage
 			// throws before calling this method when responseMode is null
-			workflow.responseMode!,
+			workflow.responseMode,
 		);
 
 		// Generate title for the session on receiving the first human message

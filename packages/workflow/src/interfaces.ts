@@ -1165,6 +1165,8 @@ export interface ILoadOptionsFunctions extends FunctionsBase {
 	): NodeParameterValueType | object | undefined;
 	getCurrentNodeParameters(): INodeParameters | undefined;
 
+	getInternalUsers(filter?: string): Promise<INodeListSearchResult>;
+
 	helpers: RequestHelperFunctions & SSHTunnelFunctions & DataTableProxyFunctions;
 }
 
@@ -2916,6 +2918,7 @@ export interface IWorkflowExecuteAdditionalData {
 		executeData?: IExecuteData,
 	): Promise<Result<T, E>>;
 	getRunnerStatus?(taskType: string): { available: true } | { available: false; reason?: string };
+	listInternalUsers?: (filter?: string) => Promise<INodeListSearchResult>;
 }
 
 export type WorkflowActivateMode =

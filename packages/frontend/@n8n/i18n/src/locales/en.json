@@ -1783,6 +1783,8 @@
 	"nodeCreator.triggerHelperPanel.manualChatTriggerDescription": "Runs the flow when a user sends a chat message. For use with AI nodes",
 	"nodeCreator.triggerHelperPanel.chatTriggerDisplayName": "On chat message",
 	"nodeCreator.triggerHelperPanel.chatTriggerDescription": "Runs the flow when a user sends a chat message. For use with AI nodes",
+	"nodeCreator.triggerHelperPanel.scheduledChatTriggerDisplayName": "Start a chat on a schedule",
+	"nodeCreator.triggerHelperPanel.scheduledChatTriggerDescription": "Runs the flow on a schedule, and starts a new Chat hub conversation each time.",
 	"nodeCreator.triggerHelperPanel.whatHappensNext": "What happens next?",
 	"nodeCreator.triggerHelperPanel.selectATrigger": "What triggers this workflow?",
 	"nodeCreator.triggerHelperPanel.selectATriggerDescription": "A trigger is a step that starts your workflow",

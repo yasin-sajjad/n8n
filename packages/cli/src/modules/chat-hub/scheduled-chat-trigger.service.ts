@@ -4,6 +4,7 @@ import { UserRepository } from '@n8n/db';
 import { Service } from '@n8n/di';
 import type {
 	INode,
+	INodeParameters,
 	IWorkflowBase,
 	IWorkflowExecuteAdditionalData,
 	WorkflowExecuteMode,
@@ -12,6 +13,7 @@ import { createRunExecutionData, NodeConnectionTypes, OperationalError } from 'n
 import { v4 as uuidv4 } from 'uuid';
 
 import { WorkflowExecutionService } from '@/workflows/workflow-execution.service';
+import { WorkflowFinderService } from '@/workflows/workflow-finder.service';
 
 import { ChatHubExecutionStore } from './chat-hub-execution-store.service';
 import type { NonStreamingResponseMode } from './chat-hub.types';
@@ -29,6 +31,7 @@ export class ScheduledChatTriggerService {
 		private readonly chatHubExecutionStore: ChatHubExecutionStore,
 		private readonly chatStreamService: ChatStreamService,
 		private readonly workflowExecutionService: WorkflowExecutionService,
+		private readonly workflowFinderService: WorkflowFinderService,
 	) {
 		this.logger = this.logger.scoped('chat-hub');
 	}
@@ -39,7 +42,12 @@ export class ScheduledChatTriggerService {
 		_additionalData: IWorkflowExecuteAdditionalData,
 		_mode: WorkflowExecuteMode,
 	): Promise<void> {
-		const targetUserId = node.parameters.targetUserId as string;
+		const rawTargetUserId = node.parameters.targetUserId;
+		const targetUserId = (
+			typeof rawTargetUserId === 'object'
+				? (rawTargetUserId as INodeParameters).value
+				: rawTargetUserId
+		) as string;
 		const responseMode = (node.parameters.responseMode as NonStreamingResponseMode) ?? 'lastNode';
 
 		if (!targetUserId) {
@@ -49,10 +57,28 @@ export class ScheduledChatTriggerService {
 			return;
 		}
 
-		const user = await this.userRepository.findOneBy({ id: targetUserId });
+		const user = await this.userRepository.findOne({
+			where: { id: targetUserId },
+			relations: ['role'],
+		});
 		if (!user) {
 			this.logger.error(
 				`Scheduled Chat Trigger: user "${targetUserId}" not found. Skipping execution.`,
+				{ workflowId: workflowData.id },
+			);
+			return;
+		}
+
+		const hasAccess = await this.workflowFinderService.findWorkflowForUser(
+			workflowData.id,
+			user,
+			['workflow:execute-chat'],
+			{ includeTags: false, includeParentFolder: false, includeActiveVersion: false },
+		);
+
+		if (!hasAccess) {
+			this.logger.error(
+				`Scheduled Chat Trigger: user "${targetUserId}" does not have execute-chat access to workflow "${workflowData.id}". Skipping.`,
 				{ workflowId: workflowData.id },
 			);
 			return;

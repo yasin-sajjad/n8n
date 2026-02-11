@@ -5,7 +5,8 @@
 import type { PushMessage, PushType } from '@n8n/api-types';
 import { Logger, ModuleRegistry } from '@n8n/backend-common';
 import { GlobalConfig } from '@n8n/config';
-import { ExecutionRepository, WorkflowRepository } from '@n8n/db';
+import { ExecutionRepository, UserRepository, WorkflowRepository } from '@n8n/db';
+import { hasGlobalScope } from '@n8n/permissions';
 import { Container } from '@n8n/di';
 import { ExternalSecretsProxy, WorkflowExecute } from 'n8n-core';
 import { UnexpectedError, Workflow, createRunExecutionData } from 'n8n-workflow';
@@ -534,6 +535,41 @@ export async function getBase({
 		logAiEvent: (eventName: keyof AiEventMap, payload: AiEventPayload) =>
 			eventService.emit(eventName, payload),
 		getRunnerStatus: (taskType: string) => Container.get(TaskRequester).getRunnerStatus(taskType),
+		async listInternalUsers(filter?: string) {
+			const userRepository = Container.get(UserRepository);
+
+			if (userId) {
+				const requestingUser = await userRepository.findOne({
+					where: { id: userId },
+					relations: ['role'],
+				});
+				if (requestingUser && !hasGlobalScope(requestingUser, 'user:list')) {
+					return { results: [] };
+				}
+			}
+
+			const users = await userRepository.find({
+				select: ['id', 'firstName', 'lastName', 'email'],
+			});
+
+			const results = users
+				.filter(
+					(u) =>
+						!filter ||
+						`${u.firstName ?? ''} ${u.lastName ?? ''}`
+							.toLowerCase()
+							.includes(filter.toLowerCase()) ||
+						u.email?.toLowerCase().includes(filter.toLowerCase()),
+				)
+				.map((u) => {
+					const fullName = `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim();
+					const name =
+						fullName && u.email ? `${fullName} <${u.email}>` : fullName || u.email || u.id;
+					return { name, value: u.id };
+				});
+
+			return { results };
+		},
 	};
 
 	for (const [moduleName, moduleContext] of Container.get(ModuleRegistry).context.entries()) {

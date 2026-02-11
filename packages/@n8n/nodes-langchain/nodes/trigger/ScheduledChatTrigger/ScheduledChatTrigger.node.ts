@@ -1,6 +1,8 @@
 import { sendAt } from 'cron';
 import type {
 	ITriggerFunctions,
+	ILoadOptionsFunctions,
+	INodeListSearchResult,
 	INodeType,
 	INodeTypeDescription,
 	ITriggerResponse,
@@ -38,18 +40,34 @@ export class ScheduledChatTrigger implements INodeType {
 		properties: [
 			{
 				displayName:
-					'This workflow will create a new chat hub session on the schedule you define here once you publish it.',
+					'This workflow will initiate a new Chat hub conversation on the schedule you define here once you publish it.',
 				name: 'notice',
 				type: 'notice',
 				default: '',
 			},
 			{
-				displayName: 'Target User ID',
+				displayName: 'Target User',
 				name: 'targetUserId',
-				type: 'string',
+				type: 'resourceLocator',
 				required: true,
-				default: '',
-				description: 'The ID of the user who will receive the scheduled chat session',
+				default: { mode: 'list', value: '' },
+				description: 'The user who will receive the scheduled chat session',
+				modes: [
+					{
+						displayName: 'From List',
+						name: 'list',
+						type: 'list',
+						typeOptions: {
+							searchListMethod: 'searchUsers',
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'e.g. d7a1b2c3-...',
+					},
+				],
 			},
 			{
 				displayName: 'Response Mode',
@@ -348,6 +366,17 @@ export class ScheduledChatTrigger implements INodeType {
 				],
 			},
 		],
+	};
+
+	methods = {
+		listSearch: {
+			async searchUsers(
+				this: ILoadOptionsFunctions,
+				filter?: string,
+			): Promise<INodeListSearchResult> {
+				return await this.getInternalUsers(filter);
+			},
+		},
 	};
 
 	async trigger(this: ITriggerFunctions): Promise<ITriggerResponse> {

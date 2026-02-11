@@ -70,7 +70,12 @@ import type { BaseTextKey } from '@n8n/i18n';
 import { useI18n } from '@n8n/i18n';
 import camelCase from 'lodash/camelCase';
 import type { INodeTypeDescription, NodeConnectionType, Themed } from 'n8n-workflow';
-import { EVALUATION_TRIGGER_NODE_TYPE, isHitlToolType, NodeConnectionTypes } from 'n8n-workflow';
+import {
+	EVALUATION_TRIGGER_NODE_TYPE,
+	isHitlToolType,
+	NodeConnectionTypes,
+	SCHEDULED_CHAT_TRIGGER_NODE_TYPE,
+} from 'n8n-workflow';
 import { getAiTemplatesCallout } from '../nodeCreator.utils';
 
 export interface NodeViewItemSection {
@@ -464,6 +469,22 @@ export function TriggerView() {
 					displayName: i18n.baseText('nodeCreator.triggerHelperPanel.chatTriggerDisplayName'),
 					description: i18n.baseText('nodeCreator.triggerHelperPanel.chatTriggerDescription'),
 					icon: 'fa:comments',
+				},
+			},
+			{
+				key: SCHEDULED_CHAT_TRIGGER_NODE_TYPE,
+				type: 'node',
+				category: [CORE_NODES_CATEGORY],
+				properties: {
+					group: [],
+					name: SCHEDULED_CHAT_TRIGGER_NODE_TYPE,
+					displayName: i18n.baseText(
+						'nodeCreator.triggerHelperPanel.scheduledChatTriggerDisplayName',
+					),
+					description: i18n.baseText(
+						'nodeCreator.triggerHelperPanel.scheduledChatTriggerDescription',
+					),
+					icon: 'fa:clock',
 				},
 			},
 			...(evaluationTriggerNode ? [evaluationTriggerNode] : []),

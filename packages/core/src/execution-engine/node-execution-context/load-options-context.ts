@@ -4,6 +4,7 @@ import type {
 	IGetNodeParameterOptions,
 	INode,
 	ILoadOptionsFunctions,
+	INodeListSearchResult,
 	IWorkflowExecuteAdditionalData,
 	NodeParameterValueType,
 	Workflow,
@@ -68,5 +69,12 @@ export class LoadOptionsContext extends NodeExecutionContext implements ILoadOpt
 
 	getCurrentNodeParameters() {
 		return this.additionalData.currentNodeParameters;
+	}
+
+	async getInternalUsers(filter?: string): Promise<INodeListSearchResult> {
+		if (!this.additionalData.listInternalUsers) {
+			return { results: [] };
+		}
+		return await this.additionalData.listInternalUsers(filter);
 	}
 }
