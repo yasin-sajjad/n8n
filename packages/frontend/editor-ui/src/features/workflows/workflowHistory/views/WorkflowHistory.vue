@@ -7,6 +7,7 @@ import {
 	WORKFLOW_HISTORY_VERSION_UNPUBLISH,
 	WORKFLOW_HISTORY_PUBLISH_MODAL_KEY,
 	WORKFLOW_HISTORY_NAME_VERSION_MODAL_KEY,
+	WORKFLOW_HISTORY_GRADUAL_PUBLISH_MODAL_KEY,
 	EnterpriseEditionFeature,
 } from '@/app/constants';
 import { useI18n } from '@n8n/i18n';
@@ -23,6 +24,7 @@ import WorkflowHistoryContent from '../components/WorkflowHistoryContent.vue';
 import { useWorkflowHistoryStore } from '../workflowHistory.store';
 import { useUIStore } from '@/app/stores/ui.store';
 import { useWorkflowsListStore } from '@/app/stores/workflowsList.store';
+import { useWorkflowsStore } from '@/app/stores/workflows.store';
 import { useSettingsStore } from '@/app/stores/settings.store';
 import { telemetry } from '@/app/plugins/telemetry';
 import { useRootStore } from '@n8n/stores/useRootStore';
@@ -36,6 +38,7 @@ import { createEventBus } from '@n8n/utils/event-bus';
 import type { WorkflowHistoryVersionUnpublishModalEventBusEvents } from '../components/WorkflowHistoryVersionUnpublishModal.vue';
 import type { WorkflowVersionFormModalEventBusEvents } from '../components/WorkflowVersionFormModal.vue';
 import type { WorkflowHistoryAction } from '@/features/workflows/workflowHistory/types';
+import type { WorkflowHistoryGradualPublishModalEventBusEvents } from '@/features/workflows/workflowHistory/components/WorkflowHistoryGradualPublishModal.vue';
 import { useUsersStore } from '@/features/settings/users/users.store';
 
 type WorkflowHistoryActionRecord = {
@@ -45,6 +48,7 @@ type WorkflowHistoryActionRecord = {
 const workflowHistoryActionTypes: WorkflowHistoryActionTypes = [
 	'restore',
 	'publish',
+	'publish-gradually',
 	'unpublish',
 	'name',
 	'clone',
@@ -64,6 +68,7 @@ const pageRedirectionHelper = usePageRedirectionHelper();
 const workflowHistoryStore = useWorkflowHistoryStore();
 const uiStore = useUIStore();
 const workflowsListStore = useWorkflowsListStore();
+const workflowsStore = useWorkflowsStore();
 const usersStore = useUsersStore();
 const settingsStore = useSettingsStore();
 const workflowActivate = useWorkflowActivate();
@@ -112,7 +117,9 @@ const actions = computed<Array<UserAction<IUser>>>(() =>
 		disabled:
 			(value === 'clone' && !workflowPermissions.value.create) ||
 			((value === 'restore' || value === 'name') && !workflowPermissions.value.update) ||
-			((value === 'publish' || value === 'unpublish') && !workflowPermissions.value.publish),
+			((value === 'publish' || value === 'unpublish') && !workflowPermissions.value.publish) ||
+			(value === 'publish-gradually' &&
+				(!workflowPermissions.value.publish || workflowsStore.isGradualRolloutMaxVersionsReached)),
 		value,
 	})),
 );
@@ -126,6 +133,29 @@ const sendTelemetry = (event: string) => {
 	});
 };
 
+const updateGradualRolloutInfo = () => {
+	const rolloutVersionId = activeWorkflow.value?.gradualRolloutVersionId;
+	const rolloutPercentage = activeWorkflow.value?.gradualRolloutPercentage;
+	const activeVersionId = activeWorkflow.value?.activeVersion?.versionId;
+
+	for (const item of workflowHistory.value) {
+		if (rolloutVersionId && rolloutPercentage !== undefined && rolloutPercentage !== null) {
+			// Gradual rollout is active
+			if (item.versionId === rolloutVersionId) {
+				// Rollout version gets its percentage
+				item.gradualRolloutPercentage = rolloutPercentage;
+			} else if (item.versionId === activeVersionId) {
+				// Active version gets the remaining percentage
+				item.gradualRolloutPercentage = 100 - rolloutPercentage;
+			} else {
+				item.gradualRolloutPercentage = undefined;
+			}
+		} else {
+			item.gradualRolloutPercentage = undefined;
+		}
+	}
+};
+
 const loadMore = async (queryParams: WorkflowHistoryRequestParams) => {
 	const history = await workflowHistoryStore.getWorkflowHistory(workflowId.value, queryParams);
 	lastReceivedItemsLength.value = history.length;
@@ -135,6 +165,7 @@ const loadMore = async (queryParams: WorkflowHistoryRequestParams) => {
 	const userIdsToFetch = new Set<string>(userIds);
 	await usersStore.fetchUsers({ filter: { ids: Array.from(userIdsToFetch) } });
 	workflowHistory.value = workflowHistory.value.concat(history);
+	updateGradualRolloutInfo();
 };
 
 onBeforeMount(async () => {
@@ -145,6 +176,7 @@ onBeforeMount(async () => {
 			loadMore({ take: requestNumberOfItems.value }),
 		]);
 		activeWorkflow.value = workflow;
+		updateGradualRolloutInfo();
 		isListLoading.value = false;
 
 		if (!versionId.value && workflowHistory.value.length) {
@@ -394,6 +426,63 @@ const nameWorkflowVersion = async (id: WorkflowVersionId, data: WorkflowHistoryA
 	});
 };
 
+const gradualPublishWorkflowVersion = (
+	id: WorkflowVersionId,
+	data: WorkflowHistoryAction['data'],
+) => {
+	const gradualPublishEventBus = createEventBus<WorkflowHistoryGradualPublishModalEventBusEvents>();
+	const modalData = ref({
+		versionId: id,
+		versionName: data.versionName,
+		description: data.description,
+		submitting: false,
+		eventBus: gradualPublishEventBus,
+	});
+
+	gradualPublishEventBus.once(
+		'submit',
+		async (submitData: {
+			versionId: string;
+			percentage: number;
+			name: string;
+			description: string;
+		}) => {
+			modalData.value.submitting = true;
+
+			try {
+				const { success } = await workflowActivate.gradualPublishWorkflow(workflowId.value, {
+					versionId: submitData.versionId,
+					percentage: submitData.percentage,
+					name: submitData.name,
+					description: submitData.description,
+				});
+
+				if (success) {
+					// Update the history list with the new name and description
+					const historyItem = workflowHistory.value.find(
+						(item) => item.versionId === submitData.versionId,
+					);
+					if (historyItem) {
+						historyItem.name = submitData.name;
+						historyItem.description = submitData.description;
+						historyItem.gradualRolloutPercentage = submitData.percentage;
+					}
+
+					sendTelemetry('User started gradual rollout from history');
+					uiStore.closeModal(WORKFLOW_HISTORY_GRADUAL_PUBLISH_MODAL_KEY);
+				}
+			} finally {
+				modalData.value.submitting = false;
+			}
+		},
+	);
+
+	uiStore.openModalWithData({
+		name: WORKFLOW_HISTORY_GRADUAL_PUBLISH_MODAL_KEY,
+		data: modalData.value,
+	});
+};
+
 const onAction = async ({ action, id, data }: WorkflowHistoryAction) => {
 	try {
 		switch (action) {
@@ -415,6 +504,10 @@ const onAction = async ({ action, id, data }: WorkflowHistoryAction) => {
 				break;
 			case WORKFLOW_HISTORY_ACTIONS.PUBLISH:
 				publishWorkflowVersion(id, data);
+				break;
+			case WORKFLOW_HISTORY_ACTIONS['PUBLISH-GRADUALLY']:
+				gradualPublishWorkflowVersion(id, data);
+				sendTelemetry('User opened gradual publish from history');
 				break;
 			case WORKFLOW_HISTORY_ACTIONS.UNPUBLISH:
 				unpublishWorkflowVersion(id, data);

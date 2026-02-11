@@ -86,6 +86,11 @@ import { useSettingsStore } from './settings.store';
 import { useNodeHelpers } from '@/app/composables/useNodeHelpers';
 import { useUsersStore } from '@/features/settings/users/users.store';
 import { updateCurrentUserSettings } from '@n8n/rest-api-client/api/users';
+import {
+	gradualPublishWorkflow as gradualPublishWorkflowApi,
+	removeGradualRollout as removeGradualRolloutApi,
+	type GradualRolloutState,
+} from '@n8n/rest-api-client/api/workflowHistory';
 import type { NodeExecuteBefore } from '@n8n/api-types/push/execution';
 import { isChatNode } from '@/app/utils/aiUtils';
 import { snapPositionToGrid } from '@/app/utils/nodeViewUtils';
@@ -139,6 +144,7 @@ export const useWorkflowsStore = defineStore(STORES.WORKFLOWS, () => {
 
 	const versionData = ref<WorkflowVersionData | null>(null);
 	const usedCredentials = ref<Record<string, IUsedCredential>>({});
+	const gradualRolloutState = ref<GradualRolloutState | null>(null);
 
 	const currentWorkflowExecutions = ref<ExecutionSummary[]>([]);
 	const workflowExecutionData = ref<IExecutionResponse | null>(null);
@@ -188,6 +194,16 @@ export const useWorkflowsStore = defineStore(STORES.WORKFLOWS, () => {
 	});
 
 	const isWorkflowActive = computed(() => workflow.value.activeVersionId !== null);
+
+	const isGradualRolloutActive = computed(
+		() =>
+			gradualRolloutState.value?.enabled === true && gradualRolloutState.value.versions.length > 0,
+	);
+
+	const isGradualRolloutMaxVersionsReached = computed(
+		() =>
+			gradualRolloutState.value?.enabled === true && gradualRolloutState.value.versions.length >= 2,
+	);
 
 	const workflowTriggerNodes = computed(() =>
 		workflow.value.nodes.filter((node: INodeUi) => {
@@ -646,6 +662,7 @@ export const useWorkflowsStore = defineStore(STORES.WORKFLOWS, () => {
 	function resetWorkflow() {
 		workflow.value = createEmptyWorkflow();
 		workflowChecksum.value = '';
+		gradualRolloutState.value = null;
 	}
 
 	function setUsedCredentials(data: IUsedCredential[]) {
@@ -1532,6 +1549,29 @@ export const useWorkflowsStore = defineStore(STORES.WORKFLOWS, () => {
 		return updatedWorkflow;
 	}
 
+	async function gradualPublishWorkflow(
+		id: string,
+		data: { versionId?: string; percentage: number; name?: string; description?: string },
+	): Promise<GradualRolloutState | null> {
+		const result = await gradualPublishWorkflowApi(rootStore.restApiContext, id, {
+			versionId: data.versionId,
+			percentage: data.percentage,
+			name: data.name ?? '',
+			description: data.description ?? '',
+		});
+		gradualRolloutState.value = result;
+		return result;
+	}
+
+	async function removeGradualRollout(id: string): Promise<void> {
+		await removeGradualRolloutApi(rootStore.restApiContext, id);
+		gradualRolloutState.value = null;
+	}
+
+	function clearGradualRolloutState(): void {
+		gradualRolloutState.value = null;
+	}
+
 	// Update a single workflow setting key while preserving existing settings
 	async function updateWorkflowSetting<K extends keyof IWorkflowSettings>(
 		id: string,
@@ -1829,6 +1869,9 @@ export const useWorkflowsStore = defineStore(STORES.WORKFLOWS, () => {
 		isNewWorkflow,
 		isWorkflowSaved,
 		isWorkflowActive,
+		isGradualRolloutActive,
+		isGradualRolloutMaxVersionsReached,
+		gradualRolloutState,
 		workflowTriggerNodes,
 		currentWorkflowHasWebhookNode,
 		getWorkflowRunData,
@@ -1912,6 +1955,9 @@ export const useWorkflowsStore = defineStore(STORES.WORKFLOWS, () => {
 		updateWorkflow,
 		publishWorkflow,
 		deactivateWorkflow,
+		gradualPublishWorkflow,
+		removeGradualRollout,
+		clearGradualRolloutState,
 		updateWorkflowSetting,
 		saveWorkflowDescription,
 		runWorkflow,

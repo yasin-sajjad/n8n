@@ -114,6 +114,14 @@ export function useWorkflowActivate() {
 
 			workflowsStore.setWorkflowActive(workflowId, updatedWorkflow.activeVersion, true);
 
+			// Always clear gradual rollout from database when publishing
+			// (backend handles case where there's no active rollout)
+			try {
+				await workflowsStore.removeGradualRollout(workflowId);
+			} catch {
+				// Ignore errors - rollout may not exist
+			}
+
 			if (workflowId === workflowsStore.workflowId) {
 				workflowsStore.setWorkflowVersionData(
 					{
@@ -198,9 +206,82 @@ export function useWorkflowActivate() {
 		}
 	};
 
+	const gradualPublishWorkflow = async (
+		workflowId: string,
+		options: { versionId?: string; percentage: number; name?: string; description?: string },
+	) => {
+		updatingWorkflowActivation.value = true;
+
+		collaborationStore.requestWriteAccess();
+
+		try {
+			if (options.percentage === 0) {
+				// Rollback: Remove gradual rollout, keep current active version
+				await workflowsStore.removeGradualRollout(workflowId);
+				toast.showMessage({
+					title: i18n.baseText('workflowHistory.gradualRollout.rollback.success.title'),
+					message: i18n.baseText('workflowHistory.gradualRollout.rollback.success.message'),
+					type: 'success',
+				});
+				return { success: true, gradualRolloutState: null };
+			} else if (options.percentage === 100) {
+				// Complete rollout: Promote rollout version to active, then clear gradual rollout
+				if (!options.versionId) {
+					throw new Error('Version ID is required to complete rollout');
+				}
+				const expectedChecksum =
+					workflowId === workflowsStore.workflowId ? workflowsStore.workflowChecksum : undefined;
+
+				await workflowsStore.publishWorkflow(workflowId, {
+					versionId: options.versionId,
+					name: options.name,
+					description: options.description,
+					expectedChecksum,
+				});
+				await workflowsStore.removeGradualRollout(workflowId);
+				toast.showMessage({
+					title: i18n.baseText('workflowHistory.gradualRollout.complete.success.title'),
+					message: i18n.baseText('workflowHistory.gradualRollout.complete.success.message'),
+					type: 'success',
+				});
+				return { success: true, gradualRolloutState: null };
+			} else {
+				// Start/adjust gradual rollout (1-99%)
+				const gradualRolloutState = await workflowsStore.gradualPublishWorkflow(workflowId, {
+					versionId: options.versionId,
+					percentage: options.percentage,
+					name: options.name,
+					description: options.description,
+				});
+				toast.showMessage({
+					title: i18n.baseText('workflowHistory.action.gradualPublish.success.title'),
+					message: i18n.baseText('workflowHistory.action.gradualPublish.success.message', {
+						interpolate: { percentage: String(options.percentage) },
+					}),
+					type: 'success',
+				});
+				return { success: true, gradualRolloutState };
+			}
+		} catch (error) {
+			if (isWebhookConflictError(error)) {
+				await handleWebhookConflictError(error);
+				return { success: false, errorHandled: true };
+			} else {
+				toast.showError(
+					error,
+					i18n.baseText('workflowHistory.action.gradualPublish.error.title') + ':',
+				);
+			}
+			return { success: false };
+		} finally {
+			updatingWorkflowActivation.value = false;
+		}
+	};
+
 	return {
 		updatingWorkflowActivation,
 		publishWorkflow,
 		unpublishWorkflowFromHistory,
+		gradualPublishWorkflow,
 	};
 }
