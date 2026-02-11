@@ -51,6 +51,7 @@ import {
 import { useCompleter } from '../components/CodeNodeEditor/completer';
 import { mappingDropCursor } from '../plugins/codemirror/dragAndDrop';
 import { languageFacet } from '../plugins/codemirror/format';
+import { useLocalStorage } from '@vueuse/core';
 import debounce from 'lodash/debounce';
 import { ignoreUpdateAnnotation } from '@/app/utils/forceParse';
 import type { TargetNodeParameterContext } from '@/Interface';
@@ -131,6 +132,11 @@ export const useCodeEditor = <L extends CodeNodeLanguageOption>({
 	const languageExtensions = ref<Compartment>(new Compartment());
 	const themeExtensions = ref<Compartment>(new Compartment());
 	const inlineCompletionExtensions = ref(new Compartment());
+	const inlineCompletionsEnabled = useLocalStorage('codeEditor.inlineCompletionsEnabled', true);
+	const inlineCompletionProviderRef = ref<
+		((before: string, after: string) => Promise<string | null>) | null
+	>(null);
+	const getInputSchemaRef = ref<(() => string | undefined) | null>(null);
 	const autocompleteStatus = ref<'pending' | 'active' | null>(null);
 	const dragging = ref(false);
 	const storedStateFields = { fold: foldState, history: historyField };
@@ -315,13 +321,18 @@ export const useCodeEditor = <L extends CodeNodeLanguageOption>({
 			}
 		};
 
+		inlineCompletionProviderRef.value = inlineCompletionProvider;
+		getInputSchemaRef.value = getInputSchema;
+
 		const allExtensions = [
 			customExtensions.value.of(toValue(extensions)),
 			readOnlyExtensions.value.of(getReadOnlyExtensions()),
 			telemetryExtensions.value.of([]),
 			languageExtensions.value.of(getInitialLanguageExtensions(toValue(language))),
 			themeExtensions.value.of(codeEditorTheme(toValue(theme))),
-			inlineCompletionExtensions.value.of(inlineCompletion(inlineCompletionProvider)),
+			inlineCompletionExtensions.value.of(
+				inlineCompletionsEnabled.value ? inlineCompletion(inlineCompletionProvider) : [],
+			),
 			EditorView.updateListener.of(onEditorUpdate),
 			EditorView.focusChangeEffect.of((_, newHasFocus) => {
 				hasFocus.value = newHasFocus;
@@ -529,6 +540,16 @@ export const useCodeEditor = <L extends CodeNodeLanguageOption>({
 		editor.value?.focus();
 	}
 
+	function setInlineCompletions(enabled: boolean) {
+		if (!editor.value || !inlineCompletionProviderRef.value) return;
+		inlineCompletionsEnabled.value = enabled;
+		editor.value.dispatch({
+			effects: inlineCompletionExtensions.value.reconfigure(
+				enabled ? inlineCompletion(inlineCompletionProviderRef.value) : [],
+			),
+		});
+	}
+
 	return {
 		editor,
 		hasFocus,
@@ -542,5 +563,8 @@ export const useCodeEditor = <L extends CodeNodeLanguageOption>({
 		highlightLine,
 		focus,
 		blur,
+		inlineCompletionsEnabled,
+		setInlineCompletions,
+		getInputSchema: getInputSchemaRef,
 	};
 };

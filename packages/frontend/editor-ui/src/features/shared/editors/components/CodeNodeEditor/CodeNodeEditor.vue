@@ -11,6 +11,7 @@ import { codeNodeEditorEventBus } from '@/app/event-bus';
 import { useRootStore } from '@n8n/stores/useRootStore';
 
 import { useCodeEditor } from '../../composables/useCodeEditor';
+import { fetchCodeGeneration } from '../../plugins/codemirror/inlineCompletion.api';
 import { useI18n } from '@n8n/i18n';
 import { useMessage } from '@/app/composables/useMessage';
 import { useTelemetry } from '@/app/composables/useTelemetry';
@@ -24,6 +25,7 @@ import type { TargetNodeParameterContext } from '@/Interface';
 import { valueToInsert } from './utils';
 import DraggableTarget from '@/app/components/DraggableTarget.vue';
 
+import { N8nIconButton, N8nTooltip } from '@n8n/design-system';
 import { ElTabPane, ElTabs } from 'element-plus';
 export type CodeNodeLanguageOption = CodeNodeEditorLanguage | 'pythonNative';
 
@@ -58,6 +60,7 @@ const message = useMessage();
 const tabs = ref(['code', 'ask-ai']);
 const activeTab = ref('code');
 const isLoadingAIResponse = ref(false);
+const isGeneratingCode = ref(false);
 const codeNodeEditorRef = ref<HTMLDivElement>();
 const codeNodeEditorContainerRef = ref<HTMLDivElement>();
 const hasManualChanges = ref(false);
@@ -79,7 +82,15 @@ const dragAndDropEnabled = computed(() => {
 	return !props.isReadOnly;
 });
 
-const { highlightLine, readEditorValue, editor, focus } = useCodeEditor({
+const {
+	highlightLine,
+	readEditorValue,
+	editor,
+	focus,
+	inlineCompletionsEnabled,
+	setInlineCompletions,
+	getInputSchema,
+} = useCodeEditor({
 	id: props.id,
 	editorRef: codeNodeEditorRef,
 	language: () => props.language,
@@ -113,6 +124,11 @@ onBeforeUnmount(() => {
 
 const askAiEnabled = computed(() => {
 	return !props.disableAskAi && settingsStore.isAskAiEnabled && props.language === 'javaScript';
+});
+
+const inlineCompletionsAvailable = computed(() => {
+	const lang = props.language;
+	return lang === 'javaScript' || lang === 'python' || lang === 'pythonNative';
 });
 
 watch([() => props.language, () => props.mode], (_, [prevLanguage, prevMode]) => {
@@ -214,6 +230,52 @@ async function onDrop(value: string, event: MouseEvent) {
 	);
 }
 
+async function openGeneratePrompt() {
+	try {
+		const result = await message.prompt(
+			i18n.baseText('codeNodeEditor.generateCode.promptLabel'),
+			i18n.baseText('codeNodeEditor.generateCode.title'),
+			{
+				confirmButtonText: i18n.baseText('codeNodeEditor.generateCode.generate'),
+				cancelButtonText: i18n.baseText('codeNodeEditor.generateCode.cancel'),
+				inputType: 'textarea',
+				inputPlaceholder: i18n.baseText('codeNodeEditor.generateCode.placeholder'),
+			},
+		);
+
+		if (result === 'cancel' || result === 'close') return;
+		const promptText = typeof result === 'string' ? result : (result as { value: string }).value;
+		if (promptText) {
+			await generateCode(promptText);
+		}
+	} catch {
+		// User cancelled the dialog
+	}
+}
+
+async function generateCode(prompt: string) {
+	isGeneratingCode.value = true;
+	try {
+		const lang = props.language === 'pythonNative' ? 'python' : props.language;
+		const code = await fetchCodeGeneration(rootStore.restApiContext, {
+			prompt,
+			language: lang,
+			mode: props.mode,
+			existingCode: readEditorValue(),
+			inputSchema: getInputSchema.value?.() ?? undefined,
+		});
+		if (code) {
+			emit('update:modelValue', code);
+		}
+	} catch (error) {
+		void message.alert(error instanceof Error ? error.message : 'Failed to generate code', {
+			title: 'Code Generation Error',
+		});
+	} finally {
+		isGeneratingCode.value = false;
+	}
+}
+
 defineExpose({
 	focus,
 });
@@ -238,6 +300,28 @@ defineExpose({
 				data-test-id="code-node-tab-code"
 				:class="$style.fillHeight"
 			>
+				<div v-if="inlineCompletionsAvailable" :class="$style.editorControls">
+					<N8nTooltip :content="i18n.baseText('codeNodeEditor.inlineCompletions')" placement="left">
+						<N8nIconButton
+							icon="sparkles"
+							type="tertiary"
+							size="mini"
+							:active="inlineCompletionsEnabled"
+							data-test-id="inline-completions-toggle"
+							@click="setInlineCompletions(!inlineCompletionsEnabled)"
+						/>
+					</N8nTooltip>
+					<N8nTooltip :content="i18n.baseText('codeNodeEditor.generateCode')" placement="left">
+						<N8nIconButton
+							icon="wand-sparkles"
+							type="tertiary"
+							size="mini"
+							:loading="isGeneratingCode"
+							data-test-id="generate-code-button"
+							@click="openGeneratePrompt"
+						/>
+					</N8nTooltip>
+				</div>
 				<DraggableTarget
 					type="mapping"
 					:disabled="!dragAndDropEnabled"
@@ -277,6 +361,28 @@ defineExpose({
 		</ElTabs>
 		<!-- If AskAi not enabled, there's no point in rendering tabs -->
 		<div v-else :class="$style.fillHeight">
+			<div v-if="inlineCompletionsAvailable" :class="$style.editorControls">
+				<N8nTooltip :content="i18n.baseText('codeNodeEditor.inlineCompletions')" placement="left">
+					<N8nIconButton
+						icon="sparkles"
+						type="tertiary"
+						size="mini"
+						:active="inlineCompletionsEnabled"
+						data-test-id="inline-completions-toggle"
+						@click="setInlineCompletions(!inlineCompletionsEnabled)"
+					/>
+				</N8nTooltip>
+				<N8nTooltip :content="i18n.baseText('codeNodeEditor.generateCode')" placement="left">
+					<N8nIconButton
+						icon="wand-sparkles"
+						type="tertiary"
+						size="mini"
+						:loading="isGeneratingCode"
+						data-test-id="generate-code-button"
+						@click="openGeneratePrompt"
+					/>
+				</N8nTooltip>
+			</div>
 			<DraggableTarget
 				type="mapping"
 				:disabled="!dragAndDropEnabled"
@@ -340,6 +446,15 @@ defineExpose({
 
 .fillHeight {
 	height: 100%;
+}
+
+.editorControls {
+	position: absolute;
+	top: var(--spacing--4xs);
+	right: var(--spacing--xs);
+	z-index: 5;
+	display: flex;
+	gap: var(--spacing--4xs);
 }
 
 .editorInput.droppable {
