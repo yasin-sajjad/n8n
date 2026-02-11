@@ -874,9 +874,19 @@ export const useChatStore = defineStore(STORES.CHAT_HUB, () => {
 			streaming.value.retryOfMessageId = retryOfMessageId;
 		}
 
-		// Skip if we already have this message (e.g., from a previous stream begin)
 		const conversation = getConversation(sessionId);
-		if (conversation?.messages[messageId]) {
+		const existingMessage = conversation?.messages[messageId];
+
+		if (existingMessage) {
+			// Message was already created by an earlier chunk/end event (out-of-order delivery).
+			// Update linking fields that weren't available when the message was created.
+			existingMessage.previousMessageId = previousMessageId;
+			existingMessage.retryOfMessageId = retryOfMessageId;
+
+			// Re-link and recompute the active chain with the updated linking
+			const conv = ensureConversation(sessionId);
+			conv.messages = linkMessages(Object.values(conv.messages));
+			conv.activeMessageChain = computeActiveChain(conv.messages, messageId);
 			return;
 		}
 
@@ -927,6 +937,9 @@ export const useChatStore = defineStore(STORES.CHAT_HUB, () => {
 		data: Pick<ChatHubStreamEnd['data'], 'sessionId' | 'messageId' | 'status'>,
 	) {
 		const { sessionId, messageId, status } = data;
+
+		// Ensure message exists - events may arrive out of order (e.g., streamEnd before streamBegin)
+		ensureMessage(sessionId, messageId);
 
 		// Update the message status
 		updateMessage(sessionId, messageId, status);

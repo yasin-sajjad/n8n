@@ -138,6 +138,36 @@ export class ScheduledChatTriggerService {
 			},
 		};
 
+		const messageId = uuidv4();
+
+		// Notify frontend that execution has started and send stream begin
+		// BEFORE starting the workflow, so the frontend receives these events
+		// before any chunks/end events produced by the execution watcher.
+		await this.chatStreamService.startExecution(user.id, sessionId);
+
+		// Create AI message in DB (running state) — needed before execution
+		// so the watcher can find it when the execution completes
+		await this.messageRepository.createAIMessage({
+			id: messageId,
+			content: '',
+			sessionId,
+			executionId: undefined,
+			model,
+			previousMessageId: null,
+			retryOfMessageId: null,
+			status: 'running',
+		});
+
+		// Send stream begin event to frontend before execution starts
+		await this.chatStreamService.startStream({
+			userId: user.id,
+			sessionId,
+			messageId,
+			previousMessageId: null,
+			retryOfMessageId: null,
+			executionId: null,
+		});
+
 		// Start the workflow execution
 		const running = await this.workflowExecutionService.executeChatWorkflow(
 			user,
@@ -153,8 +183,6 @@ export class ScheduledChatTriggerService {
 			throw new OperationalError('There was a problem starting the scheduled chat execution.');
 		}
 
-		const messageId = uuidv4();
-
 		// Register execution context for the watcher to handle completion
 		await this.chatHubExecutionStore.register({
 			executionId,
@@ -167,31 +195,6 @@ export class ScheduledChatTriggerService {
 			awaitingResume: false,
 			createMessageOnResume: false,
 			workflowId: workflowData.id,
-		});
-
-		// Notify frontend that execution has started
-		await this.chatStreamService.startExecution(user.id, sessionId);
-
-		// Create AI message in DB (running state)
-		await this.messageRepository.createAIMessage({
-			id: messageId,
-			content: '',
-			sessionId,
-			executionId,
-			model,
-			previousMessageId: null,
-			retryOfMessageId: null,
-			status: 'running',
-		});
-
-		// Send stream begin event to frontend
-		await this.chatStreamService.startStream({
-			userId: user.id,
-			sessionId,
-			messageId,
-			previousMessageId: null,
-			retryOfMessageId: null,
-			executionId: parseInt(executionId, 10),
 		});
 
 		this.logger.info(
