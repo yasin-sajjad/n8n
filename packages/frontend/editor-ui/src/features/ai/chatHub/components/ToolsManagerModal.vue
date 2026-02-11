@@ -23,9 +23,10 @@ import {
 } from '@n8n/api-types';
 import type { ChatHubToolDto } from '@n8n/api-types';
 import { computed, ref, watch } from 'vue';
-import { DEBOUNCE_TIME, getDebounceTime } from '@/app/constants';
+import { DEBOUNCE_TIME, getDebounceTime, MODAL_CONFIRM } from '@/app/constants';
 import { useChatStore } from '@/features/ai/chatHub/chat.store';
 import { useToast } from '@/app/composables/useToast';
+import { useMessage } from '@/app/composables/useMessage';
 import { hasRole } from '@/app/utils/rbac/checks/hasRole';
 
 defineProps<{
@@ -50,6 +51,7 @@ const i18n = useI18n();
 const nodeTypesStore = useNodeTypesStore();
 const chatStore = useChatStore();
 const toast = useToast();
+const message = useMessage();
 
 const modalBus = ref(createEventBus());
 const searchQuery = ref('');
@@ -155,6 +157,16 @@ function handleConfigureTool(tool: ChatHubToolDto) {
 }
 
 async function handleRemoveTool(toolId: string) {
+	const confirmed = await message.confirm(
+		i18n.baseText('chatHub.toolsManager.confirmRemove.message'),
+		i18n.baseText('chatHub.toolsManager.confirmRemove.title'),
+		{
+			confirmButtonText: i18n.baseText('chatHub.toolsManager.remove'),
+			cancelButtonText: i18n.baseText('generic.cancel'),
+		},
+	);
+	if (confirmed !== MODAL_CONFIRM) return;
+
 	try {
 		await chatStore.removeConfiguredTool(toolId);
 	} catch (error) {

@@ -1,14 +1,7 @@
 <script setup lang="ts">
 import NodeIcon from '@/app/components/NodeIcon.vue';
-import {
-	N8nActionDropdown,
-	N8nButton,
-	N8nIconButton,
-	N8nText,
-	N8nTooltip,
-} from '@n8n/design-system';
+import { N8nButton, N8nIconButton, N8nText, N8nTooltip } from '@n8n/design-system';
 import { ElSwitch } from 'element-plus';
-import type { ActionDropdownItem } from '@n8n/design-system/types';
 import { useI18n } from '@n8n/i18n';
 import type { INode, INodeTypeDescription } from 'n8n-workflow';
 import { computed } from 'vue';
@@ -42,20 +35,6 @@ const displayName = computed(() => {
 	}
 	return props.nodeType.displayName;
 });
-
-const menuItems = computed<Array<ActionDropdownItem<string>>>(() => [
-	{
-		id: 'remove',
-		label: i18n.baseText('chatHub.toolsManager.remove'),
-		icon: 'trash-2',
-	},
-]);
-
-function handleMenuSelect(action: string) {
-	if (action === 'remove') {
-		emit('remove');
-	}
-}
 </script>
 
 <template>
@@ -85,21 +64,15 @@ function handleMenuSelect(action: string) {
 					/>
 				</N8nTooltip>
 
-				<N8nActionDropdown
-					:items="menuItems"
-					placement="bottom-end"
-					@select="handleMenuSelect"
-					@click.stop
-				>
-					<template #activator>
-						<N8nIconButton
-							icon="ellipsis-vertical"
-							type="tertiary"
-							text
-							:class="$style.actionButton"
-						/>
-					</template>
-				</N8nActionDropdown>
+				<N8nTooltip :content="i18n.baseText('chatHub.toolsManager.remove')">
+					<N8nIconButton
+						icon="trash-2"
+						type="tertiary"
+						text
+						:class="$style.actionButton"
+						@click="emit('remove')"
+					/>
+				</N8nTooltip>
 
 				<N8nTooltip
 					:content="
@@ -138,8 +111,7 @@ function handleMenuSelect(action: string) {
 			opacity: 0;
 		}
 
-		&:hover,
-		&:has([aria-expanded='true']) {
+		&:hover {
 			.actionButton {
 				opacity: 1;
 			}
