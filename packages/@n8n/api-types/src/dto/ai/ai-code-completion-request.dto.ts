@@ -7,4 +7,5 @@ export class AiCodeCompletionRequestDto extends Z.class({
 	codeAfterCursor: z.string().optional().default(''),
 	language: z.enum(['javaScript', 'python']),
 	mode: z.enum(['runOnceForAllItems', 'runOnceForEachItem']).optional(),
+	inputSchema: z.string().optional(),
 }) {}

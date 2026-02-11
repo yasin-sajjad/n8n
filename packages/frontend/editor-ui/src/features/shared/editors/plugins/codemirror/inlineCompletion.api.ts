@@ -9,6 +9,7 @@ export async function fetchCodeCompletion(
 		codeAfterCursor: string;
 		language: string;
 		mode?: string;
+		inputSchema?: string;
 	},
 ): Promise<string | null> {
 	const response = await makeRestApiRequest<{ completion: string }>(

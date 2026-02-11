@@ -59,6 +59,12 @@ import { isEventTargetContainedBy } from '@/app/utils/htmlUtils';
 import { inlineCompletion } from '../plugins/codemirror/inlineCompletion';
 import { fetchCodeCompletion } from '../plugins/codemirror/inlineCompletion.api';
 import { useRootStore } from '@n8n/stores/useRootStore';
+import { useNDVStore } from '@/features/ndv/shared/ndv.store';
+import { useWorkflowsStore } from '@/app/stores/workflows.store';
+import { useDataSchema } from '@/app/composables/useDataSchema';
+import { executionDataToJson } from '@/app/utils/nodeTypesUtils';
+import { NodeConnectionTypes } from 'n8n-workflow';
+import type { Schema } from '@/Interface';
 
 export type CodeEditorLanguageParamsMap = {
 	json: {};
@@ -67,6 +73,24 @@ export type CodeEditorLanguageParamsMap = {
 	python: { mode: CodeExecutionMode };
 	pythonNative: { mode: CodeExecutionMode };
 };
+
+function flattenSchema(schema: Schema, prefix = ''): string {
+	if (schema.type === 'object' && Array.isArray(schema.value)) {
+		return schema.value
+			.map((child) => {
+				const key = prefix ? `${prefix}.${child.key}` : (child.key ?? '');
+				if (child.type === 'object' && Array.isArray(child.value)) {
+					return flattenSchema(child, key);
+				}
+				if (child.type === 'array' && Array.isArray(child.value)) {
+					return `${key} (${child.type})`;
+				}
+				return `${key} (${child.type})`;
+			})
+			.join(', ');
+	}
+	return '';
+}
 
 export const useCodeEditor = <L extends CodeNodeLanguageOption>({
 	editorRef,
@@ -245,6 +269,32 @@ export const useCodeEditor = <L extends CodeNodeLanguageOption>({
 		const initialValue = toValue(editorValue) ? toValue(editorValue) : toValue(placeholder);
 
 		const rootStore = useRootStore();
+		const ndvStore = useNDVStore();
+		const workflowsStore = useWorkflowsStore();
+		const { getInputDataWithPinned, getSchemaForExecutionData } = useDataSchema();
+
+		function getInputSchema(): string | undefined {
+			const activeNodeName = ndvStore.activeNodeName;
+			if (!activeNodeName) return undefined;
+
+			const parentNodes = workflowsStore.workflowObject.getParentNodes(
+				activeNodeName,
+				NodeConnectionTypes.Main,
+				1,
+			);
+			if (parentNodes.length === 0) return undefined;
+
+			const parentNode = workflowsStore.getNodeByName(parentNodes[0]);
+			if (!parentNode) return undefined;
+
+			const inputData = getInputDataWithPinned(parentNode);
+			if (inputData.length === 0) return undefined;
+
+			const schema = getSchemaForExecutionData(executionDataToJson(inputData), true);
+			const flattened = flattenSchema(schema);
+			return flattened || undefined;
+		}
+
 		const inlineCompletionProvider = async (
 			codeBeforeCursor: string,
 			codeAfterCursor: string,
@@ -258,6 +308,7 @@ export const useCodeEditor = <L extends CodeNodeLanguageOption>({
 					codeAfterCursor,
 					language: apiLanguage,
 					mode: mode.value,
+					inputSchema: getInputSchema(),
 				});
 			} catch {
 				return null;
