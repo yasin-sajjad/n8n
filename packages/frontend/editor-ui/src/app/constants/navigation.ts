@@ -36,6 +36,7 @@ export const enum VIEWS {
 	EVALUATION_RUNS_DETAIL = 'EvaluationRunsDetail',
 	USAGE = 'Usage',
 	LOG_STREAMING_SETTINGS = 'LogStreamingSettingsView',
+	AUDIT_LOGS = 'AuditLogsView',
 	SSO_SETTINGS = 'SSoSettings',
 	EXTERNAL_SECRETS_SETTINGS = 'ExternalSecretsSettings',
 	SAML_ONBOARDING = 'SamlOnboarding',

@@ -136,6 +136,15 @@ export function useSettingsItems() {
 		});
 
 		menuItems.push({
+			id: 'settings-audit-logs',
+			icon: 'clipboard-list',
+			label: i18n.baseText('settings.auditLogs.menuLabel'),
+			position: 'top',
+			available: canUserAccessRouteByName(VIEWS.AUDIT_LOGS),
+			route: { to: { name: VIEWS.AUDIT_LOGS } },
+		});
+
+		menuItems.push({
 			id: 'settings-community-nodes',
 			icon: 'box',
 			label: i18n.baseText('settings.communityNodes'),

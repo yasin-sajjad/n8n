@@ -1,5 +1,6 @@
 export * from './ai-usage';
 export * from './api-keys';
+export * from './auditLogs';
 export * from './cloudPlans';
 export * from './communityNodes';
 export * from './credentialResolvers';
