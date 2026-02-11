@@ -442,6 +442,7 @@ export class FrontendService {
 		Object.assign(this.settings.enterprise, {
 			sharing: this.license.isSharingEnabled(),
 			logStreaming: this.license.isLogStreamingEnabled(),
+			auditLogs: this.license.isLogStreamingEnabled(),
 			ldap: this.license.isLdapEnabled(),
 			saml: this.license.isSamlEnabled(),
 			oidc: this.licenseState.isOidcLicensed(),

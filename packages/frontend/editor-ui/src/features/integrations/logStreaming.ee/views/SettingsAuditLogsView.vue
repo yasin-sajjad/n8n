@@ -5,12 +5,16 @@ import { getAuditLogs } from '@n8n/rest-api-client';
 import { useDocumentTitle } from '@/app/composables/useDocumentTitle';
 import { useI18n } from '@n8n/i18n';
 import { useRootStore } from '@n8n/stores/useRootStore';
+import { useSettingsStore } from '@/app/stores/settings.store';
 import { useUsersStore } from '@/features/settings/users/users.store';
 import { useDebounce } from '@/app/composables/useDebounce';
+import { usePageRedirectionHelper } from '@/app/composables/usePageRedirectionHelper';
+import { EnterpriseEditionFeature } from '@/app/constants';
 import ResourcesListLayout from '@/app/components/layouts/ResourcesListLayout.vue';
 import type { BaseFilters, DatatableColumn } from '@/Interface';
 import { ElDatePicker } from 'element-plus';
 import {
+	N8nActionBox,
 	N8nHeading,
 	N8nInputLabel,
 	N8nSelect,
@@ -36,8 +40,18 @@ const DATE_TIME_MASK = 'YYYY-MM-DD HH:mm';
 const documentTitle = useDocumentTitle();
 const i18n = useI18n();
 const rootStore = useRootStore();
+const settingsStore = useSettingsStore();
 const usersStore = useUsersStore();
 const { debounce } = useDebounce();
+const pageRedirectHelper = usePageRedirectionHelper();
+
+const isLicensed = computed(
+	() => settingsStore.isEnterpriseFeatureEnabled[EnterpriseEditionFeature.AuditLogs],
+);
+
+function goToUpgrade() {
+	void pageRedirectHelper.goToUpgrade('audit-logs', 'upgrade-audit-logs');
+}
 
 const auditLogs = ref<AuditLogResource[]>([]);
 const isLoading = ref(true);
@@ -245,6 +259,7 @@ watch(autoRefresh, (enabled) => {
 
 onMounted(async () => {
 	documentTitle.set(i18n.baseText('settings.auditLogs.heading'));
+	if (!isLicensed.value) return;
 	await usersStore.fetchUsers();
 });
 
@@ -255,172 +270,202 @@ onBeforeUnmount(() => {
 
 <template>
 	<div :class="$style.auditLogsContainer">
-		<!-- @ts-expect-error - ResourcesListLayout type definitions don't match our use case -->
-		<ResourcesListLayout
-			v-model:filters="filters"
-			resource-key="auditLogs"
-			:display-name="displayName"
-			:resources="auditLogs"
-			:initialize="initialize"
-			:disabled="false"
-			:loading="isLoading"
-			:shareable="false"
-			:ui-config="{
-				searchEnabled: false,
-				showFiltersDropdown: true,
-				sortEnabled: false,
-			}"
-			type="datatable"
-			:type-props="{ columns }"
-			@update:filters="onFiltersUpdated"
-		>
-			<template #header>
-				<div class="mb-2xl">
-					<N8nHeading size="2xlarge">
-						{{ i18n.baseText('settings.auditLogs.heading') }}
-					</N8nHeading>
-				</div>
-			</template>
-
-			<template #breadcrumbs>
-				<div :class="$style.autoRefresh">
-					<N8nTooltip placement="top">
-						<template #content>
-							{{ i18n.baseText('settings.auditLogs.autoRefresh.tooltip') }}
-						</template>
-						<N8nCheckbox
-							v-model="autoRefresh"
-							:label="i18n.baseText('settings.auditLogs.autoRefresh.label')"
-							data-test-id="auto-refresh-checkbox"
-						/>
-					</N8nTooltip>
-				</div>
-			</template>
-
-			<template #filters="{ setKeyValue }">
-				<div class="mb-s">
-					<N8nInputLabel
-						:label="i18n.baseText('settings.auditLogs.filter.eventName.label')"
-						:bold="false"
-						size="small"
-						color="text-base"
-						class="mb-3xs"
-					/>
-					<N8nSelect
-						:model-value="filters.eventName"
-						:placeholder="i18n.baseText('settings.auditLogs.filter.eventName.placeholder')"
-						clearable
-						filterable
-						data-test-id="audit-logs-event-filter"
-						@update:model-value="setKeyValue('eventName', $event)"
-					>
-						<N8nOption
-							v-for="eventName in eventNames"
-							:key="eventName"
-							:value="eventName"
-							:label="formatEventName(eventName)"
-						/>
-					</N8nSelect>
-				</div>
-
-				<div class="mb-s">
-					<N8nInputLabel
-						:label="i18n.baseText('settings.auditLogs.filter.userId.label')"
-						:bold="false"
-						size="small"
-						color="text-base"
-						class="mb-3xs"
-					/>
-					<N8nSelect
-						:model-value="filters.userId"
-						:placeholder="i18n.baseText('settings.auditLogs.filter.userId.placeholder')"
-						:no-data-text="i18n.baseText('settings.auditLogs.filter.userId.noResults')"
-						filterable
-						:filter-method="setUserFilter"
-						clearable
-						data-test-id="audit-logs-user-filter"
-						@update:model-value="setKeyValue('userId', $event)"
-					>
-						<N8nOption
-							v-for="user in filteredUsers"
-							:key="user.id"
-							:value="user.id"
-							:label="user.fullName || user.email || user.id"
-						/>
-					</N8nSelect>
-				</div>
-
-				<div>
-					<N8nInputLabel
-						:label="i18n.baseText('settings.auditLogs.filter.dateRange.label')"
-						:bold="false"
-						size="small"
-						color="text-base"
-						class="mb-3xs"
-					/>
-					<div :class="$style.dates">
-						<ElDatePicker
-							v-model="startDate"
-							type="datetime"
-							:format="DATE_TIME_MASK"
-							:placeholder="i18n.baseText('settings.auditLogs.filter.dateRange.start')"
-							data-test-id="audit-logs-start-date-filter"
-						/>
-						<span :class="$style.divider">to</span>
-						<ElDatePicker
-							v-model="endDate"
-							type="datetime"
-							:format="DATE_TIME_MASK"
-							:placeholder="i18n.baseText('settings.auditLogs.filter.dateRange.end')"
-							data-test-id="audit-logs-end-date-filter"
-						/>
+		<template v-if="isLicensed">
+			<!-- @ts-expect-error - ResourcesListLayout type definitions don't match our use case -->
+			<ResourcesListLayout
+				v-model:filters="filters"
+				resource-key="auditLogs"
+				:display-name="displayName"
+				:resources="auditLogs"
+				:initialize="initialize"
+				:disabled="false"
+				:loading="isLoading"
+				:shareable="false"
+				:ui-config="{
+					searchEnabled: false,
+					showFiltersDropdown: true,
+					sortEnabled: false,
+				}"
+				type="datatable"
+				:type-props="{ columns }"
+				@update:filters="onFiltersUpdated"
+			>
+				<template #header>
+					<div class="mb-2xl">
+						<N8nHeading size="2xlarge">
+							{{ i18n.baseText('settings.auditLogs.heading') }}
+						</N8nHeading>
 					</div>
-				</div>
-			</template>
+				</template>
 
-			<template #default="{ data }">
-				<tr data-test-id="audit-log-row">
-					<td>
-						<div :class="$style.eventCell">
-							<N8nText :class="$style.eventName" color="text-dark" size="small" bold>
-								{{ formatEventName(data.eventName) }}
-							</N8nText>
-							<N8nTooltip
-								v-if="data.payload"
-								placement="bottom"
-								:show-after="300"
-								content-class="audit-log-payload-tooltip"
-							>
-								<template #content>
-									<pre :class="$style.jsonTooltip">{{ JSON.stringify(data.payload, null, 2) }}</pre>
-								</template>
-								<N8nIcon icon="info" size="medium" color="text-light" :class="$style.infoIcon" />
-							</N8nTooltip>
+				<template #empty>
+					<N8nActionBox
+						data-test-id="audit-logs-empty"
+						:icon="{ type: 'emoji', value: '👋' }"
+						:heading="i18n.baseText('auditLogs.empty.heading')"
+						:description="i18n.baseText('auditLogs.empty.description')"
+					/>
+				</template>
+
+				<template #breadcrumbs>
+					<div :class="$style.autoRefresh">
+						<N8nTooltip placement="top">
+							<template #content>
+								{{ i18n.baseText('settings.auditLogs.autoRefresh.tooltip') }}
+							</template>
+							<N8nCheckbox
+								v-model="autoRefresh"
+								:label="i18n.baseText('settings.auditLogs.autoRefresh.label')"
+								data-test-id="auto-refresh-checkbox"
+							/>
+						</N8nTooltip>
+					</div>
+				</template>
+
+				<template #filters="{ setKeyValue }">
+					<div class="mb-s">
+						<N8nInputLabel
+							:label="i18n.baseText('settings.auditLogs.filter.eventName.label')"
+							:bold="false"
+							size="small"
+							color="text-base"
+							class="mb-3xs"
+						/>
+						<N8nSelect
+							:model-value="filters.eventName"
+							:placeholder="i18n.baseText('settings.auditLogs.filter.eventName.placeholder')"
+							clearable
+							filterable
+							data-test-id="audit-logs-event-filter"
+							@update:model-value="setKeyValue('eventName', $event)"
+						>
+							<N8nOption
+								v-for="eventName in eventNames"
+								:key="eventName"
+								:value="eventName"
+								:label="formatEventName(eventName)"
+							/>
+						</N8nSelect>
+					</div>
+
+					<div class="mb-s">
+						<N8nInputLabel
+							:label="i18n.baseText('settings.auditLogs.filter.userId.label')"
+							:bold="false"
+							size="small"
+							color="text-base"
+							class="mb-3xs"
+						/>
+						<N8nSelect
+							:model-value="filters.userId"
+							:placeholder="i18n.baseText('settings.auditLogs.filter.userId.placeholder')"
+							:no-data-text="i18n.baseText('settings.auditLogs.filter.userId.noResults')"
+							filterable
+							:filter-method="setUserFilter"
+							clearable
+							data-test-id="audit-logs-user-filter"
+							@update:model-value="setKeyValue('userId', $event)"
+						>
+							<N8nOption
+								v-for="user in filteredUsers"
+								:key="user.id"
+								:value="user.id"
+								:label="user.fullName || user.email || user.id"
+							/>
+						</N8nSelect>
+					</div>
+
+					<div>
+						<N8nInputLabel
+							:label="i18n.baseText('settings.auditLogs.filter.dateRange.label')"
+							:bold="false"
+							size="small"
+							color="text-base"
+							class="mb-3xs"
+						/>
+						<div :class="$style.dates">
+							<ElDatePicker
+								v-model="startDate"
+								type="datetime"
+								:format="DATE_TIME_MASK"
+								:placeholder="i18n.baseText('settings.auditLogs.filter.dateRange.start')"
+								data-test-id="audit-logs-start-date-filter"
+							/>
+							<span :class="$style.divider">to</span>
+							<ElDatePicker
+								v-model="endDate"
+								type="datetime"
+								:format="DATE_TIME_MASK"
+								:placeholder="i18n.baseText('settings.auditLogs.filter.dateRange.end')"
+								data-test-id="audit-logs-end-date-filter"
+							/>
 						</div>
-					</td>
-					<td>
-						<N8nText color="text-base" size="small">
-							{{ formatTimestamp(data.timestamp) }}
-						</N8nText>
-					</td>
-					<td>
-						<div :class="$style.userCell">
+					</div>
+				</template>
+
+				<template #default="{ data }">
+					<tr data-test-id="audit-log-row">
+						<td>
+							<div :class="$style.eventCell">
+								<N8nText :class="$style.eventName" color="text-dark" size="small" bold>
+									{{ formatEventName(data.eventName) }}
+								</N8nText>
+								<N8nTooltip
+									v-if="data.payload"
+									placement="bottom"
+									:show-after="300"
+									content-class="audit-log-payload-tooltip"
+								>
+									<template #content>
+										<pre :class="$style.jsonTooltip">{{
+											JSON.stringify(data.payload, null, 2)
+										}}</pre>
+									</template>
+									<N8nIcon icon="info" size="medium" color="text-light" :class="$style.infoIcon" />
+								</N8nTooltip>
+							</div>
+						</td>
+						<td>
 							<N8nText color="text-base" size="small">
-								{{ getUserDisplay(data) }}
+								{{ formatTimestamp(data.timestamp) }}
 							</N8nText>
-							<N8nText
-								v-if="data.payload?.userEmail"
-								color="text-light"
-								size="small"
-								:class="$style.userEmail"
-							>
-								{{ data.payload.userEmail }}
-							</N8nText>
-						</div>
-					</td>
-				</tr>
-			</template>
-		</ResourcesListLayout>
+						</td>
+						<td>
+							<div :class="$style.userCell">
+								<N8nText color="text-base" size="small">
+									{{ getUserDisplay(data) }}
+								</N8nText>
+								<N8nText
+									v-if="data.payload?.userEmail"
+									color="text-light"
+									size="small"
+									:class="$style.userEmail"
+								>
+									{{ data.payload.userEmail }}
+								</N8nText>
+							</div>
+						</td>
+					</tr>
+				</template>
+			</ResourcesListLayout>
+		</template>
+		<template v-else>
+			<div class="mb-2xl">
+				<N8nHeading size="2xlarge">
+					{{ i18n.baseText('settings.auditLogs.heading') }}
+				</N8nHeading>
+			</div>
+			<N8nActionBox
+				:description="i18n.baseText('settings.auditLogs.actionBox.description')"
+				:button-text="i18n.baseText('settings.auditLogs.actionBox.button')"
+				data-test-id="audit-logs-paywall"
+				@click:button="goToUpgrade"
+			>
+				<template #heading>
+					<span v-n8n-html="i18n.baseText('settings.auditLogs.actionBox.title')" />
+				</template>
+			</N8nActionBox>
+		</template>
 	</div>
 </template>
 
