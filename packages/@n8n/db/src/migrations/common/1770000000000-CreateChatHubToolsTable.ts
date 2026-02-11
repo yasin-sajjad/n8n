@@ -47,7 +47,7 @@ export class CreateChatHubToolsTable1770000000000 implements ReversibleMigration
 				column('id').uuid.primary,
 				column('name').varchar(255).notNull,
 				column('type').varchar(255).notNull,
-				column('typeVersion').int.notNull,
+				column('typeVersion').double.notNull,
 				column('ownerId').uuid.notNull,
 				column('definition').json.notNull,
 				column('enabled').bool.notNull.default(true),

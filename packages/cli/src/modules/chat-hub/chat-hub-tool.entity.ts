@@ -34,7 +34,7 @@ export class ChatHubTool extends WithTimestamps {
 	/**
 	 * The node type version of the tool, denormalized from definition.
 	 */
-	@Column({ type: 'int' })
+	@Column({ type: 'double precision' })
 	typeVersion: number;
 
 	/**
