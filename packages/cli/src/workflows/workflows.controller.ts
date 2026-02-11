@@ -494,8 +494,8 @@ export class WorkflowsController {
 		_res: Response,
 		@Param('workflowId') workflowId: string,
 	) {
-		const writeLockUserId = await this.collaborationService.getWriteLock(req.user.id, workflowId);
-		return { userId: writeLockUserId };
+		const writeLockClientId = await this.collaborationService.getWriteLock(req.user.id, workflowId);
+		return { clientId: writeLockClientId };
 	}
 
 	@Delete('/:workflowId')
