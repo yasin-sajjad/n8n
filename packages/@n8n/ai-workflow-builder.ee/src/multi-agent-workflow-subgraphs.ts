@@ -11,8 +11,9 @@ import {
 	type ResponderAgentType,
 } from './agents/responder.agent';
 import { SupervisorAgent } from './agents/supervisor.agent';
-import type { AssistantHandler } from './assistant';
+import type { AssistantHandler, AssistantResult } from './assistant';
 import {
+	ASSISTANT_SDK_TIMEOUT_MS,
 	DEFAULT_AUTO_COMPACT_THRESHOLD_TOKENS,
 	MAX_BUILDER_ITERATIONS,
 	MAX_DISCOVERY_ITERATIONS,
@@ -187,6 +188,38 @@ function createSubgraphNodeHandler<
 				],
 			};
 		}
+	};
+}
+
+/**
+ * Creates an AbortSignal that fires on either the parent signal or a timeout.
+ * Returns a cleanup function that must be called when the operation completes.
+ */
+function createAssistantAbortSignal(parentSignal?: AbortSignal): {
+	signal: AbortSignal;
+	cleanup: () => void;
+} {
+	const controller = new AbortController();
+	const timeoutId = setTimeout(
+		() => controller.abort(new Error('Assistant SDK timed out')),
+		ASSISTANT_SDK_TIMEOUT_MS,
+	);
+
+	if (parentSignal?.aborted) {
+		clearTimeout(timeoutId);
+		controller.abort();
+		return { signal: controller.signal, cleanup: () => {} };
+	}
+
+	const onParentAbort = () => controller.abort();
+	parentSignal?.addEventListener('abort', onParentAbort, { once: true });
+
+	return {
+		signal: controller.signal,
+		cleanup: () => {
+			clearTimeout(timeoutId);
+			parentSignal?.removeEventListener('abort', onParentAbort);
+		},
 	};
 }
 
@@ -427,12 +460,10 @@ export function createMultiAgentWorkflowWithSubgraphs(config: MultiAgentSubgraph
 			.addNode('assistant_subgraph', async (state, nodeConfig) => {
 				const startTimestamp = Date.now();
 				const query = extractUserRequest(state.messages);
-				const userId = (nodeConfig?.configurable?.userId as string) ?? 'unknown';
+				const rawUserId = nodeConfig?.configurable?.userId;
+				const userId = typeof rawUserId === 'string' ? rawUserId : 'unknown';
 
 				if (!assistantHandler) {
-					logger?.warn(
-						'[assistant_subgraph] No assistant handler available, falling back to responder',
-					);
 					return {
 						nextPhase: 'responder',
 						coordinationLog: [
@@ -457,15 +488,33 @@ export function createMultiAgentWorkflowWithSubgraphs(config: MultiAgentSubgraph
 						}
 					};
 
-					const result = await assistantHandler.execute(
-						{
-							query,
-							workflowJSON: state.workflowJSON,
-							sdkSessionId: state.sdkSessionId,
-						},
-						userId,
-						writer,
+					const sdkWorkflowJSON = state.workflowJSON
+						? {
+								name: state.workflowJSON.name ?? '',
+								nodes: state.workflowJSON.nodes ?? [],
+								connections: state.workflowJSON.connections ?? {},
+							}
+						: undefined;
+
+					const { signal: abortSignal, cleanup } = createAssistantAbortSignal(
+						nodeConfig?.signal,
 					);
+
+					let result: AssistantResult;
+					try {
+						result = await assistantHandler.execute(
+							{
+								query,
+								workflowJSON: sdkWorkflowJSON,
+								sdkSessionId: state.sdkSessionId,
+							},
+							userId,
+							writer,
+							abortSignal,
+						);
+					} finally {
+						cleanup();
+					}
 
 					return {
 						messages: [new AIMessage({ content: result.responseText })],
@@ -495,7 +544,6 @@ export function createMultiAgentWorkflowWithSubgraphs(config: MultiAgentSubgraph
 						],
 					};
 				} catch (error) {
-					logger?.error('[assistant_subgraph] ERROR:', { error });
 					const userFacingMessage = sanitizeLlmErrorMessage(error);
 					return {
 						nextPhase: 'responder',

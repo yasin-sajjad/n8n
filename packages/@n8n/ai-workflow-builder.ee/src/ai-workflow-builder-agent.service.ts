@@ -217,7 +217,7 @@ export class AiWorkflowBuilderService {
 		const resourceLocatorCallback = this.resourceLocatorCallbackFactory?.(user.id);
 
 		const assistantHandler = this.client
-			? new AssistantHandler(this.client, this.logger)
+			? new AssistantHandler(this.client)
 			: undefined;
 
 		const agent = new WorkflowBuilderAgent({
