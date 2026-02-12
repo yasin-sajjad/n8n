@@ -13,6 +13,18 @@ export const useSetupPanelStore = defineStore(STORES.SETUP_PANEL, () => {
 
 	const credentialsPendingTest = ref(new Set<string>());
 
+	const highlightedNodeIds = ref(new Set<string>());
+
+	const isHighlightActive = computed(() => highlightedNodeIds.value.size > 0);
+
+	function setHighlightedNodes(nodeIds: string[]) {
+		highlightedNodeIds.value = new Set(nodeIds);
+	}
+
+	function clearHighlightedNodes() {
+		highlightedNodeIds.value = new Set();
+	}
+
 	function addPendingTest(credentialId: string) {
 		if (!isFeatureEnabled.value) return;
 		credentialsPendingTest.value = new Set([...credentialsPendingTest.value, credentialId]);
@@ -33,5 +45,9 @@ export const useSetupPanelStore = defineStore(STORES.SETUP_PANEL, () => {
 		addPendingTest,
 		removePendingTest,
 		isCredentialPendingTest,
+		highlightedNodeIds,
+		isHighlightActive,
+		setHighlightedNodes,
+		clearHighlightedNodes,
 	};
 });
