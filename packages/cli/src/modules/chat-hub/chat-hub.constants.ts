@@ -653,20 +653,17 @@ const MODEL_METADATA_REGISTRY: Partial<
 	},
 };
 
+const TEXT_COMMON_MIME_TYPES = ['text/css', 'text/csv', 'text/markdown', 'text/plain'];
+
 /**
- * Application/* MIME types accepted for the `text` input modality.
- * Kept in sync with `isTextFile()` in nodes-langchain, plus a few extra
- * standard types that are text-based. Browsers send `application/octet-stream`
- * for types they don't recognise, so that is included as a catch-all.
+ * Application/* MIME types accepted for the 'text' input modality.
  */
 const TEXT_APPLICATION_MIME_TYPES = [
-	// From isTextFile() in nodes-langchain
 	'application/json',
 	'application/xml',
 	'application/csv',
 	'application/x-yaml',
 	'application/yaml',
-	// Additional standard text-based types
 	'application/ld+json',
 	'application/xhtml+xml',
 	'application/javascript',
@@ -683,9 +680,7 @@ function resolveAllowedMimeTypes(modalities: ChatHubInputModality[]): string {
 
 	for (const modality of modalities) {
 		if (modality === 'text') {
-			// Include application/octet-stream because browsers send it for file types
-			// they don't recognise (e.g. .ts, .sql, .yaml, .sh).
-			mimeTypes.push('text/*', ...TEXT_APPLICATION_MIME_TYPES, 'application/octet-stream');
+			mimeTypes.push('text/*', ...TEXT_COMMON_MIME_TYPES, ...TEXT_APPLICATION_MIME_TYPES);
 		}
 		if (modality === 'image') {
 			mimeTypes.push('image/*');
