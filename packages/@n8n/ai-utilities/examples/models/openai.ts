@@ -1,6 +1,5 @@
 import type { JSONSchema7 } from 'json-schema';
 import type { IHttpRequestMethods } from 'n8n-workflow';
-
 import {
 	BaseChatModel,
 	getParametersJsonSchema,

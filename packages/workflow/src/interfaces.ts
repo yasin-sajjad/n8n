@@ -1857,6 +1857,35 @@ export type NodeOutput =
 	| EngineRequest
 	| null;
 
+export interface NodeMethods {
+	loadOptions?: {
+		[key: string]: (this: ILoadOptionsFunctions) => Promise<INodePropertyOptions[]>;
+	};
+	listSearch?: {
+		[key: string]: (
+			this: ILoadOptionsFunctions,
+			filter?: string,
+			paginationToken?: string,
+		) => Promise<INodeListSearchResult>;
+	};
+	credentialTest?: {
+		// Contains a group of functions that test credentials.
+		[functionName: string]: ICredentialTestFunction;
+	};
+	resourceMapping?: {
+		[functionName: string]: (this: ILoadOptionsFunctions) => Promise<ResourceMapperFields>;
+	};
+	localResourceMapping?: {
+		[functionName: string]: (this: ILocalLoadOptionsFunctions) => Promise<ResourceMapperFields>;
+	};
+	actionHandler?: {
+		[functionName: string]: (
+			this: ILoadOptionsFunctions,
+			payload: IDataObject | string | undefined,
+		) => Promise<NodeParameterValueType>;
+	};
+}
+
 export interface INodeType {
 	description: INodeTypeDescription;
 	supplyData?(this: ISupplyDataFunctions, itemIndex: number): Promise<SupplyData>;
@@ -1869,34 +1898,7 @@ export interface INodeType {
 	poll?(this: IPollFunctions): Promise<INodeExecutionData[][] | null>;
 	trigger?(this: ITriggerFunctions): Promise<ITriggerResponse | undefined>;
 	webhook?(this: IWebhookFunctions): Promise<IWebhookResponseData>;
-	methods?: {
-		loadOptions?: {
-			[key: string]: (this: ILoadOptionsFunctions) => Promise<INodePropertyOptions[]>;
-		};
-		listSearch?: {
-			[key: string]: (
-				this: ILoadOptionsFunctions,
-				filter?: string,
-				paginationToken?: string,
-			) => Promise<INodeListSearchResult>;
-		};
-		credentialTest?: {
-			// Contains a group of functions that test credentials.
-			[functionName: string]: ICredentialTestFunction;
-		};
-		resourceMapping?: {
-			[functionName: string]: (this: ILoadOptionsFunctions) => Promise<ResourceMapperFields>;
-		};
-		localResourceMapping?: {
-			[functionName: string]: (this: ILocalLoadOptionsFunctions) => Promise<ResourceMapperFields>;
-		};
-		actionHandler?: {
-			[functionName: string]: (
-				this: ILoadOptionsFunctions,
-				payload: IDataObject | string | undefined,
-			) => Promise<NodeParameterValueType>;
-		};
-	};
+	methods?: NodeMethods;
 	webhookMethods?: {
 		[name in WebhookType]?: {
 			[method in WebhookSetupMethodNames]: (this: IHookFunctions) => Promise<boolean>;
