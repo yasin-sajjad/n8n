@@ -2,14 +2,18 @@ import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 import { STORES } from '@n8n/stores/constants';
 
+import { usePostHog } from '@/app/stores/posthog.store';
 import { useSettingsStore } from '@/app/stores/settings.store';
 import { useWorkflowsStore } from '@/app/stores/workflows.store';
+import { useRootStore } from '@n8n/stores/useRootStore';
 import { useBuilderStore } from '@/features/ai/assistant/builder.store';
 import { useChatPanelStore } from '@/features/ai/assistant/chatPanel.store';
 import { canvasEventBus } from '@/features/workflows/canvas/canvas.eventBus';
+import { useTelemetry } from '@/app/composables/useTelemetry';
+import { SECURITY_PII_SCANNER_EXPERIMENT } from '@/app/constants';
 
 import { runSecurityScan, computeSummary } from './scanner/runSecurityScan';
-import type { SecurityFinding, SecuritySeverity } from './scanner/types';
+import type { SecurityCategory, SecurityFinding, SecuritySeverity } from './scanner/types';
 import {
 	SECURITY_PANEL_LOCAL_STORAGE_KEY,
 	DEFAULT_PANEL_WIDTH,
@@ -17,7 +21,18 @@ import {
 } from './securityScanner.constants';
 
 export const useSecurityScannerStore = defineStore(STORES.SECURITY_SCANNER, () => {
+	const posthogStore = usePostHog();
+	const telemetry = useTelemetry();
+	const rootStore = useRootStore();
 	const workflowsStore = useWorkflowsStore();
+
+	// Feature flag
+	const isFeatureEnabled = computed(() =>
+		posthogStore.isVariantEnabled(
+			SECURITY_PII_SCANNER_EXPERIMENT.name,
+			SECURITY_PII_SCANNER_EXPERIMENT.variant,
+		),
+	);
 
 	// UI state
 	const panelOpen = ref(false);
@@ -50,8 +65,39 @@ export const useSecurityScannerStore = defineStore(STORES.SECURITY_SCANNER, () =
 		return counts;
 	});
 
+	const categoryCount = computed(() => {
+		const counts: Record<SecurityCategory, number> = {
+			'hardcoded-secret': 0,
+			'pii-data-flow': 0,
+			'insecure-config': 0,
+			'data-exposure': 0,
+			'expression-risk': 0,
+		};
+		for (const finding of findings.value) {
+			counts[finding.category]++;
+		}
+		return counts;
+	});
+
+	function trackScannerOpened() {
+		telemetry.track('Security scanner opened', {
+			instance_id: rootStore.instanceId,
+			workflow_id: workflowsStore.workflowId,
+			findings_total: summary.value.total,
+			findings_critical: severityCount.value.critical,
+			findings_warning: severityCount.value.warning,
+			findings_info: severityCount.value.info,
+			findings_hardcoded_secret: categoryCount.value['hardcoded-secret'],
+			findings_pii_data_flow: categoryCount.value['pii-data-flow'],
+			findings_insecure_config: categoryCount.value['insecure-config'],
+			findings_data_exposure: categoryCount.value['data-exposure'],
+			findings_expression_risk: categoryCount.value['expression-risk'],
+		});
+	}
+
 	function openPanel() {
 		panelOpen.value = true;
+		trackScannerOpened();
 	}
 
 	function closePanel() {
@@ -59,7 +105,11 @@ export const useSecurityScannerStore = defineStore(STORES.SECURITY_SCANNER, () =
 	}
 
 	function togglePanel() {
+		const wasOpen = panelOpen.value;
 		panelOpen.value = !panelOpen.value;
+		if (!wasOpen) {
+			trackScannerOpened();
+		}
 	}
 
 	function setActiveTab(tab: SecurityTab) {
@@ -100,6 +150,15 @@ export const useSecurityScannerStore = defineStore(STORES.SECURITY_SCANNER, () =
 	async function analyzeWithAi() {
 		if (!isAiAvailable.value) return;
 
+		telemetry.track('Security scanner AI deep scan triggered', {
+			instance_id: rootStore.instanceId,
+			workflow_id: workflowsStore.workflowId,
+			findings_total: summary.value.total,
+			findings_critical: severityCount.value.critical,
+			findings_warning: severityCount.value.warning,
+			findings_info: severityCount.value.info,
+		});
+
 		const chatPanelStore = useChatPanelStore();
 		const builderStore = useBuilderStore();
 
@@ -138,6 +197,15 @@ export const useSecurityScannerStore = defineStore(STORES.SECURITY_SCANNER, () =
 	async function fixFindingWithAi(finding: SecurityFinding) {
 		if (!isAiAvailable.value) return;
 
+		telemetry.track('Security scanner AI fix requested', {
+			instance_id: rootStore.instanceId,
+			workflow_id: workflowsStore.workflowId,
+			finding_category: finding.category,
+			finding_severity: finding.severity,
+			finding_title: finding.title,
+			node_name: finding.nodeName,
+		});
+
 		const chatPanelStore = useChatPanelStore();
 		const builderStore = useBuilderStore();
 
@@ -165,6 +233,7 @@ export const useSecurityScannerStore = defineStore(STORES.SECURITY_SCANNER, () =
 	}
 
 	return {
+		isFeatureEnabled,
 		panelOpen,
 		activeTab,
 		panelWidth,
