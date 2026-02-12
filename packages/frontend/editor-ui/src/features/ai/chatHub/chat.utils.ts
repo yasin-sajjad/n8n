@@ -8,7 +8,6 @@ import {
 	type ChatMessageId,
 	type ChatHubProvider,
 	type ChatHubLLMProvider,
-	type ChatHubInputModality,
 	type AgentIconOrEmoji,
 	type ChatProviderSettingsDto,
 } from '@n8n/api-types';
@@ -395,29 +394,6 @@ export function createSessionFromStreamingState(streaming: ChatStreamingState): 
 	};
 }
 
-export function createMimeTypes(modalities: ChatHubInputModality[]): string {
-	// If 'file' modality is present, accept all file types
-	if (modalities.includes('file')) {
-		return '*/*';
-	}
-
-	const mimeTypes: string[] = ['text/*'];
-
-	for (const modality of modalities) {
-		if (modality === 'image') {
-			mimeTypes.push('image/*');
-		}
-		if (modality === 'audio') {
-			mimeTypes.push('audio/*');
-		}
-		if (modality === 'video') {
-			mimeTypes.push('video/*');
-		}
-	}
-
-	return mimeTypes.join(',');
-}
-
 export const personalAgentDefaultIcon: AgentIconOrEmoji = {
 	type: 'icon',
 	value: 'message-square' satisfies IconName,
@@ -439,9 +415,10 @@ export function createFakeAgent(
 		icon: fallback?.icon ?? null,
 		createdAt: null,
 		updatedAt: null,
-		// Assume file attachment and tools are supported
+		// Assume tools are supported
 		metadata: {
-			inputModalities: ['text', 'file'],
+			allowFileUploads: false,
+			allowedFilesMimeTypes: '',
 			capabilities: {
 				functionCalling: true,
 			},

@@ -15,7 +15,7 @@ import { useSpeechRecognition } from '@vueuse/core';
 import type { INode } from 'n8n-workflow';
 import { computed, ref, useTemplateRef, watch } from 'vue';
 import ToolsSelector from './ToolsSelector.vue';
-import { isLlmProviderModel, createMimeTypes } from '@/features/ai/chatHub/chat.utils';
+import { isLlmProviderModel } from '@/features/ai/chatHub/chat.utils';
 import { useI18n } from '@n8n/i18n';
 import { I18nT } from 'vue-i18n';
 import { useUIStore } from '@/app/stores/ui.store';
@@ -70,11 +70,9 @@ const llmProvider = computed<ChatHubLLMProvider | undefined>(() =>
 	isLlmProviderModel(selectedModel?.model) ? selectedModel?.model.provider : undefined,
 );
 
-const acceptedMimeTypes = computed(() =>
-	createMimeTypes(selectedModel?.metadata.inputModalities ?? []),
-);
+const acceptedMimeTypes = computed(() => selectedModel?.metadata.allowedFilesMimeTypes ?? '');
 
-const canUploadFiles = computed(() => !!acceptedMimeTypes.value);
+const canUploadFiles = computed(() => selectedModel?.metadata.allowFileUploads ?? false);
 
 const showMisisngAgentCallout = computed(() => messagingState === 'missingAgent');
 const showMissingCredentialsCallout = computed(

@@ -10,7 +10,6 @@ import {
 	findOneFromModelsResponse,
 	isLlmProvider,
 	unflattenModel,
-	createMimeTypes,
 	isWaitingForApproval,
 } from '@/features/ai/chatHub/chat.utils';
 import ChatConversationHeader from '@/features/ai/chatHub/components/ChatConversationHeader.vue';
@@ -340,8 +339,7 @@ const didSubmitInCurrentSession = ref(false);
 
 const canAcceptFiles = computed(() => {
 	const baseCondition =
-		!!createMimeTypes(selectedModel.value?.metadata.inputModalities ?? []) &&
-		!isMissingSelectedCredential.value;
+		(selectedModel.value?.metadata.allowFileUploads ?? false) && !isMissingSelectedCredential.value;
 
 	if (!baseCondition) return false;
 

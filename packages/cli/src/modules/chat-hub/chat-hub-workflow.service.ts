@@ -3,8 +3,6 @@ import {
 	ChatSessionId,
 	PROVIDER_CREDENTIAL_TYPE_MAP,
 	type ChatHubBaseLLMModel,
-	type ChatHubInputModality,
-	type ChatModelMetadataDto,
 } from '@n8n/api-types';
 import { Logger } from '@n8n/backend-common';
 import {
@@ -55,6 +53,8 @@ import {
 	PROVIDER_NODE_TYPE_MAP,
 	SUPPORTED_RESPONSE_MODES,
 	TOOLS_AGENT_NODE_MIN_VERSION,
+	type ChatHubInputModality,
+	type InternalModelMetadata,
 } from './chat-hub.constants';
 import { ChatHubSettingsService } from './chat-hub.settings.service';
 import {
@@ -246,6 +246,26 @@ export class ChatHubWorkflowService {
 		}
 
 		return Array.from(modalities);
+	}
+
+	/**
+	 * Resolves the allowed MIME types string for the chat hub API from chat trigger options.
+	 * Returns the MIME types string to be used as the `accept` attribute on the file input.
+	 */
+	resolveAllowedMimeTypes(options?: {
+		allowFileUploads?: boolean;
+		allowedFilesMimeTypes?: string;
+	}): string {
+		if (!options?.allowFileUploads) {
+			return '';
+		}
+
+		const allowedFilesMimeTypes = options.allowedFilesMimeTypes;
+		if (!allowedFilesMimeTypes || allowedFilesMimeTypes === '*/*') {
+			return '*/*';
+		}
+
+		return allowedFilesMimeTypes;
 	}
 
 	private getUniqueNodeName(originalName: string, existingNames: Set<string>): string {
@@ -851,7 +871,7 @@ ${this.getSystemMessageMetadata(timeZone) + artifactContext}`;
 		attachment: IBinaryData,
 		currentTotalSize: number,
 		maxTotalPayloadSize: number,
-		modelMetadata: ChatModelMetadataDto,
+		modelMetadata: InternalModelMetadata,
 	): Promise<ContentBlock> {
 		class TotalFileSizeExceededError extends Error {}
 		class UnsupportedMimeTypeError extends Error {}
