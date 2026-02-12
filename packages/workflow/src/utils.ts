@@ -142,11 +142,11 @@ type JSONParseOptions<T> = { acceptJSObject?: boolean; repairJSON?: boolean } & 
  * Parses a JSON string into an object with optional error handling and recovery mechanisms.
  *
  * @param {string} jsonString - The JSON string to parse.
- * @param {Object} [memoryOptions] - Optional settings for parsing the JSON string. Either `fallbackValue` or `errorMessage` can be set, but not both.
- * @param {boolean} [memoryOptions.acceptJSObject=false] - If true, attempts to recover from common JSON format errors by parsing the JSON string as a JavaScript Object.
- * @param {boolean} [memoryOptions.repairJSON=false] - If true, attempts to repair common JSON format errors by repairing the JSON string.
- * @param {string} [memoryOptions.errorMessage] - A custom error message to throw if the JSON string cannot be parsed.
- * @param {*} [memoryOptions.fallbackValue] - A fallback value to return if the JSON string cannot be parsed.
+ * @param {Object} [options] - Optional settings for parsing the JSON string. Either `fallbackValue` or `errorMessage` can be set, but not both.
+ * @param {boolean} [options.acceptJSObject=false] - If true, attempts to recover from common JSON format errors by parsing the JSON string as a JavaScript Object.
+ * @param {boolean} [options.repairJSON=false] - If true, attempts to repair common JSON format errors by repairing the JSON string.
+ * @param {string} [iptions.errorMessage] - A custom error message to throw if the JSON string cannot be parsed.
+ * @param {*} [options.fallbackValue] - A fallback value to return if the JSON string cannot be parsed.
  * @returns {Object} - The parsed object, or the fallback value if parsing fails and `fallbackValue` is set.
  */
 export const jsonParse = <T>(jsonString: string, options?: JSONParseOptions<T>): T => {
