@@ -708,6 +708,19 @@ export const useChatStore = defineStore(STORES.CHAT_HUB, () => {
 		}
 	}
 
+	async function toggleCustomAgentTool(agentId: string, toolId: string) {
+		const agent = customAgents.value[agentId];
+		if (!agent) throw new Error(`Custom agent with ID ${agentId} not found`);
+
+		const currentIds = agent.toolIds ?? [];
+		const newIds = currentIds.includes(toolId)
+			? currentIds.filter((id) => id !== toolId)
+			: [...currentIds, toolId];
+
+		customAgents.value[agentId] = { ...agent, toolIds: newIds };
+		await updateAgentApi(rootStore.restApiContext, agentId, { toolIds: newIds });
+	}
+
 	async function toggleSessionTool(sessionId: ChatSessionId, toolId: string) {
 		const session = sessions.value?.byId[sessionId];
 		if (!session) {
@@ -1247,6 +1260,7 @@ export const useChatStore = defineStore(STORES.CHAT_HUB, () => {
 		updateSessionModel,
 		deleteSession,
 		toggleSessionTool,
+		toggleCustomAgentTool,
 		conversationsBySession,
 
 		/**

@@ -13,6 +13,7 @@ import { useChatStore } from '@/features/ai/chatHub/chat.store';
 const props = defineProps<{
 	disabled: boolean;
 	checkedToolIds: string[];
+	customAgentId?: string;
 	disabledTooltip?: string;
 }>();
 
@@ -61,6 +62,7 @@ function openToolsManager() {
 				.filter((t) => checkedToolIdsSet.value.has(t.definition.id))
 				.map((t) => t.definition),
 			onConfirm: () => {},
+			customAgentId: props.customAgentId,
 		},
 	});
 }
@@ -275,7 +277,7 @@ onMounted(async () => {
 <style lang="scss">
 .tools-selector-dropdown {
 	z-index: 10000;
-	min-width: 220px;
+	min-width: 330px;
 
 	[data-highlighted] [class*='itemSettingsButton'] {
 		opacity: 1;

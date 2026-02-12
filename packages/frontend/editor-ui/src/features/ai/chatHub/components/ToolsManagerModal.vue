@@ -29,13 +29,26 @@ import { useToast } from '@/app/composables/useToast';
 import { useMessage } from '@/app/composables/useMessage';
 import { hasRole } from '@/app/utils/rbac/checks/hasRole';
 
-defineProps<{
+const props = defineProps<{
 	modalName: string;
 	data: {
 		tools: INode[];
 		onConfirm: (tools: INode[]) => void;
+		customAgentId?: string;
 	};
 }>();
+
+const agentId = computed(() => props.data.customAgentId);
+const agentToolIds = computed(() => {
+	if (!agentId.value) return null;
+	return chatStore.customAgents[agentId.value]?.toolIds ?? [];
+});
+const modalTitle = computed(() => {
+	const baseTitle = i18n.baseText('chatHub.toolsManager.title');
+	if (!agentId.value) return baseTitle;
+	const agentName = chatStore.customAgents[agentId.value]?.name;
+	return agentName ? `${baseTitle} (${agentName})` : baseTitle;
+});
 
 function hasInputs(nodeType: INodeTypeDescription): boolean {
 	const { inputs } = nodeType;
@@ -176,7 +189,11 @@ async function handleRemoveTool(toolId: string) {
 
 async function handleToggleTool(tool: ChatHubToolDto, enabled: boolean) {
 	try {
-		await chatStore.toggleToolEnabled(tool.definition.id, enabled);
+		if (agentId.value) {
+			await chatStore.toggleCustomAgentTool(agentId.value, tool.definition.id);
+		} else {
+			await chatStore.toggleToolEnabled(tool.definition.id, enabled);
+		}
 	} catch (error) {
 		toast.showError(error, i18n.baseText('chatHub.error.updateToolsFailed'));
 	}
@@ -252,7 +269,7 @@ function handleSettingsChangeName(name: string) {
 		<template #header>
 			<!-- List view header -->
 			<N8nHeading v-if="currentView === 'list'" tag="h2" size="large">
-				{{ i18n.baseText('chatHub.toolsManager.title') }}
+				{{ modalTitle }}
 			</N8nHeading>
 
 			<!-- Settings view header -->
@@ -307,7 +324,7 @@ function handleSettingsChangeName(name: string) {
 							:key="tool.definition.id"
 							:node-type="getNodeType(tool)!"
 							:configured-node="tool.definition"
-							:enabled="tool.enabled"
+							:enabled="agentToolIds ? agentToolIds.includes(tool.definition.id) : tool.enabled"
 							mode="configured"
 							@configure="handleConfigureTool(tool)"
 							@remove="handleRemoveTool(tool.definition.id)"

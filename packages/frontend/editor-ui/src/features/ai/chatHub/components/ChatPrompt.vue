@@ -27,6 +27,7 @@ const props = defineProps<{
 	selectedModel: ChatModelDto | null;
 	checkedToolIds: string[];
 	sessionId?: ChatSessionId;
+	customAgentId?: string;
 	showCreditsClaimedCallout: boolean;
 	aiCreditsQuota: string;
 }>();
@@ -188,15 +189,19 @@ watch(speechInput.error, (event) => {
 });
 
 async function handleToolToggle(toolId: string) {
+	if (props.customAgentId) {
+		await chatStore.toggleCustomAgentTool(props.customAgentId, toolId);
+		return;
+	}
 	if (props.sessionId) {
 		// Existing session: toggle per-session tool
 		await chatStore.toggleSessionTool(props.sessionId, toolId);
-	} else {
-		// New session: toggle global enabled state
-		const tool = chatStore.configuredTools.find((t) => t.definition.id === toolId);
-		if (tool) {
-			await chatStore.toggleToolEnabled(toolId, !tool.enabled);
-		}
+		return;
+	}
+	// New session: toggle global enabled state
+	const tool = chatStore.configuredTools.find((t) => t.definition.id === toolId);
+	if (tool) {
+		await chatStore.toggleToolEnabled(toolId, !tool.enabled);
 	}
 }
 
@@ -343,6 +348,7 @@ defineExpose({
 						<ToolsSelector
 							:class="$style.toolsButton"
 							:checked-tool-ids="checkedToolIds"
+							:custom-agent-id="customAgentId"
 							:disabled="messagingState !== 'idle' || !isToolsSelectable"
 							:disabled-tooltip="
 								isToolsSelectable

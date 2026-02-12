@@ -114,11 +114,7 @@ const currentConversation = computed(() =>
 );
 const currentConversationTitle = computed(() => currentConversation.value?.title);
 
-const canSelectTools = computed(
-	() =>
-		selectedModel.value?.model.provider === 'custom-agent' ||
-		!!selectedModel.value?.metadata.capabilities.functionCalling,
-);
+const canSelectTools = computed(() => !!selectedModel.value?.metadata.capabilities.functionCalling);
 const hadConversationBefore = useLocalStorage(
 	LOCAL_STORAGE_CHAT_HUB_HAD_CONVERSATION_BEFORE(usersStore.currentUserId ?? 'anonymous'),
 	false,
@@ -798,6 +794,7 @@ function onFilesDropped(files: File[]) {
 								:selected-model="selectedModel"
 								:checked-tool-ids="canSelectTools ? checkedToolIds : []"
 								:session-id="isNewSession ? undefined : sessionId"
+								:custom-agent-id="customAgentId"
 								:messaging-state="messagingState"
 								:is-tools-selectable="canSelectTools"
 								:is-new-session="isNewSession"
