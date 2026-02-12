@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import Modal from '@/app/components/Modal.vue';
 import { useMessage } from '@/app/composables/useMessage';
 import { useToast } from '@/app/composables/useToast';
+import { useUIStore } from '@/app/stores/ui.store';
 import { useChatStore } from '@/features/ai/chatHub/chat.store';
 import { useRootStore } from '@n8n/stores/useRootStore';
 import { fetchChatModelsApi } from '@/features/ai/chatHub/chat.api';
@@ -15,12 +15,23 @@ import {
 	type ChatHubProvider,
 	type ChatModelDto,
 } from '@n8n/api-types';
-import { N8nButton, N8nHeading, N8nIconPicker, N8nInput, N8nInputLabel } from '@n8n/design-system';
+import {
+	N8nButton,
+	N8nDialogClose,
+	N8nDialogFooter,
+	N8nDialogHeader,
+	N8nDialogTitle,
+	N8nHeading,
+	N8nIconPicker,
+	N8nInput,
+	N8nInputLabel,
+	N8nDialog,
+	N8nSpinner,
+} from '@n8n/design-system';
 import type { IconOrEmoji } from '@n8n/design-system/components/N8nIconPicker/types';
 import { useI18n } from '@n8n/i18n';
 import { assert } from '@n8n/utils/assert';
-import { createEventBus } from '@n8n/utils/event-bus';
-import { computed, ref, useTemplateRef, watch } from 'vue';
+import { computed, onMounted, ref, useTemplateRef, watch } from 'vue';
 import type { CredentialsMap } from '../chat.types';
 import ToolsSelector from './ToolsSelector.vue';
 import { personalAgentDefaultIcon, isLlmProviderModel } from '@/features/ai/chatHub/chat.utils';
@@ -40,8 +51,8 @@ const chatStore = useChatStore();
 const i18n = useI18n();
 const toast = useToast();
 const message = useMessage();
+const uiStore = useUIStore();
 
-const modalBus = ref(createEventBus());
 const { customAgent, isLoading: isLoadingCustomAgent } = useCustomAgent(props.data.agentId);
 
 const name = ref('');
@@ -50,7 +61,6 @@ const systemPrompt = ref('');
 const selectedModel = ref<ChatHubBaseLLMModel | null>(null);
 const isSaving = ref(false);
 const isDeleting = ref(false);
-const isOpened = ref(false);
 const toolIds = ref<string[]>([]);
 const agents = ref<ChatModelsResponse>(emptyChatModelsResponse);
 const isLoadingAgents = ref(false);
@@ -100,9 +110,9 @@ const canSelectTools = computed(
 	() => selectedAgent.value?.metadata.capabilities.functionCalling ?? false,
 );
 
-modalBus.value.once('opened', () => {
-	isOpened.value = true;
-});
+function closeDialog() {
+	uiStore.closeModal(props.modalName);
+}
 
 // If the agent doesn't support tools anymore, reset toolIds
 watch(
@@ -134,17 +144,18 @@ watch(
 	{ immediate: true },
 );
 
-watch(
-	[isOpened, isLoadingAgent, nameInputRef],
-	([opened, isLoading, nameInput]) => {
-		if (opened && !isLoading) {
-			// autofocus attribute doesn't work in modal
-			// https://github.com/element-plus/element-plus/issues/15250
-			nameInput?.focus();
-		}
-	},
-	{ immediate: true, flush: 'post' },
-);
+// Auto-focus name input when mounted and not loading
+onMounted(() => {
+	watch(
+		[isLoadingAgent, nameInputRef],
+		([isLoading, nameInput]) => {
+			if (!isLoading) {
+				nameInput?.focus();
+			}
+		},
+		{ immediate: true, flush: 'post' },
+	);
+});
 
 // Update agents when credentials are updated
 watch(
@@ -216,7 +227,7 @@ async function onSave() {
 			});
 		}
 
-		modalBus.value.emit('close');
+		closeDialog();
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : '';
 		toast.showError(error, i18n.baseText('chatHub.agent.editor.error.save'), errorMessage);
@@ -248,7 +259,7 @@ async function onDelete() {
 			type: 'success',
 		});
 		props.data.onClose?.();
-		modalBus.value.emit('close');
+		closeDialog();
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : '';
 		toast.showError(error, i18n.baseText('chatHub.agent.editor.error.delete'), errorMessage);
@@ -259,29 +270,29 @@ async function onDelete() {
 </script>
 
 <template>
-	<Modal
-		:name="modalName"
-		:event-bus="modalBus"
-		width="600px"
-		:center="true"
-		:loading="isLoadingAgent"
-		max-width="90%"
-		min-height="400px"
-	>
-		<template #header>
-			<div :class="$style.header">
-				<N8nHeading tag="h2" size="large">{{ title }}</N8nHeading>
-				<N8nButton
-					v-if="isEditMode"
-					type="secondary"
-					icon="trash-2"
-					:disabled="isDeleting"
-					:loading="isDeleting"
-					@click="onDelete"
-				/>
+	<N8nDialog :open="true" size="xlarge" @update:open="closeDialog">
+		<template v-if="isLoadingAgent">
+			<div :class="$style.loader">
+				<N8nSpinner />
 			</div>
 		</template>
-		<template #content>
+		<template v-else>
+			<N8nDialogHeader>
+				<div :class="$style.header">
+					<N8nDialogTitle>
+						<N8nHeading tag="h2" size="large">{{ title }}</N8nHeading>
+					</N8nDialogTitle>
+					<N8nButton
+						v-if="isEditMode"
+						type="secondary"
+						icon="trash-2"
+						:class="$style.deleteButton"
+						:disabled="isDeleting"
+						:loading="isDeleting"
+						@click="onDelete"
+					/>
+				</div>
+			</N8nDialogHeader>
 			<div :class="$style.content">
 				<N8nInputLabel
 					input-name="agent-name"
@@ -375,18 +386,16 @@ async function onDelete() {
 					</N8nInputLabel>
 				</div>
 			</div>
-		</template>
-		<template #footer>
-			<div :class="$style.footer">
-				<N8nButton type="secondary" @click="modalBus.emit('close')">{{
-					i18n.baseText('chatHub.tools.editor.cancel')
-				}}</N8nButton>
+			<N8nDialogFooter>
+				<N8nDialogClose as-child>
+					<N8nButton type="secondary">{{ i18n.baseText('chatHub.tools.editor.cancel') }}</N8nButton>
+				</N8nDialogClose>
 				<N8nButton type="primary" :disabled="!isValid || isSaving" @click="onSave">
 					{{ saveButtonLabel }}
 				</N8nButton>
-			</div>
+			</N8nDialogFooter>
 		</template>
-	</Modal>
+	</N8nDialog>
 </template>
 
 <style lang="scss" module>
@@ -396,6 +405,10 @@ async function onDelete() {
 	justify-content: space-between;
 	gap: var(--spacing--s);
 	padding-right: var(--spacing--xl);
+}
+
+.deleteButton {
+	margin-top: calc(-1 * var(--spacing--xs));
 }
 
 .content {
@@ -429,10 +442,10 @@ async function onDelete() {
 	width: fit-content;
 }
 
-.footer {
+.loader {
 	display: flex;
-	justify-content: flex-end;
+	justify-content: center;
 	align-items: center;
-	gap: var(--spacing--2xs);
+	min-height: 200px;
 }
 </style>

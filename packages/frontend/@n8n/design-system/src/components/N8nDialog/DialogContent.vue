@@ -142,15 +142,15 @@ const needsFallbackDescription = computed(() => !!props.ariaDescription);
 	transform: translate(-50%, -50%);
 	width: 100%;
 	padding: var(--spacing--lg);
+	border: var(--border);
 	border-radius: var(--radius--lg);
-	background-color: light-dark(var(--color--neutral-white), var(--color--neutral-800));
+	background-color: var(--dialog--color--background);
 	box-shadow:
-		inset 0 1.5px 0 light-dark(transparent, var(--border-color)),
 		0 0 0 0.5px light-dark(var(--border-color), var(--color--black-alpha-300)),
 		0 8px 8px light-dark(var(--color--black-alpha-100), var(--color--black-alpha-300)),
 		0 32px 32px light-dark(var(--color--black-alpha-100), var(--color--black-alpha-200)),
 		0 64px 64px light-dark(rgba(0, 0, 0, 0.06), var(--color--black-alpha-100));
-	z-index: 999999;
+	z-index: 1950; // See APP_Z_INDEXES in useStyles.ts
 	max-width: var(--dialog--max-width);
 
 	&:focus {

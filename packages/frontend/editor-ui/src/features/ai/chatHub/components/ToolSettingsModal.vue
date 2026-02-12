@@ -1,9 +1,16 @@
 <script setup lang="ts">
-import Modal from '@/app/components/Modal.vue';
 import NodeIcon from '@/app/components/NodeIcon.vue';
-import { N8nButton, N8nInlineTextEdit } from '@n8n/design-system';
+import { useUIStore } from '@/app/stores/ui.store';
+import {
+	N8nButton,
+	N8nDialog,
+	N8nDialogClose,
+	N8nDialogFooter,
+	N8nDialogHeader,
+	N8nDialogTitle,
+	N8nInlineTextEdit,
+} from '@n8n/design-system';
 import { useI18n } from '@n8n/i18n';
-import { createEventBus } from '@n8n/utils/event-bus';
 import type { INode } from 'n8n-workflow';
 import { ref } from 'vue';
 import ToolSettingsContent from './ToolSettingsContent.vue';
@@ -18,11 +25,15 @@ const props = defineProps<{
 }>();
 
 const i18n = useI18n();
+const uiStore = useUIStore();
 
-const modalBus = ref(createEventBus());
 const contentRef = ref<InstanceType<typeof ToolSettingsContent> | null>(null);
 const isValid = ref(false);
 const nodeName = ref(props.data.node?.name ?? '');
+
+function closeDialog() {
+	uiStore.closeModal(props.modalName);
+}
 
 function handleConfirm() {
 	const currentNode = contentRef.value?.node;
@@ -31,11 +42,11 @@ function handleConfirm() {
 	}
 
 	props.data.onConfirm(currentNode);
-	modalBus.value.emit('close');
+	closeDialog();
 }
 
 function handleCancel() {
-	modalBus.value.emit('close');
+	closeDialog();
 }
 
 function handleChangeName(name: string) {
@@ -52,18 +63,8 @@ function handleNodeNameUpdate(name: string) {
 </script>
 
 <template>
-	<Modal
-		v-if="data.node"
-		:name="modalName"
-		:event-bus="modalBus"
-		width="710px"
-		:center="true"
-		max-width="90vw"
-		min-height="250px"
-		max-height="650px"
-		:class="$style.modal"
-	>
-		<template #header>
+	<N8nDialog v-if="data.node" :open="true" size="2xlarge" @update:open="closeDialog">
+		<N8nDialogHeader>
 			<div :class="$style.header">
 				<NodeIcon
 					v-if="contentRef?.nodeTypeDescription"
@@ -72,15 +73,17 @@ function handleNodeNameUpdate(name: string) {
 					:circle="true"
 					:class="$style.icon"
 				/>
-				<N8nInlineTextEdit
-					:model-value="nodeName"
-					:max-width="400"
-					:class="$style.title"
-					@update:model-value="handleChangeName"
-				/>
+				<N8nDialogTitle as-child>
+					<N8nInlineTextEdit
+						:model-value="nodeName"
+						:max-width="400"
+						:class="$style.title"
+						@update:model-value="handleChangeName"
+					/>
+				</N8nDialogTitle>
 			</div>
-		</template>
-		<template #content>
+		</N8nDialogHeader>
+		<div data-tool-settings-content :class="$style.contentWrapper">
 			<ToolSettingsContent
 				ref="contentRef"
 				:initial-node="data.node"
@@ -88,51 +91,21 @@ function handleNodeNameUpdate(name: string) {
 				@update:valid="handleValidUpdate"
 				@update:node-name="handleNodeNameUpdate"
 			/>
-		</template>
-		<template #footer>
-			<div :class="$style.footer">
+		</div>
+		<N8nDialogFooter>
+			<N8nDialogClose as-child>
 				<N8nButton type="tertiary" @click="handleCancel">
 					{{ i18n.baseText('chatHub.toolSettings.cancel') }}
 				</N8nButton>
-				<N8nButton type="primary" :disabled="!isValid" @click="handleConfirm">
-					{{ i18n.baseText('chatHub.toolSettings.confirm') }}
-				</N8nButton>
-			</div>
-		</template>
-	</Modal>
+			</N8nDialogClose>
+			<N8nButton type="primary" :disabled="!isValid" @click="handleConfirm">
+				{{ i18n.baseText('chatHub.toolSettings.confirm') }}
+			</N8nButton>
+		</N8nDialogFooter>
+	</N8nDialog>
 </template>
 
 <style lang="scss" module>
-.modal {
-	:global(.el-dialog__header) {
-		width: 100%;
-	}
-
-	:global(.el-dialog__body) {
-		padding: var(--spacing--sm) 0 var(--spacing--sm) var(--spacing--md);
-	}
-
-	:global(.modal-content) {
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-	}
-
-	/* don't show "This node must be connected to an AI agent." */
-	:global(.ndv-connection-hint-notice) {
-		display: none;
-	}
-}
-
-.footer {
-	display: flex;
-	justify-content: flex-end;
-	align-items: center;
-	gap: var(--spacing--2xs);
-	width: 100%;
-	padding-right: var(--spacing--md);
-}
-
 .header {
 	display: flex;
 	gap: var(--spacing--2xs);
@@ -152,5 +125,18 @@ function handleNodeNameUpdate(name: string) {
 	color: var(--color--text--shade-1);
 	flex: 1;
 	min-width: 0;
+}
+
+.contentWrapper {
+	display: flex;
+	flex-direction: column;
+	max-height: 450px;
+	overflow: hidden;
+	margin-right: calc(-1 * var(--spacing--lg));
+	padding: var(--spacing--md) 0;
+
+	:global(.ndv-connection-hint-notice) {
+		display: none;
+	}
 }
 </style>
