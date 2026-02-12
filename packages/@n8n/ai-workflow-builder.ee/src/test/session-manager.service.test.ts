@@ -72,6 +72,62 @@ describe('SessionManagerService', () => {
 		});
 	});
 
+	describe('usesPersistence', () => {
+		it('should return false when no storage configured', () => {
+			expect(service.usesPersistence).toBe(false);
+		});
+
+		it('should return true when storage is configured', () => {
+			const mockStorage: ISessionStorage = {
+				getSession: jest.fn(),
+				saveSession: jest.fn(),
+				deleteSession: jest.fn(),
+			};
+			const serviceWithStorage = new SessionManagerService(
+				mockParsedNodeTypes,
+				mockStorage,
+				mockLogger,
+			);
+			expect(serviceWithStorage.usesPersistence).toBe(true);
+		});
+	});
+
+	describe('updateNodeTypes', () => {
+		it('should update the node types', async () => {
+			const newNodeTypes: INodeTypeDescription[] = [
+				{
+					displayName: 'New Node',
+					name: 'new-node',
+					group: ['transform'],
+					version: 1,
+					description: 'A new node',
+					defaults: { name: 'New Node' },
+					inputs: ['main'],
+					outputs: ['main'],
+					properties: [],
+				},
+			];
+
+			service.updateNodeTypes(newNodeTypes);
+
+			// Verify by calling getSessions which uses nodeTypes internally
+			(mockMemorySaver.getTuple as jest.Mock).mockResolvedValue({
+				checkpoint: {
+					channel_values: {
+						messages: [new HumanMessage('Test')],
+					},
+					ts: '2023-12-01T12:00:00Z',
+				},
+			});
+
+			await service.getSessions('test-workflow', 'test-user');
+
+			expect(getBuilderToolsForDisplay).toHaveBeenCalledWith({
+				nodeTypes: newNodeTypes,
+			});
+		});
+	});
+
 	describe('generateThreadId', () => {
 		it('should generate thread ID with workflowId and userId', () => {
 			const threadId = SessionManagerService.generateThreadId('workflow-123', 'user-456');
