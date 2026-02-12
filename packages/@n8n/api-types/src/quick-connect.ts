@@ -3,4 +3,5 @@ export type QuickConnectOption = {
 	credentialType: string;
 	text: string;
 	quickConnectType: string;
+	config?: Record<string, string>;
 };

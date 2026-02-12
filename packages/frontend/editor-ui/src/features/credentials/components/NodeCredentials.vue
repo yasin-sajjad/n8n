@@ -568,9 +568,8 @@ async function onQuickConnectSignIn(credentialTypeName: string) {
 			case 'pinecone': {
 				const { ConnectPopup } = await import('@pinecone-database/connect');
 				const popup = ConnectPopup({
-					onConnect: async (apiKey) => {
-						console.log('got a pinecone key', apiKey);
-
+					onConnect: async (connectionInfo) => {
+						console.log('got connection', connectionInfo);
 						try {
 							// Create credential on backend but don't add to store yet (wait for OAuth success)
 							const credential = await credentialsStore.createNewCredential(
@@ -579,7 +578,7 @@ async function onQuickConnectSignIn(credentialTypeName: string) {
 									name: credentialType.displayName,
 									type: credentialTypeName,
 									data: {
-										apiKey,
+										apiKey: connectionInfo.key,
 									},
 								},
 								projectsStore.currentProject?.id,
@@ -592,7 +591,7 @@ async function onQuickConnectSignIn(credentialTypeName: string) {
 							return;
 						}
 					},
-					integrationId: 'myApp',
+					integrationId: quickConnectOption.config?.integrationId,
 				});
 
 				popup.open();

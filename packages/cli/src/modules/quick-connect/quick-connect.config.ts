@@ -16,6 +16,7 @@ const quickConnectOptionsSchema = z.string().pipe(
 				credentialType: z.string(),
 				text: z.string(),
 				quickConnectType: z.string(),
+				config: z.record(z.string(), z.string()).optional(),
 			}),
 		),
 	),
