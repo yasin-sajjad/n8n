@@ -103,15 +103,12 @@ describe('WorkflowBuilderSessionRepository', () => {
 		});
 
 		it('should return undefined previousSummary when null in entity', async () => {
-			const entity = {
-				id: 'session-id',
-				workflowId: 'wf123',
-				userId: 'user456',
-				messages: [],
-				previousSummary: null,
-				updatedAt: new Date(),
-				createdAt: new Date(),
-			} as WorkflowBuilderSession;
+			const entity = new WorkflowBuilderSession();
+			entity.id = 'session-id';
+			entity.workflowId = 'wf123';
+			entity.userId = 'user456';
+			entity.messages = [];
+			entity.previousSummary = null;
 			entityManager.findOne.mockResolvedValueOnce(entity);
 
 			const result = await repository.getSession(validThreadId);
@@ -120,15 +117,12 @@ describe('WorkflowBuilderSessionRepository', () => {
 		});
 
 		it('should return empty messages array when messages fail validation', async () => {
-			const entity = {
-				id: 'session-id',
-				workflowId: 'wf123',
-				userId: 'user456',
-				messages: [],
-				previousSummary: null,
-				updatedAt: new Date(),
-				createdAt: new Date(),
-			} as WorkflowBuilderSession;
+			const entity = new WorkflowBuilderSession();
+			entity.id = 'session-id';
+			entity.workflowId = 'wf123';
+			entity.userId = 'user456';
+			entity.messages = [];
+			entity.previousSummary = null;
 			entityManager.findOne.mockResolvedValueOnce(entity);
 
 			const result = await repository.getSession(validThreadId);
