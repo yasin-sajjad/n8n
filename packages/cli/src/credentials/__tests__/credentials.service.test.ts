@@ -1641,7 +1641,7 @@ describe('CredentialsService', () => {
 					},
 					projectId: 'WHwt9vP3keCUvmB5',
 				};
-				externalSecretsProviderAccessCheckService.canAccessProviderFromProject.mockResolvedValue(
+				externalSecretsProviderAccessCheckService.isProviderAvailableInProject.mockResolvedValue(
 					false,
 				);
 
@@ -1661,7 +1661,7 @@ describe('CredentialsService', () => {
 					},
 					projectId: 'WHwt9vP3keCUvmB5',
 				};
-				externalSecretsProviderAccessCheckService.canAccessProviderFromProject.mockResolvedValue(
+				externalSecretsProviderAccessCheckService.isProviderAvailableInProject.mockResolvedValue(
 					false,
 				);
 
@@ -1682,7 +1682,7 @@ describe('CredentialsService', () => {
 					projectId: 'WHwt9vP3keCUvmB5',
 				};
 
-				externalSecretsProviderAccessCheckService.canAccessProviderFromProject.mockResolvedValue(
+				externalSecretsProviderAccessCheckService.isProviderAvailableInProject.mockResolvedValue(
 					true,
 				);
 
@@ -1796,7 +1796,7 @@ describe('CredentialsService', () => {
 					data: {},
 					projectId: 'WHwt9vP3keCUvmB5',
 				};
-				externalSecretsProviderAccessCheckService.canAccessProviderFromProject.mockResolvedValue(
+				externalSecretsProviderAccessCheckService.isProviderAvailableInProject.mockResolvedValue(
 					false,
 				);
 
@@ -1822,7 +1822,7 @@ describe('CredentialsService', () => {
 					data: {},
 					projectId: 'WHwt9vP3keCUvmB5',
 				};
-				externalSecretsProviderAccessCheckService.canAccessProviderFromProject.mockResolvedValue(
+				externalSecretsProviderAccessCheckService.isProviderAvailableInProject.mockResolvedValue(
 					false,
 				);
 
@@ -1849,7 +1849,7 @@ describe('CredentialsService', () => {
 					projectId: 'WHwt9vP3keCUvmB5',
 				};
 
-				externalSecretsProviderAccessCheckService.canAccessProviderFromProject.mockResolvedValue(
+				externalSecretsProviderAccessCheckService.isProviderAvailableInProject.mockResolvedValue(
 					true,
 				);
 

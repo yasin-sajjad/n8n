@@ -215,13 +215,13 @@ describe('Credentials Validation', () => {
 				apiKey: '={{ $secrets.my_provider-123.key }}',
 			};
 
-			accessCheckService.canAccessProviderFromProject = jest.fn().mockResolvedValue(true);
+			accessCheckService.isProviderAvailableInProject = jest.fn().mockResolvedValue(true);
 
 			await expect(
 				validateAccessToReferencedSecretProviders(projectId, data, accessCheckService),
 			).resolves.toBeUndefined();
 
-			expect(accessCheckService.canAccessProviderFromProject).toHaveBeenCalledWith(
+			expect(accessCheckService.isProviderAvailableInProject).toHaveBeenCalledWith(
 				'my_provider-123',
 				projectId,
 			);
@@ -243,11 +243,11 @@ describe('Credentials Validation', () => {
 				apiKey: '={{ $secrets.vault.mykey }}',
 			};
 
-			accessCheckService.canAccessProviderFromProject = jest.fn().mockResolvedValue(true);
+			accessCheckService.isProviderAvailableInProject = jest.fn().mockResolvedValue(true);
 
 			await validateAccessToReferencedSecretProviders(projectId, data, accessCheckService);
 
-			expect(accessCheckService.canAccessProviderFromProject).toHaveBeenCalledWith(
+			expect(accessCheckService.isProviderAvailableInProject).toHaveBeenCalledWith(
 				'vault',
 				projectId,
 			);
@@ -259,13 +259,13 @@ describe('Credentials Validation', () => {
 				token: '={{ $secrets.aws.secret }}',
 			};
 
-			accessCheckService.canAccessProviderFromProject = jest.fn().mockResolvedValue(true);
+			accessCheckService.isProviderAvailableInProject = jest.fn().mockResolvedValue(true);
 
 			await expect(
 				validateAccessToReferencedSecretProviders(projectId, data, accessCheckService),
 			).resolves.toBeUndefined();
 
-			expect((accessCheckService.canAccessProviderFromProject as jest.Mock).mock.calls).toEqual([
+			expect((accessCheckService.isProviderAvailableInProject as jest.Mock).mock.calls).toEqual([
 				['vault', projectId],
 				['aws', projectId],
 			]);
@@ -276,7 +276,7 @@ describe('Credentials Validation', () => {
 				apiKey: '={{ $secrets.vault.mykey }}',
 			};
 
-			accessCheckService.canAccessProviderFromProject = jest.fn().mockResolvedValue(false);
+			accessCheckService.isProviderAvailableInProject = jest.fn().mockResolvedValue(false);
 
 			await expect(
 				validateAccessToReferencedSecretProviders(projectId, data, accessCheckService),
@@ -291,7 +291,7 @@ describe('Credentials Validation', () => {
 				anotherApiKey: '={{ $secrets.anotherOutsideProvider.key }}',
 			};
 
-			accessCheckService.canAccessProviderFromProject = jest.fn().mockResolvedValue(false);
+			accessCheckService.isProviderAvailableInProject = jest.fn().mockResolvedValue(false);
 
 			await expect(
 				validateAccessToReferencedSecretProviders(projectId, data, accessCheckService),
@@ -306,13 +306,13 @@ describe('Credentials Validation', () => {
 					apiKey: "={{ $secrets['vault']['mykey'] }}",
 				};
 
-				accessCheckService.canAccessProviderFromProject = jest.fn().mockResolvedValue(true);
+				accessCheckService.isProviderAvailableInProject = jest.fn().mockResolvedValue(true);
 
 				await expect(
 					validateAccessToReferencedSecretProviders(projectId, data, accessCheckService),
 				).resolves.toBeUndefined();
 
-				expect(accessCheckService.canAccessProviderFromProject).toHaveBeenCalledWith(
+				expect(accessCheckService.isProviderAvailableInProject).toHaveBeenCalledWith(
 					'vault',
 					projectId,
 				);
@@ -323,7 +323,7 @@ describe('Credentials Validation', () => {
 					apiKey: "={{ $secrets['vault']['mykey'] }}",
 				};
 
-				accessCheckService.canAccessProviderFromProject = jest.fn().mockResolvedValue(false);
+				accessCheckService.isProviderAvailableInProject = jest.fn().mockResolvedValue(false);
 
 				await expect(
 					validateAccessToReferencedSecretProviders(projectId, data, accessCheckService),
@@ -343,7 +343,7 @@ describe('Credentials Validation', () => {
 					},
 				};
 
-				accessCheckService.canAccessProviderFromProject = jest.fn().mockResolvedValue(true);
+				accessCheckService.isProviderAvailableInProject = jest.fn().mockResolvedValue(true);
 
 				await validateAccessToReferencedSecretProviders(projectId, data, accessCheckService);
 			});
@@ -357,7 +357,7 @@ describe('Credentials Validation', () => {
 					},
 				};
 
-				accessCheckService.canAccessProviderFromProject = jest.fn().mockResolvedValue(false);
+				accessCheckService.isProviderAvailableInProject = jest.fn().mockResolvedValue(false);
 
 				await expect(
 					validateAccessToReferencedSecretProviders(projectId, data, accessCheckService),
@@ -373,7 +373,7 @@ describe('Credentials Validation', () => {
 				password: '={{ $secrets.vault.key2 }}',
 			};
 
-			accessCheckService.canAccessProviderFromProject = jest.fn().mockResolvedValue(false);
+			accessCheckService.isProviderAvailableInProject = jest.fn().mockResolvedValue(false);
 
 			await expect(
 				validateAccessToReferencedSecretProviders(projectId, data, accessCheckService),
@@ -389,7 +389,7 @@ describe('Credentials Validation', () => {
 				password: '={{ $secrets.aws.pass }}',
 			};
 
-			accessCheckService.canAccessProviderFromProject = jest.fn().mockResolvedValue(false);
+			accessCheckService.isProviderAvailableInProject = jest.fn().mockResolvedValue(false);
 
 			await expect(
 				validateAccessToReferencedSecretProviders(projectId, data, accessCheckService),

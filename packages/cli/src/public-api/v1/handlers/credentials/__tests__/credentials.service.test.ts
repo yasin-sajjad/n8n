@@ -21,7 +21,7 @@ describe('CredentialsService', () => {
 	let mockExternalSecretsConfig: ExternalSecretsConfig;
 	const canAccessProviderFromProjectMock = jest.fn();
 	const mockSecretsProviderAccessCheckService = mock<SecretsProviderAccessCheckService>({
-		canAccessProviderFromProject: canAccessProviderFromProjectMock,
+		isProviderAvailableInProject: canAccessProviderFromProjectMock,
 	});
 	beforeEach(() => {
 		mockExternalSecretsConfig = new ExternalSecretsConfig();
@@ -536,7 +536,7 @@ describe('CredentialsService', () => {
 					apiKey: 'currentPlainTextValue',
 				});
 				jest
-					.mocked(mockSecretsProviderAccessCheckService.canAccessProviderFromProject)
+					.mocked(mockSecretsProviderAccessCheckService.isProviderAvailableInProject)
 					.mockResolvedValue(false);
 				mockExternalSecretsConfig.externalSecretsForProjects = true;
 
@@ -605,7 +605,7 @@ describe('CredentialsService', () => {
 				credentialsRepository.update = jest.fn().mockResolvedValue(undefined);
 				jest.mocked(credentialsService.decrypt).mockReturnValue({ apiKey: 'regular-key' });
 				jest
-					.mocked(mockSecretsProviderAccessCheckService.canAccessProviderFromProject)
+					.mocked(mockSecretsProviderAccessCheckService.isProviderAvailableInProject)
 					.mockResolvedValue(true);
 				credentialsRepository.update = jest.fn().mockResolvedValue(undefined);
 

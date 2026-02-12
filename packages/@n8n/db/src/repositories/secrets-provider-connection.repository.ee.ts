@@ -47,7 +47,7 @@ export class SecretsProviderConnectionRepository extends Repository<SecretsProvi
 	 * - A global provider (no project access restrictions), OR
 	 * - Explicitly granted access to the specified project
 	 */
-	async hasAccessToProvider(providerKey: string, projectId: string): Promise<boolean> {
+	async isProviderAvailableInProject(providerKey: string, projectId: string): Promise<boolean> {
 		const count = await this.manager
 			.createQueryBuilder(SecretsProviderConnection, 'connection')
 			.leftJoin('connection.projectAccess', 'access')

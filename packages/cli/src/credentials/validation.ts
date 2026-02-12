@@ -152,7 +152,7 @@ export async function validateAccessToReferencedSecretProviders(
 	await Promise.all(
 		providerKeys.map(async (providerKey) => {
 			const hasAccess =
-				await externalSecretsProviderAccessCheckService.canAccessProviderFromProject(
+				await externalSecretsProviderAccessCheckService.isProviderAvailableInProject(
 					providerKey,
 					projectId,
 				);

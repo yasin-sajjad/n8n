@@ -5,7 +5,7 @@ import { Service } from '@n8n/di';
 export class SecretsProviderAccessCheckService {
 	constructor(private readonly connectionRepository: SecretsProviderConnectionRepository) {}
 
-	async canAccessProviderFromProject(providerKey: string, projectId: string): Promise<boolean> {
-		return await this.connectionRepository.hasAccessToProvider(providerKey, projectId);
+	async isProviderAvailableInProject(providerKey: string, projectId: string): Promise<boolean> {
+		return await this.connectionRepository.isProviderAvailableInProject(providerKey, projectId);
 	}
 }
