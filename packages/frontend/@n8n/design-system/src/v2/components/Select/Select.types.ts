@@ -80,6 +80,9 @@ export type SelectProps<
 
 	/** The distance in pixels from the trigger when position is 'popper'. @defaultValue 4 */
 	sideOffset?: number;
+
+	/** Additional CSS class(es) applied to the dropdown content container (portaled). */
+	contentClass?: string;
 };
 
 export type SelectEmits<

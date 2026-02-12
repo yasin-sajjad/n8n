@@ -151,7 +151,7 @@ const groups = computed<SelectItemProps[]>(() => {
 
 		<SelectPortal>
 			<SelectContent
-				:class="$style.selectContent"
+				:class="[$style.selectContent, contentClass]"
 				:position="position"
 				:side="side"
 				:side-offset="sideOffset"

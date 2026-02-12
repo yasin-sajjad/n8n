@@ -171,6 +171,7 @@ const onAddCustomRoleClick = () => {
 			size="small"
 			variant="ghost"
 			position="popper"
+			:content-class="$style.roleSelectContent"
 			:class="$style.roleSelect"
 			data-test-id="project-member-role-dropdown"
 			@update:model-value="onRoleSelect"
@@ -311,6 +312,7 @@ const onAddCustomRoleClick = () => {
 }
 
 .itemLabel {
+	display: block;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -357,5 +359,9 @@ const onAddCustomRoleClick = () => {
 	&:hover {
 		background-color: var(--color--background--light-1);
 	}
+}
+
+.roleSelectContent {
+	max-width: 280px;
 }
 </style>
