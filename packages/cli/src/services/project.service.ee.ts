@@ -615,4 +615,30 @@ export class ProjectService {
 	async getProjectCounts(): Promise<Record<ProjectType, number>> {
 		return await this.projectRepository.getProjectCounts();
 	}
+
+	async starProject(userId: string, projectId: string): Promise<void> {
+		// Check if project exists
+		const project = await this.projectRepository.findOne({
+			where: { id: projectId },
+		});
+
+		if (!project) {
+			throw new NotFoundError(`Project with ID "${projectId}" not found`);
+		}
+
+		await this.projectRelationRepository.update({ userId, projectId }, { starred: true });
+	}
+
+	async unstarProject(userId: string, projectId: string): Promise<void> {
+		// Check if project exists
+		const project = await this.projectRepository.findOne({
+			where: { id: projectId },
+		});
+
+		if (!project) {
+			throw new NotFoundError(`Project with ID "${projectId}" not found`);
+		}
+
+		await this.projectRelationRepository.update({ userId, projectId }, { starred: false });
+	}
 }

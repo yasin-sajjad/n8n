@@ -76,3 +76,11 @@ export const deleteProjectMember = async (
 ): Promise<void> => {
 	await makeRestApiRequest(context, 'DELETE', `/projects/${projectId}/users/${userId}`);
 };
+
+export const starProject = async (context: IRestApiContext, projectId: string): Promise<void> => {
+	await makeRestApiRequest(context, 'POST', `/projects/${projectId}/star`);
+};
+
+export const unstarProject = async (context: IRestApiContext, projectId: string): Promise<void> => {
+	await makeRestApiRequest(context, 'DELETE', `/projects/${projectId}/star`);
+};

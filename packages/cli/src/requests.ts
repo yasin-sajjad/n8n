@@ -289,7 +289,11 @@ export declare namespace ActiveWorkflowRequest {
 
 export declare namespace ProjectRequest {
 	type GetMyProjectsResponse = Array<
-		Project & { role: ProjectRole | AssignableProjectRole | GlobalRole; scopes?: Scope[] }
+		Project & {
+			role: ProjectRole | AssignableProjectRole | GlobalRole;
+			scopes?: Scope[];
+			starred: boolean;
+		}
 	>;
 
 	type ProjectRelationResponse = {
@@ -307,6 +311,7 @@ export declare namespace ProjectRequest {
 		description: string | null;
 		relations: ProjectRelationResponse[];
 		scopes: Scope[];
+		starred: boolean;
 	};
 }
 

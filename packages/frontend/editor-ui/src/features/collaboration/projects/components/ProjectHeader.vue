@@ -22,7 +22,7 @@ import { useUIStore } from '@/app/stores/ui.store';
 import { PROJECT_DATA_TABLES } from '@/features/core/dataTable/constants';
 import ReadyToRunButton from '@/features/workflows/readyToRun/components/ReadyToRunButton.vue';
 
-import { N8nButton, N8nHeading, N8nText, N8nTooltip } from '@n8n/design-system';
+import { N8nButton, N8nIcon, N8nHeading, N8nText, N8nTooltip } from '@n8n/design-system';
 import { VARIABLE_MODAL_KEY } from '@/features/settings/environments.ee/environments.constants';
 import { useTelemetry } from '@/app/composables/useTelemetry';
 import { useUsersStore } from '@/features/settings/users/users.store';
@@ -64,6 +64,8 @@ const homeProject = computed(() => projectsStore.currentProject ?? projectsStore
 const isPersonalProject = computed(() => {
 	return homeProject.value?.type === ProjectTypes.Personal;
 });
+
+const isTeamProject = computed(() => homeProject.value?.type === 'team');
 
 const projectName = computed(() => {
 	if (!projectsStore.currentProject) {
@@ -407,6 +409,8 @@ const onSelect = (action: string) => {
 
 	executableAction(homeProject.value.id);
 };
+
+const isFavorite = computed(() => !!projectsStore.currentProject?.starred);
 </script>
 
 <template>
@@ -415,9 +419,29 @@ const onSelect = (action: string) => {
 			<div :class="$style.projectDetails">
 				<ProjectIcon v-if="showProjectIcon" :icon="headerIcon" :border-less="true" size="medium" />
 				<div :class="$style.headerActions">
-					<N8nHeading v-if="projectName" bold tag="h2" size="xlarge" data-test-id="project-name">{{
-						projectName
-					}}</N8nHeading>
+					<div :class="$style.nameRow">
+						<N8nHeading
+							v-if="projectName"
+							bold
+							tag="h2"
+							size="xlarge"
+							data-test-id="project-name"
+							>{{ projectName }}</N8nHeading
+						>
+						<N8nIcon
+							v-if="isTeamProject"
+							icon="star"
+							type="tertiary"
+							:color="isFavorite ? 'primary' : undefined"
+							@click="
+								() => {
+									if (isFavorite) {
+										projectsStore.removeFromFavorites(projectsStore.currentProject!.id);
+									} else projectsStore.addToFavorites(projectsStore.currentProject!.id);
+								}
+							"
+						/>
+					</div>
 					<N8nText v-if="sectionDescription" color="text-light" data-test-id="project-subtitle">
 						{{ sectionDescription }}
 					</N8nText>
@@ -521,5 +545,12 @@ const onSelect = (action: string) => {
 	.headerActions {
 		margin-left: auto;
 	}
+}
+
+.nameRow {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: var(--spacing--2xs);
 }
 </style>

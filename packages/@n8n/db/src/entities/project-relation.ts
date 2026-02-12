@@ -1,4 +1,4 @@
-import { Entity, JoinColumn, ManyToOne, PrimaryColumn } from '@n8n/typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from '@n8n/typeorm';
 
 import { WithTimestamps } from './abstract-entity';
 import { Project } from './project';
@@ -22,4 +22,7 @@ export class ProjectRelation extends WithTimestamps {
 
 	@PrimaryColumn()
 	projectId: string;
+
+	@Column({ type: 'boolean', default: false })
+	starred: boolean;
 }

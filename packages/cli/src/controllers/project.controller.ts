@@ -111,7 +111,7 @@ export class ProjectController {
 		for (const pr of relations) {
 			const result: ProjectRequest.GetMyProjectsResponse[number] = Object.assign(
 				this.projectRepository.create(pr.project),
-				{ role: pr.role.slug, scopes: [] },
+				{ role: pr.role.slug, scopes: [], starred: pr.starred },
 			);
 
 			if (result.scopes) {
@@ -135,6 +135,8 @@ export class ProjectController {
 					// instead of the relation role, which is for another user.
 					role: req.user.role.slug,
 					scopes: [],
+					// NOTE: Our reliance on the relations table means admins can view, but not star projects they are not a part of
+					starred: relations.find((x) => x.projectId === project.id)?.starred ?? false,
 				},
 			);
 
@@ -204,6 +206,7 @@ export class ProjectController {
 				lastName: r.user.lastName,
 				role: r.role.slug,
 			})),
+			starred: !!myRelation?.starred,
 			scopes: [
 				...combineScopes({
 					global: getAuthPrincipalScopes(req.user),
@@ -335,5 +338,39 @@ export class ProjectController {
 			removalType: query.transferId !== undefined ? 'transfer' : 'delete',
 			targetProjectId: query.transferId,
 		});
+	}
+
+	@Post('/:projectId/star')
+	@ProjectScope('project:read')
+	async starProject(
+		req: AuthenticatedRequest,
+		res: Response,
+		@Param('projectId') projectId: string,
+	) {
+		await this.projectsService.starProject(req.user.id, projectId);
+
+		// this.eventService.emit('project-starred', {
+		// 	userId: req.user.id,
+		// 	projectId,
+		// });
+
+		return res.status(204).send();
+	}
+
+	@Delete('/:projectId/star')
+	@ProjectScope('project:read')
+	async unstarProject(
+		req: AuthenticatedRequest,
+		res: Response,
+		@Param('projectId') projectId: string,
+	) {
+		await this.projectsService.unstarProject(req.user.id, projectId);
+
+		// this.eventService.emit('project-unstarred', {
+		// 	userId: req.user.id,
+		// 	projectId,
+		// });
+
+		return res.status(204).send();
 	}
 }

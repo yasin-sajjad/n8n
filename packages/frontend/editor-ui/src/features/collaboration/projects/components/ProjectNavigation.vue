@@ -11,13 +11,17 @@ import { useProjectsStore } from '../projects.store';
 import type { ProjectListItem } from '../projects.types';
 import { CHAT_VIEW } from '@/features/ai/chatHub/constants';
 
-import { N8nMenuItem, N8nText } from '@n8n/design-system';
+import { N8nMenuItem, N8nText, N8nIcon } from '@n8n/design-system';
 import { hasPermission } from '@/app/utils/rbac/permissions';
+import { createProject } from '../projects.api';
+import { useRouter } from 'vue-router';
 
 type Props = {
 	collapsed: boolean;
 	planName?: string;
 };
+
+const router = useRouter();
 
 const props = defineProps<Props>();
 
@@ -29,6 +33,9 @@ const settingsStore = useSettingsStore();
 const usersStore = useUsersStore();
 
 const displayProjects = computed(() => globalEntityCreation.displayProjects.value);
+
+const starredProjects = computed(() => displayProjects.value.filter((x) => x.starred));
+
 const isFoldersFeatureEnabled = computed(() => settingsStore.isFoldersFeatureEnabled);
 const isChatLinkAvailable = computed(
 	() =>
@@ -147,22 +154,80 @@ onBeforeUnmount(() => {
 				data-test-id="project-chat-menu-item"
 			/>
 		</div>
-		<N8nText
+		<div
 			v-if="
 				!props.collapsed && projectsStore.isTeamProjectFeatureEnabled && displayProjects.length > 0
 			"
-			:class="[$style.projectsLabel]"
-			size="small"
-			bold
-			role="heading"
-			color="text-light"
+			:class="$style.projectLine"
 		>
-			{{ locale.baseText('projects.menu.title') }}
-		</N8nText>
+			<N8nText :class="[$style.projectsLabel]" size="small" bold role="heading" color="text-light">
+				{{ locale.baseText('projects.menu.title') }}
+			</N8nText>
+			<N8nIcon
+				:class="$style.projectAdd"
+				icon="plus"
+				size="small"
+				type="tertiary"
+				@click="
+					() => {
+						const { createProject } = useGlobalEntityCreation({ router1: router });
+						void createProject('projectsAdd');
+					}
+				"
+			/>
+		</div>
+		<div
+			v-if="
+				starredProjects.length > 0 &&
+				(projectsStore.isTeamProjectFeatureEnabled || isFoldersFeatureEnabled)
+			"
+			:class="$style.projectItems"
+		>
+			<N8nText
+				v-if="
+					!props.collapsed &&
+					projectsStore.isTeamProjectFeatureEnabled &&
+					starredProjects.length > 0
+				"
+				:class="[$style.projectsLabel, $style.marginBot]"
+				size="xsmall"
+				bold
+				role="heading"
+				color="text-light"
+			>
+				{{ 'Favorites' }}
+			</N8nText>
+			<N8nMenuItem
+				v-for="project in starredProjects"
+				:key="project.id"
+				:class="{
+					[$style.collapsed]: props.collapsed,
+				}"
+				:item="getProjectMenuItem(project)"
+				:compact="props.collapsed"
+				:active="activeTabId === project.id"
+				data-test-id="project-menu-item"
+			/>
+		</div>
+
 		<div
 			v-if="projectsStore.isTeamProjectFeatureEnabled || isFoldersFeatureEnabled"
 			:class="$style.projectItems"
 		>
+			<N8nText
+				v-if="
+					!props.collapsed &&
+					projectsStore.isTeamProjectFeatureEnabled &&
+					starredProjects.length > 0
+				"
+				:class="[$style.projectsLabel, $style.marginBot]"
+				size="xsmall"
+				bold
+				role="heading"
+				color="text-light"
+			>
+				{{ 'All' }}
+			</N8nText>
 			<N8nMenuItem
 				v-for="project in displayProjects"
 				:key="project.id"
@@ -199,20 +264,30 @@ onBeforeUnmount(() => {
 	cursor: pointer;
 }
 
-.projectsLabel {
+.projectLine {
 	display: flex;
-	justify-content: space-between;
-	text-overflow: ellipsis;
-	overflow: hidden;
-	box-sizing: border-box;
-	padding: 0 var(--spacing--xs);
+	flex-direction: row;
+	align-items: center;
 	margin-top: var(--spacing--2xs);
+	justify-content: flex-start;
 
 	&.collapsed {
 		padding: 0;
 		margin-left: 0;
 		justify-content: center;
 	}
+
+	&:hover .projectAdd {
+		opacity: 1;
+	}
+}
+
+.projectsLabel {
+	// justify-content: space-between;
+	text-overflow: ellipsis;
+	overflow: hidden;
+	box-sizing: border-box;
+	padding: 0 var(--spacing--xs);
 }
 
 .plusBtn {
@@ -237,6 +312,20 @@ onBeforeUnmount(() => {
 
 	&.collapsed {
 		border-bottom: var(--border);
+	}
+}
+
+.marginBot {
+	margin-bottom: var(--spacing--3xs);
+	margin-top: 0px;
+}
+
+.projectAdd {
+	opacity: 0;
+	transition: opacity 0.3s ease;
+
+	&:hover {
+		color: var(--color--primary);
 	}
 }
 </style>

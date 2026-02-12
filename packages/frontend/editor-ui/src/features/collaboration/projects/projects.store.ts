@@ -47,6 +47,36 @@ export const useProjectsStore = defineStore(STORES.PROJECTS, () => {
 	});
 	const projectNavActiveIdState = ref<string | string[] | null>(null);
 
+	async function addToFavorites(projectId: string) {
+		await projectsApi.starProject(rootStore.restApiContext, projectId);
+		{
+			const project = projects.value.find((x) => x.id === projectId);
+			if (project) project.starred = true;
+		}
+		{
+			const project = myProjects.value.find((x) => x.id === projectId);
+			if (project) project.starred = true;
+		}
+		{
+			if (currentProject.value?.id === projectId) currentProject.value.starred = true;
+		}
+	}
+
+	async function removeFromFavorites(projectId: string) {
+		await projectsApi.unstarProject(rootStore.restApiContext, projectId);
+		{
+			const project = projects.value.find((x) => x.id === projectId);
+			if (project) project.starred = false;
+		}
+		{
+			const project = myProjects.value.find((x) => x.id === projectId);
+			if (project) project.starred = false;
+		}
+		{
+			if (currentProject.value?.id === projectId) currentProject.value.starred = false;
+		}
+	}
+
 	const globalProjectPermissions = computed(
 		() => getResourcePermissions(usersStore.currentUser?.globalScopes).project,
 	);
@@ -348,5 +378,7 @@ export const useProjectsStore = defineStore(STORES.PROJECTS, () => {
 		moveResourceToProject,
 		getResourceCounts,
 		getProjectSecretProviders,
+		addToFavorites,
+		removeFromFavorites,
 	};
 });

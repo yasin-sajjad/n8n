@@ -40,7 +40,9 @@ type Item = BaseItem & {
 	submenu?: BaseItem[];
 };
 
-export const useGlobalEntityCreation = () => {
+export const useGlobalEntityCreation = ({
+	router1 = undefined,
+}: { router1?: ReturnType<typeof useRouter> } = {}) => {
 	const CREATE_PROJECT_ID = 'create-project';
 	const WORKFLOWS_MENU_ID = 'workflow';
 	const CREDENTIALS_MENU_ID = 'credential';
@@ -51,7 +53,7 @@ export const useGlobalEntityCreation = () => {
 	const projectsStore = useProjectsStore();
 	const sourceControlStore = useSourceControlStore();
 
-	const router = useRouter();
+	const router = router1 ?? useRouter();
 	const i18n = useI18n();
 	const toast = useToast();
 

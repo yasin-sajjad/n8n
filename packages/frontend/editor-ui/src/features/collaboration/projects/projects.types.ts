@@ -12,6 +12,7 @@ type ProjectTypeKeys = typeof ProjectTypes;
 export type ProjectType = ProjectTypeKeys[keyof ProjectTypeKeys];
 export type ProjectRelation = Pick<IUserResponse, 'id' | 'email' | 'firstName' | 'lastName'> & {
 	role: string;
+	starred: boolean;
 };
 export type ProjectMemberData = {
 	id: string;
@@ -32,9 +33,11 @@ export type ProjectSharingData = {
 export type Project = ProjectSharingData & {
 	relations: ProjectRelation[];
 	scopes: Scope[];
+	starred: boolean;
 };
 export type ProjectListItem = ProjectSharingData & {
 	role: Role['slug'];
 	scopes?: Scope[];
+	starred: boolean;
 };
 export type ProjectsCount = Record<ProjectType, number>;
