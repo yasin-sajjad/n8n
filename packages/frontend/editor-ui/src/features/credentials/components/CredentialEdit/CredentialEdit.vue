@@ -691,15 +691,9 @@ async function testCredential(credentialDetails: ICredentialsDecrypted) {
 	if (result.status === 'Error') {
 		authError.value = result.message;
 		testedSuccessfully.value = false;
-		if (credentialDetails.id) {
-			credentialsStore.markCredentialTestFailed(credentialDetails.id);
-		}
 	} else {
 		authError.value = '';
 		testedSuccessfully.value = true;
-		if (credentialDetails.id) {
-			credentialsStore.markCredentialTestPassed(credentialDetails.id);
-		}
 	}
 
 	scrollToTop();
