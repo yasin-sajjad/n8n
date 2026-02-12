@@ -34,11 +34,17 @@ const checkedToolIdsSet = computed(() => new Set(props.checkedToolIds));
 const toolCount = computed(() => props.checkedToolIds.length);
 
 const displayToolNodeTypes = computed(() => {
+	const maxIcons = toolCount.value > 3 ? 2 : 3;
 	return chatStore.configuredTools
 		.filter((t) => checkedToolIdsSet.value.has(t.definition.id))
-		.slice(0, 3)
+		.slice(0, maxIcons)
 		.map((t) => nodeTypesStore.getNodeType(t.definition.type, t.definition.typeVersion))
 		.filter(Boolean);
+});
+
+const remainingToolCount = computed(() => {
+	if (toolCount.value > 3) return toolCount.value - 2;
+	return 0;
 });
 
 const toolsLabel = computed(() => {
@@ -175,12 +181,18 @@ onMounted(async () => {
 						<NodeIcon
 							v-for="(nodeType, i) in displayToolNodeTypes"
 							:key="`${nodeType?.name}-${i}`"
-							:style="{ zIndex: displayToolNodeTypes.length - i }"
+							:style="{ zIndex: i + 1 }"
 							:node-type="nodeType"
 							:class="[$style.icon, { [$style.iconOverlap]: i !== 0 }]"
 							:circle="true"
 							:size="12"
 						/>
+						<span
+							v-if="remainingToolCount > 0"
+							:class="[$style.icon, $style.iconOverlap, $style.countBadge]"
+						>
+							+{{ remainingToolCount }}
+						</span>
 					</span>
 					{{ toolsLabel }}
 				</N8nButton>
@@ -254,6 +266,19 @@ onMounted(async () => {
 
 .iconOverlap {
 	margin-left: -5px;
+}
+
+.countBadge {
+	position: relative;
+	z-index: 4;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	font-size: var(--font-size--3xs);
+	color: var(--color--text);
+	box-sizing: border-box;
 }
 
 .settingsButton {
