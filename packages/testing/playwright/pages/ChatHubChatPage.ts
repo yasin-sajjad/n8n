@@ -12,9 +12,7 @@ export class ChatHubChatPage extends BasePage {
 	readonly credModal = new ChatHubCredentialModal(
 		this.page.getByTestId('chatCredentialSelectorModal-modal'),
 	);
-	readonly personalAgentModal = new ChatHubPersonalAgentModal(
-		this.page.getByTestId('agentEditorModal-modal'),
-	);
+	readonly personalAgentModal = new ChatHubPersonalAgentModal(this.page.getByRole('dialog'));
 
 	constructor(page: Page) {
 		super(page);
