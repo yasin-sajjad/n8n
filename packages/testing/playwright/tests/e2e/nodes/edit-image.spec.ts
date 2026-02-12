@@ -10,7 +10,7 @@ test.describe('Edit Image Node', () => {
 		).toBeVisible({ timeout: 30000 });
 	});
 
-	test('Can chain all operations (blur, border, resize, rotate, crop, draw, shear, information)', async ({
+	test('Can chain all operations (blur, border, resize, rotate, crop, information)', async ({
 		n8n,
 	}) => {
 		await n8n.start.fromBlankCanvas();

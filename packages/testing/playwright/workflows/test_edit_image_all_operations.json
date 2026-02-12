@@ -88,36 +88,6 @@
 		},
 		{
 			"parameters": {
-				"operation": "draw",
-				"primitive": "rectangle",
-				"color": "#00ff00",
-				"startPositionX": 2,
-				"startPositionY": 2,
-				"endPositionX": 18,
-				"endPositionY": 18,
-				"options": {}
-			},
-			"id": "b1000000-0000-0000-0000-000000000015",
-			"name": "Draw",
-			"type": "n8n-nodes-base.editImage",
-			"typeVersion": 1,
-			"position": [1800, 0]
-		},
-		{
-			"parameters": {
-				"operation": "shear",
-				"degreesX": 10,
-				"degreesY": 5,
-				"options": {}
-			},
-			"id": "b1000000-0000-0000-0000-000000000016",
-			"name": "Shear",
-			"type": "n8n-nodes-base.editImage",
-			"typeVersion": 1,
-			"position": [2020, 0]
-		},
-		{
-			"parameters": {
 				"operation": "information",
 				"options": {}
 			},
@@ -125,7 +95,7 @@
 			"name": "Information",
 			"type": "n8n-nodes-base.editImage",
 			"typeVersion": 1,
-			"position": [2240, 0]
+			"position": [1800, 0]
 		}
 	],
 	"connections": {
@@ -148,12 +118,6 @@
 			"main": [[{ "node": "Crop", "type": "main", "index": 0 }]]
 		},
 		"Crop": {
-			"main": [[{ "node": "Draw", "type": "main", "index": 0 }]]
-		},
-		"Draw": {
-			"main": [[{ "node": "Shear", "type": "main", "index": 0 }]]
-		},
-		"Shear": {
 			"main": [[{ "node": "Information", "type": "main", "index": 0 }]]
 		}
 	}

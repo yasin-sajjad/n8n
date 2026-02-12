@@ -1,74 +1,56 @@
-import getSystemFonts from 'get-system-fonts';
-import sharp from 'sharp';
-import type { Blend, FormatEnum } from 'sharp';
-import { encode as encodeBmp } from 'sharp-bmp';
+import { Jimp, BlendMode, rgbaToInt } from 'jimp';
 import type {
 	IBinaryData,
 	IDataObject,
 	IExecuteFunctions,
-	ILoadOptionsFunctions,
 	INodeExecutionData,
 	INodeProperties,
 	INodePropertyOptions,
 	INodeType,
 	INodeTypeDescription,
 } from 'n8n-workflow';
-import { NodeOperationError, NodeConnectionTypes, deepCopy } from 'n8n-workflow';
-import { parse as pathParse } from 'path';
+import { NodeConnectionTypes, deepCopy } from 'n8n-workflow';
 
 type EditImageNodeOptions = {
 	destinationKey?: string;
-	font?: string;
 	fileName?: string;
 	format?: string;
 	quality?: number;
 };
 
-const COMPOSITE_BLEND_MAP: Record<string, Blend> = {
-	Add: 'add',
-	Atop: 'atop',
-	Difference: 'difference',
-	In: 'in',
-	Multiply: 'multiply',
-	Out: 'out',
-	Over: 'over',
-	Plus: 'add',
-	Xor: 'xor',
+// Convert CSS hex color (#RRGGBB or #RRGGBBAA) to Jimp's 32-bit RGBA integer
+function cssColorToInt(color: string): number {
+	const hex = color.replace('#', '');
+	let r: number, g: number, b: number, a: number;
+	if (hex.length === 8) {
+		r = parseInt(hex.slice(0, 2), 16);
+		g = parseInt(hex.slice(2, 4), 16);
+		b = parseInt(hex.slice(4, 6), 16);
+		a = parseInt(hex.slice(6, 8), 16);
+	} else {
+		r = parseInt(hex.slice(0, 2), 16);
+		g = parseInt(hex.slice(2, 4), 16);
+		b = parseInt(hex.slice(4, 6), 16);
+		a = 0xff;
+	}
+	return rgbaToInt(r, g, b, a);
+}
+
+const MIME_MAP: Record<string, string> = {
+	bmp: 'image/bmp',
+	gif: 'image/gif',
+	jpeg: 'image/jpeg',
+	png: 'image/png',
+	tiff: 'image/tiff',
 };
 
-function generateDrawSvg(width: number, height: number, operationData: IDataObject): string {
-	const color = operationData.color as string;
-	const x1 = operationData.startPositionX as number;
-	const y1 = operationData.startPositionY as number;
-	const x2 = operationData.endPositionX as number;
-	const y2 = operationData.endPositionY as number;
-
-	let shapeElement = '';
-	if (operationData.primitive === 'rectangle') {
-		const rx = (operationData.cornerRadius as number) || 0;
-		const rectX = Math.min(x1, x2);
-		const rectY = Math.min(y1, y2);
-		const w = Math.abs(x2 - x1);
-		const h = Math.abs(y2 - y1);
-		shapeElement = `<rect x="${rectX}" y="${rectY}" width="${w}" height="${h}" rx="${rx}" fill="${color}"/>`;
-	} else if (operationData.primitive === 'circle') {
-		const r = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-		shapeElement = `<circle cx="${x1}" cy="${y1}" r="${r}" fill="${color}"/>`;
-	} else if (operationData.primitive === 'line') {
-		shapeElement = `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="1"/>`;
-	}
-
-	return `<svg width="${width}" height="${height}">${shapeElement}</svg>`;
-}
-
-function escapeXml(text: string): string {
-	return text
-		.replace(/&/g, '&amp;')
-		.replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;')
-		.replace(/"/g, '&quot;')
-		.replace(/'/g, '&apos;');
-}
+const COMPOSITE_BLEND_MAP: Record<string, string> = {
+	Add: BlendMode.ADD,
+	Difference: BlendMode.DIFFERENCE,
+	Multiply: BlendMode.MULTIPLY,
+	Over: BlendMode.SRC_OVER,
+	Plus: BlendMode.ADD,
+};
 
 const nodeOperations: INodePropertyOptions[] = [
 	{
@@ -102,12 +84,6 @@ const nodeOperations: INodePropertyOptions[] = [
 		action: 'Crop Image',
 	},
 	{
-		name: 'Draw',
-		value: 'draw',
-		description: 'Draw on image',
-		action: 'Draw Image',
-	},
-	{
 		name: 'Rotate',
 		value: 'rotate',
 		description: 'Rotate image',
@@ -118,18 +94,6 @@ const nodeOperations: INodePropertyOptions[] = [
 		value: 'resize',
 		description: 'Change the size of image',
 		action: 'Resize Image',
-	},
-	{
-		name: 'Shear',
-		value: 'shear',
-		description: 'Shear image along the X or Y axis',
-		action: 'Shear Image',
-	},
-	{
-		name: 'Text',
-		value: 'text',
-		description: 'Adds text to image',
-		action: 'Apply Text to Image',
 	},
 	{
 		name: 'Transparent',
@@ -190,207 +154,14 @@ const nodeOperationOptions: INodeProperties[] = [
 	},
 
 	// ----------------------------------
-	//         draw
-	// ----------------------------------
-	{
-		displayName: 'Primitive',
-		name: 'primitive',
-		type: 'options',
-		displayOptions: {
-			show: {
-				operation: ['draw'],
-			},
-		},
-		options: [
-			{
-				name: 'Circle',
-				value: 'circle',
-			},
-			{
-				name: 'Line',
-				value: 'line',
-			},
-			{
-				name: 'Rectangle',
-				value: 'rectangle',
-			},
-		],
-		default: 'rectangle',
-		description: 'The primitive to draw',
-	},
-	{
-		displayName: 'Color',
-		name: 'color',
-		type: 'color',
-		default: '#ff000000',
-		typeOptions: {
-			showAlpha: true,
-		},
-		displayOptions: {
-			show: {
-				operation: ['draw'],
-			},
-		},
-		description: 'The color of the primitive to draw',
-	},
-	{
-		displayName: 'Start Position X',
-		name: 'startPositionX',
-		type: 'number',
-		default: 50,
-		displayOptions: {
-			show: {
-				operation: ['draw'],
-				primitive: ['circle', 'line', 'rectangle'],
-			},
-		},
-		description: 'X (horizontal) start position of the primitive',
-	},
-	{
-		displayName: 'Start Position Y',
-		name: 'startPositionY',
-		type: 'number',
-		default: 50,
-		displayOptions: {
-			show: {
-				operation: ['draw'],
-				primitive: ['circle', 'line', 'rectangle'],
-			},
-		},
-		description: 'Y (horizontal) start position of the primitive',
-	},
-	{
-		displayName: 'End Position X',
-		name: 'endPositionX',
-		type: 'number',
-		default: 250,
-		displayOptions: {
-			show: {
-				operation: ['draw'],
-				primitive: ['circle', 'line', 'rectangle'],
-			},
-		},
-		description: 'X (horizontal) end position of the primitive',
-	},
-	{
-		displayName: 'End Position Y',
-		name: 'endPositionY',
-		type: 'number',
-		default: 250,
-		displayOptions: {
-			show: {
-				operation: ['draw'],
-				primitive: ['circle', 'line', 'rectangle'],
-			},
-		},
-		description: 'Y (horizontal) end position of the primitive',
-	},
-	{
-		displayName: 'Corner Radius',
-		name: 'cornerRadius',
-		type: 'number',
-		default: 0,
-		displayOptions: {
-			show: {
-				operation: ['draw'],
-				primitive: ['rectangle'],
-			},
-		},
-		description: 'The radius of the corner to create round corners',
-	},
-
-	// ----------------------------------
-	//         text
-	// ----------------------------------
-	{
-		displayName: 'Text',
-		name: 'text',
-		typeOptions: {
-			rows: 5,
-		},
-		type: 'string',
-		default: '',
-		placeholder: 'Text to render',
-		displayOptions: {
-			show: {
-				operation: ['text'],
-			},
-		},
-		description: 'Text to write on the image',
-	},
-	{
-		displayName: 'Font Size',
-		name: 'fontSize',
-		type: 'number',
-		default: 18,
-		displayOptions: {
-			show: {
-				operation: ['text'],
-			},
-		},
-		description: 'Size of the text',
-	},
-	{
-		displayName: 'Font Color',
-		name: 'fontColor',
-		type: 'color',
-		default: '#000000',
-		displayOptions: {
-			show: {
-				operation: ['text'],
-			},
-		},
-		description: 'Color of the text',
-	},
-	{
-		displayName: 'Position X',
-		name: 'positionX',
-		type: 'number',
-		default: 50,
-		displayOptions: {
-			show: {
-				operation: ['text'],
-			},
-		},
-		description: 'X (horizontal) position of the text',
-	},
-	{
-		displayName: 'Position Y',
-		name: 'positionY',
-		type: 'number',
-		default: 50,
-		displayOptions: {
-			show: {
-				operation: ['text'],
-			},
-		},
-		description: 'Y (vertical) position of the text',
-	},
-	{
-		displayName: 'Max Line Length',
-		name: 'lineLength',
-		type: 'number',
-		typeOptions: {
-			minValue: 1,
-		},
-		default: 80,
-		displayOptions: {
-			show: {
-				operation: ['text'],
-			},
-		},
-		description: 'Max amount of characters in a line before a line-break should get added',
-	},
-
-	// ----------------------------------
 	//         blur
 	// ----------------------------------
 	{
-		displayName: 'Sigma',
+		displayName: 'Blur Radius',
 		name: 'sigma',
 		type: 'number',
 		typeOptions: {
-			minValue: 0,
+			minValue: 1,
 			maxValue: 1000,
 		},
 		default: 2,
@@ -399,7 +170,7 @@ const nodeOperationOptions: INodeProperties[] = [
 				operation: ['blur'],
 			},
 		},
-		description: 'The sigma of the blur',
+		description: 'The radius of the blur',
 	},
 
 	// ----------------------------------
@@ -474,24 +245,12 @@ const nodeOperationOptions: INodeProperties[] = [
 				value: 'Add',
 			},
 			{
-				name: 'Atop',
-				value: 'Atop',
-			},
-			{
 				name: 'Difference',
 				value: 'Difference',
 			},
 			{
-				name: 'In',
-				value: 'In',
-			},
-			{
 				name: 'Multiply',
 				value: 'Multiply',
-			},
-			{
-				name: 'Out',
-				value: 'Out',
 			},
 			{
 				name: 'Over',
@@ -500,10 +259,6 @@ const nodeOperationOptions: INodeProperties[] = [
 			{
 				name: 'Plus',
 				value: 'Plus',
-			},
-			{
-				name: 'Xor',
-				value: 'Xor',
 			},
 		],
 		default: 'Over',
@@ -695,34 +450,6 @@ const nodeOperationOptions: INodeProperties[] = [
 	},
 
 	// ----------------------------------
-	//         shear
-	// ----------------------------------
-	{
-		displayName: 'Degrees X',
-		name: 'degreesX',
-		type: 'number',
-		default: 0,
-		displayOptions: {
-			show: {
-				operation: ['shear'],
-			},
-		},
-		description: 'X (horizontal) shear degrees',
-	},
-	{
-		displayName: 'Degrees Y',
-		name: 'degreesY',
-		type: 'number',
-		default: 0,
-		displayOptions: {
-			show: {
-				operation: ['shear'],
-			},
-		},
-		description: 'Y (vertical) shear degrees',
-	},
-
-	// ----------------------------------
 	//         transparent
 	// ----------------------------------
 	{
@@ -824,22 +551,6 @@ export class EditImage implements INodeType {
 								default: '',
 							},
 							...nodeOperationOptions,
-							{
-								displayName: 'Font Name or ID',
-								name: 'font',
-								type: 'options',
-								displayOptions: {
-									show: {
-										operation: ['text'],
-									},
-								},
-								typeOptions: {
-									loadOptionsMethod: 'getFonts',
-								},
-								default: '',
-								description:
-									'The font to use. Defaults to Arial. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
-							},
 						],
 					},
 				],
@@ -874,22 +585,6 @@ export class EditImage implements INodeType {
 						description: 'File name to set in binary data',
 					},
 					{
-						displayName: 'Font Name or ID',
-						name: 'font',
-						type: 'options',
-						displayOptions: {
-							show: {
-								'/operation': ['text'],
-							},
-						},
-						typeOptions: {
-							loadOptionsMethod: 'getFonts',
-						},
-						default: '',
-						description:
-							'The font to use. Defaults to Arial. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
-					},
-					{
 						displayName: 'Format',
 						name: 'format',
 						type: 'options',
@@ -914,10 +609,6 @@ export class EditImage implements INodeType {
 								name: 'tiff',
 								value: 'tiff',
 							},
-							{
-								name: 'WebP',
-								value: 'webp',
-							},
 						],
 						default: 'jpeg',
 						description: 'Set the output image format',
@@ -941,39 +632,6 @@ export class EditImage implements INodeType {
 				],
 			},
 		],
-	};
-
-	methods = {
-		loadOptions: {
-			async getFonts(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-				const files = await getSystemFonts();
-				const returnData: INodePropertyOptions[] = [];
-
-				files.forEach((entry: string) => {
-					const pathParts = pathParse(entry);
-					if (!pathParts.ext) {
-						return;
-					}
-
-					returnData.push({
-						name: pathParts.name,
-						value: entry,
-					});
-				});
-
-				returnData.sort((a, b) => {
-					if (a.name < b.name) {
-						return -1;
-					}
-					if (a.name > b.name) {
-						return 1;
-					}
-					return 0;
-				});
-
-				return returnData;
-			},
-		},
 	};
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
@@ -1007,20 +665,9 @@ export class EditImage implements INodeType {
 					create: ['backgroundColor', 'height', 'width'],
 					crop: ['height', 'positionX', 'positionY', 'width'],
 					composite: ['dataPropertyNameComposite', 'operator', 'positionX', 'positionY'],
-					draw: [
-						'color',
-						'cornerRadius',
-						'endPositionX',
-						'endPositionY',
-						'primitive',
-						'startPositionX',
-						'startPositionY',
-					],
 					information: [],
 					resize: ['height', 'resizeOption', 'width'],
 					rotate: ['backgroundColor', 'rotate'],
-					shear: ['degreesX', 'degreesY'],
-					text: ['font', 'fontColor', 'fontSize', 'lineLength', 'positionX', 'positionY', 'text'],
 					transparent: ['color'],
 				};
 
@@ -1046,11 +693,13 @@ export class EditImage implements INodeType {
 					];
 				}
 
-				let imageBuffer: Buffer | undefined;
+				type JimpImage = Awaited<ReturnType<typeof Jimp.fromBuffer>>;
+				let image: JimpImage | undefined;
 
 				if (operations[0].operation !== 'create') {
 					this.helpers.assertBinaryData(itemIndex, dataPropertyName);
-					imageBuffer = await this.helpers.getBinaryDataBuffer(itemIndex, dataPropertyName);
+					const imageBuffer = await this.helpers.getBinaryDataBuffer(itemIndex, dataPropertyName);
+					image = await Jimp.fromBuffer(imageBuffer);
 				}
 
 				const newItem: INodeExecutionData = {
@@ -1062,27 +711,30 @@ export class EditImage implements INodeType {
 				};
 
 				if (operation === 'information') {
-					const metadata = await sharp(imageBuffer!).metadata();
-					newItem.json = metadata as unknown as IDataObject;
+					const format = image!.mime?.split('/')[1] || 'unknown';
+					newItem.json = {
+						width: image!.width,
+						height: image!.height,
+						format,
+					} as unknown as IDataObject;
 				}
 
 				for (let i = 0; i < operations.length; i++) {
 					const operationData = operations[i];
 					if (operationData.operation === 'blur') {
-						const sigma = operationData.sigma as number;
-						imageBuffer = await sharp(imageBuffer!)
-							.blur(sigma > 0 ? sigma : 0.3)
-							.toBuffer();
+						const radius = Math.round(operationData.sigma as number) || 1;
+						image!.blur(radius);
 					} else if (operationData.operation === 'border') {
-						imageBuffer = await sharp(imageBuffer!)
-							.extend({
-								top: operationData.borderHeight as number,
-								bottom: operationData.borderHeight as number,
-								left: operationData.borderWidth as number,
-								right: operationData.borderWidth as number,
-								background: operationData.borderColor as string,
-							})
-							.toBuffer();
+						const bw = operationData.borderWidth as number;
+						const bh = operationData.borderHeight as number;
+						const bc = cssColorToInt(operationData.borderColor as string);
+						const bordered = new Jimp({
+							width: image!.width + bw * 2,
+							height: image!.height + bh * 2,
+							color: bc,
+						}) as unknown as JimpImage;
+						bordered.composite(image!, bw, bh);
+						image = bordered;
 					} else if (operationData.operation === 'composite') {
 						const compositePropertyName = operationData.dataPropertyNameComposite as string;
 						this.helpers.assertBinaryData(itemIndex, compositePropertyName);
@@ -1090,150 +742,62 @@ export class EditImage implements INodeType {
 							itemIndex,
 							compositePropertyName,
 						);
+						const overlay = await Jimp.fromBuffer(compositeBuffer);
 
-						const blendMode = COMPOSITE_BLEND_MAP[operationData.operator as string] || 'over';
+						const blendMode =
+							(COMPOSITE_BLEND_MAP[operationData.operator as string] as BlendMode) ||
+							BlendMode.SRC_OVER;
 
-						imageBuffer = await sharp(imageBuffer!)
-							.composite([
-								{
-									input: compositeBuffer,
-									top: operationData.positionY as number,
-									left: operationData.positionX as number,
-									blend: blendMode,
-								},
-							])
-							.toBuffer();
+						image!.composite(
+							overlay,
+							operationData.positionX as number,
+							operationData.positionY as number,
+							{ mode: blendMode },
+						);
 					} else if (operationData.operation === 'create') {
-						imageBuffer = await sharp({
-							create: {
-								width: operationData.width as number,
-								height: operationData.height as number,
-								channels: 4,
-								background: operationData.backgroundColor as string,
-							},
-						})
-							.png()
-							.toBuffer();
+						const bc = cssColorToInt(operationData.backgroundColor as string);
+						image = new Jimp({
+							width: operationData.width as number,
+							height: operationData.height as number,
+							color: bc,
+						}) as unknown as JimpImage;
 						if (!options.format) {
 							options.format = 'png';
 						}
 					} else if (operationData.operation === 'crop') {
-						imageBuffer = await sharp(imageBuffer!)
-							.extract({
-								left: operationData.positionX as number,
-								top: operationData.positionY as number,
-								width: operationData.width as number,
-								height: operationData.height as number,
-							})
-							.toBuffer();
-					} else if (operationData.operation === 'draw') {
-						const metadata = await sharp(imageBuffer!).metadata();
-						const svgOverlay = generateDrawSvg(metadata.width!, metadata.height!, operationData);
-						imageBuffer = await sharp(imageBuffer!)
-							.composite([{ input: Buffer.from(svgOverlay), top: 0, left: 0 }])
-							.toBuffer();
+						image!.crop({
+							x: operationData.positionX as number,
+							y: operationData.positionY as number,
+							w: operationData.width as number,
+							h: operationData.height as number,
+						});
 					} else if (operationData.operation === 'resize') {
 						const resizeOption = operationData.resizeOption as string;
 						const width = operationData.width as number;
 						const height = operationData.height as number;
 
 						if (resizeOption === 'percent') {
-							const metadata = await sharp(imageBuffer!).metadata();
-							const newWidth = Math.round((metadata.width! * width) / 100);
-							const newHeight = Math.round((metadata.height! * height) / 100);
-							imageBuffer = await sharp(imageBuffer!)
-								.resize(newWidth, newHeight, { fit: 'fill' })
-								.toBuffer();
+							const newWidth = Math.round((image!.width * width) / 100);
+							const newHeight = Math.round((image!.height * height) / 100);
+							image!.resize({ w: newWidth, h: newHeight });
 						} else if (resizeOption === 'onlyIfSmaller') {
-							const metadata = await sharp(imageBuffer!).metadata();
-							if (metadata.width! < width || metadata.height! < height) {
-								imageBuffer = await sharp(imageBuffer!)
-									.resize(width, height, { fit: 'inside' })
-									.toBuffer();
+							if (image!.width < width || image!.height < height) {
+								image!.scaleToFit({ w: width, h: height });
+							}
+						} else if (resizeOption === 'ignoreAspectRatio') {
+							image!.resize({ w: width, h: height });
+						} else if (resizeOption === 'minimumArea') {
+							image!.cover({ w: width, h: height });
+						} else if (resizeOption === 'onlyIfLarger') {
+							if (image!.width > width || image!.height > height) {
+								image!.scaleToFit({ w: width, h: height });
 							}
 						} else {
-							const resizeOptions: sharp.ResizeOptions = {};
-							if (resizeOption === 'ignoreAspectRatio') {
-								resizeOptions.fit = 'fill';
-							} else if (resizeOption === 'minimumArea') {
-								resizeOptions.fit = 'outside';
-							} else if (resizeOption === 'onlyIfLarger') {
-								resizeOptions.fit = 'inside';
-								resizeOptions.withoutEnlargement = true;
-							} else {
-								// maximumArea (default)
-								resizeOptions.fit = 'inside';
-							}
-							imageBuffer = await sharp(imageBuffer!)
-								.resize(width, height, resizeOptions)
-								.toBuffer();
+							// maximumArea (default)
+							image!.scaleToFit({ w: width, h: height });
 						}
 					} else if (operationData.operation === 'rotate') {
-						imageBuffer = await sharp(imageBuffer!)
-							.rotate(operationData.rotate as number, {
-								background: operationData.backgroundColor as string,
-							})
-							.toBuffer();
-					} else if (operationData.operation === 'shear') {
-						const degreesX = (operationData.degreesX as number) * (Math.PI / 180);
-						const degreesY = (operationData.degreesY as number) * (Math.PI / 180);
-						imageBuffer = await sharp(imageBuffer!)
-							.affine([1, Math.tan(degreesX), Math.tan(degreesY), 1])
-							.toBuffer();
-					} else if (operationData.operation === 'text') {
-						const lines: string[] = [];
-						let currentLine = '';
-						(operationData.text as string).split('\n').forEach((textLine: string) => {
-							textLine.split(' ').forEach((textPart: string) => {
-								if (
-									currentLine.length + textPart.length + 1 >
-									(operationData.lineLength as number)
-								) {
-									lines.push(currentLine.trim());
-									currentLine = `${textPart} `;
-									return;
-								}
-								currentLine += `${textPart} `;
-							});
-
-							lines.push(currentLine.trim());
-							currentLine = '';
-						});
-
-						let font = (options.font || operationData.font) as string | undefined;
-						if (!font) {
-							const fonts = await getSystemFonts();
-							font = fonts.find((_font) => _font.includes('Arial.'));
-						}
-
-						if (!font) {
-							throw new NodeOperationError(
-								this.getNode(),
-								'Default font not found. Select a font from the options.',
-							);
-						}
-
-						// Extract filename as font-family for SVG. Relies on fontconfig resolving
-						// the filename to the installed font (works with msttcorefonts in Docker).
-						const fontFamily = pathParse(font).name;
-						const fontSize = operationData.fontSize as number;
-						const fontColor = operationData.fontColor as string;
-						const posX = operationData.positionX as number;
-						const posY = operationData.positionY as number;
-
-						const metadata = await sharp(imageBuffer!).metadata();
-						const tspans = lines
-							.map(
-								(line, idx) =>
-									`<tspan x="${posX}" dy="${idx === 0 ? 0 : fontSize * 1.2}">${escapeXml(line)}</tspan>`,
-							)
-							.join('');
-
-						const svgText = `<svg width="${metadata.width}" height="${metadata.height}"><text x="${posX}" y="${posY}" font-family="${escapeXml(fontFamily)}" font-size="${fontSize}" fill="${fontColor}">${tspans}</text></svg>`;
-
-						imageBuffer = await sharp(imageBuffer!)
-							.composite([{ input: Buffer.from(svgText), top: 0, left: 0 }])
-							.toBuffer();
+						image!.rotate(operationData.rotate as number);
 					} else if (operationData.operation === 'transparent') {
 						const targetColor = operationData.color as string;
 						const hex = targetColor.replace('#', '');
@@ -1241,26 +805,12 @@ export class EditImage implements INodeType {
 						const targetG = parseInt(hex.slice(2, 4), 16);
 						const targetB = parseInt(hex.slice(4, 6), 16);
 
-						const { data, info } = await sharp(imageBuffer!)
-							.ensureAlpha()
-							.raw()
-							.toBuffer({ resolveWithObject: true });
-
+						const data = image!.bitmap.data;
 						for (let px = 0; px < data.length; px += 4) {
 							if (data[px] === targetR && data[px + 1] === targetG && data[px + 2] === targetB) {
 								data[px + 3] = 0;
 							}
 						}
-
-						imageBuffer = await sharp(data, {
-							raw: {
-								width: info.width,
-								height: info.height,
-								channels: 4,
-							},
-						})
-							.png()
-							.toBuffer();
 					}
 				}
 
@@ -1278,50 +828,30 @@ export class EditImage implements INodeType {
 					};
 				}
 
+				// Determine output MIME type
+				let outputMime = image!.mime || 'image/png';
 				if (options.format !== undefined) {
-					if (options.format === 'bmp') {
-						const { data: rawData, info: rawInfo } = await sharp(imageBuffer!)
-							.ensureAlpha()
-							.raw()
-							.toBuffer({ resolveWithObject: true });
-						const bmpResult = encodeBmp({
-							data: rawData,
-							width: rawInfo.width,
-							height: rawInfo.height,
-						});
-						imageBuffer = bmpResult.data;
-					} else {
-						const formatOptions: Record<string, unknown> = {};
-						if (options.quality !== undefined) {
-							formatOptions.quality = options.quality;
-						}
-						imageBuffer = await sharp(imageBuffer!)
-							.toFormat(options.format as keyof FormatEnum, formatOptions)
-							.toBuffer();
-					}
+					outputMime = MIME_MAP[options.format] || 'image/png';
 					newItem.binary![binaryPropertyName].fileExtension = options.format as string;
-					newItem.binary![binaryPropertyName].mimeType = `image/${options.format}`;
+					newItem.binary![binaryPropertyName].mimeType = outputMime;
 					const fileName = newItem.binary![binaryPropertyName].fileName;
 					if (fileName?.includes('.')) {
 						newItem.binary![binaryPropertyName].fileName =
 							fileName.split('.').slice(0, -1).join('.') + '.' + options.format;
 					}
-				} else if (options.quality !== undefined) {
-					const metadata = await sharp(imageBuffer!).metadata();
-					if (metadata.format && ['jpeg', 'png', 'tiff', 'webp'].includes(metadata.format)) {
-						imageBuffer = await sharp(imageBuffer!)
-							.toFormat(metadata.format as keyof FormatEnum, {
-								quality: options.quality,
-							})
-							.toBuffer();
-					}
 				}
+
+				const getBufferOptions: Record<string, unknown> = {};
+				if (options.quality !== undefined) {
+					getBufferOptions.quality = options.quality;
+				}
+				const imageBuffer = await image!.getBuffer(outputMime as 'image/png', getBufferOptions);
 
 				if (options.fileName !== undefined) {
 					newItem.binary![binaryPropertyName].fileName = options.fileName as string;
 				}
 
-				const binaryData = await this.helpers.prepareBinaryData(imageBuffer!);
+				const binaryData = await this.helpers.prepareBinaryData(imageBuffer);
 				newItem.binary![binaryPropertyName] = {
 					...newItem.binary![binaryPropertyName],
 					...binaryData,
