@@ -8,7 +8,10 @@ export const useSetupPanelStore = defineStore(STORES.SETUP_PANEL, () => {
 	const posthogStore = usePostHog();
 
 	const isFeatureEnabled = computed(() => {
-		return posthogStore.getVariant(SETUP_PANEL.name) === SETUP_PANEL.variant;
+		return (
+			posthogStore.getVariant(SETUP_PANEL.name) === SETUP_PANEL.variant ||
+			posthogStore.getVariant(SETUP_PANEL.name) === SETUP_PANEL.variantDemo
+		);
 	});
 
 	return {

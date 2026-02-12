@@ -17,7 +17,7 @@ const setupPanelStore = useSetupPanelStore();
 const { nodeSetupStates, isAllComplete, setCredential, unsetCredential, isReadyToDemo } =
 	useWorkflowSetupState();
 
-const wasReadyToDemo = isReadyToDemo.value;
+const wasReadyToDemo = true || isReadyToDemo.value;
 
 watch(isAllComplete, (allComplete) => {
 	if (allComplete) {
