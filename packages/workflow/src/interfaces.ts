@@ -2288,6 +2288,11 @@ export type NodeDefaults = Partial<{
 	name: string;
 }>;
 
+export type TriggerConflictCondition = {
+	parameter?: string;
+	parametersCombination?: string[];
+};
+
 export interface INodeTypeDescription extends INodeTypeBaseDescription {
 	version: number | number[];
 	defaults: NodeDefaults;
@@ -2325,6 +2330,16 @@ export interface INodeTypeDescription extends INodeTypeBaseDescription {
 	 */
 	skipNameGeneration?: boolean;
 	features?: NodeFeaturesDefinition;
+	/**
+	 * Triggers that cannot run test executions while the workflow is active.
+	 */
+	preventTestWhileActive?: boolean;
+	/**
+	 * Parameters that must be unique across all active workflows
+	 *
+	 * Activation of a workflow will be blocked if another active workflow has the same value for the specified parameter(s)
+	 */
+	triggerConflictConditions?: TriggerConflictCondition;
 }
 
 export type TriggerPanelDefinition = {
