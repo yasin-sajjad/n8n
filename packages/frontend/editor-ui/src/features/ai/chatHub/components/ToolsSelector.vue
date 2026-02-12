@@ -230,9 +230,10 @@ onMounted(async () => {
 	display: flex;
 	align-items: center;
 	gap: var(--spacing--2xs);
-	border: none !important;
-	border-radius: var(--radius--lg);
-	background-color: var(--color--background);
+
+	&.transparentBg {
+		background-color: transparent !important;
+	}
 }
 
 .iconStack {
