@@ -12,6 +12,7 @@ import { injectWorkflowState } from '@/app/composables/useWorkflowState';
 import {
 	getNodeCredentialTypes,
 	groupCredentialsByType,
+	isCredentialCardComplete,
 	buildTriggerSetupState,
 	sortCredentialTypeStates,
 } from '../setupPanel.utils';
@@ -76,25 +77,38 @@ export const useWorkflowSetupState = (nodes?: Ref<INodeUi[]>) => {
 	/**
 	 * Credential type states — one entry per unique credential type.
 	 * Sorted by leftmost node X position.
+	 * Cards with embedded triggers have isComplete recomputed to include trigger execution.
 	 */
 	const credentialTypeStates = computed(() => {
 		const grouped = groupCredentialsByType(
-			nodesWithCredentials.value.map(({ node, credentialTypes }) => ({
+			nodesWithCredentials.value.map(({ node, credentialTypes, isTrigger }) => ({
 				node,
 				credentialTypes,
+				isTrigger,
 			})),
 			getCredentialDisplayName,
 		);
-		return sortCredentialTypeStates(grouped, (name) => workflowsStore.getNodeByName(name));
+		const sorted = sortCredentialTypeStates(grouped, (name) => workflowsStore.getNodeByName(name));
+		for (const state of sorted) {
+			state.isComplete = isCredentialCardComplete(state, hasTriggerExecutedSuccessfully);
+		}
+		return sorted;
 	});
 
 	/**
-	 * Trigger states — one entry per trigger node.
-	 * Trigger cards show only the test button; credentials are in credential-type cards.
+	 * Trigger states — one entry per trigger node that is NOT covered by a credential card.
+	 * Triggers with credentials are embedded into the credential card instead.
 	 */
-	const triggerStates = computed(() =>
-		nodesRequiringSetup.value
-			.filter(({ isTrigger }) => isTrigger)
+	const triggerStates = computed(() => {
+		const coveredTriggerNames = new Set<string>();
+		for (const credState of credentialTypeStates.value) {
+			for (const triggerNode of credState.triggerNodes) {
+				coveredTriggerNames.add(triggerNode.name);
+			}
+		}
+
+		return nodesRequiringSetup.value
+			.filter(({ isTrigger, node }) => isTrigger && !coveredTriggerNames.has(node.name))
 			.map(({ node, credentialTypes }) =>
 				buildTriggerSetupState(
 					node,
@@ -102,8 +116,8 @@ export const useWorkflowSetupState = (nodes?: Ref<INodeUi[]>) => {
 					credentialTypeStates.value,
 					hasTriggerExecutedSuccessfully(node.name),
 				),
-			),
-	);
+			);
+	});
 
 	/**
 	 * Ordered list of all setup cards: credential-type cards first, then trigger cards.

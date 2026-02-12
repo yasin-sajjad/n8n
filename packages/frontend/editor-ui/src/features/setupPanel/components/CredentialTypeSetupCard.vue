@@ -5,6 +5,7 @@ import { N8nIcon, N8nText, N8nTooltip } from '@n8n/design-system';
 
 import CredentialIcon from '@/features/credentials/components/CredentialIcon.vue';
 import CredentialPicker from '@/features/credentials/components/CredentialPicker/CredentialPicker.vue';
+import TriggerExecuteButton from './TriggerExecuteButton.vue';
 import { useWorkflowsStore } from '@/app/stores/workflows.store';
 import { useTelemetry } from '@/app/composables/useTelemetry';
 
@@ -145,6 +146,19 @@ onMounted(() => {
 						@credential-deselected="onCredentialDeselected"
 					/>
 				</div>
+				<div
+					v-if="state.triggerNodes.length > 0"
+					data-test-id="credential-card-trigger-section"
+					:class="$style['trigger-section']"
+				>
+					<div
+						v-for="triggerNode in state.triggerNodes"
+						:key="triggerNode.id"
+						:class="$style['trigger-execute-row']"
+					>
+						<TriggerExecuteButton :node="triggerNode" @executed="hadManualInteraction = true" />
+					</div>
+				</div>
 			</div>
 
 			<footer v-if="state.isComplete" :class="$style.footer">
@@ -233,6 +247,17 @@ onMounted(() => {
 
 .credential-picker {
 	flex: 1;
+}
+
+.trigger-section {
+	display: flex;
+	flex-direction: column;
+	gap: var(--spacing--2xs);
+}
+
+.trigger-execute-row {
+	display: flex;
+	justify-content: flex-end;
 }
 
 .footer {

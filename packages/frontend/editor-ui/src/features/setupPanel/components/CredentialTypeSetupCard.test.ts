@@ -1,9 +1,11 @@
 import { createComponentRenderer } from '@/__tests__/render';
+import { createTestNode } from '@/__tests__/mocks';
 import { createTestingPinia } from '@pinia/testing';
 import { waitFor } from '@testing-library/vue';
 import userEvent from '@testing-library/user-event';
 import CredentialTypeSetupCard from './CredentialTypeSetupCard.vue';
 import type { CredentialTypeSetupState } from '../setupPanel.types';
+import type { INodeUi } from '@/Interface';
 
 vi.mock('@/features/credentials/components/CredentialPicker/CredentialPicker.vue', () => ({
 	default: {
@@ -24,6 +26,15 @@ vi.mock('@/features/credentials/components/CredentialIcon.vue', () => ({
 	},
 }));
 
+vi.mock('./TriggerExecuteButton.vue', () => ({
+	default: {
+		template:
+			'<button data-test-id="trigger-execute-button" @click="$emit(\'executed\')">Test</button>',
+		props: ['node'],
+		emits: ['executed'],
+	},
+}));
+
 const renderComponent = createComponentRenderer(CredentialTypeSetupCard);
 
 const createState = (
@@ -34,6 +45,7 @@ const createState = (
 	selectedCredentialId: undefined,
 	issues: [],
 	nodeNames: ['OpenAI'],
+	triggerNodes: [],
 	isComplete: false,
 	...overrides,
 });
@@ -180,13 +192,66 @@ describe('CredentialTypeSetupCard', () => {
 		});
 	});
 
-	describe('no test button', () => {
-		it('should not render a test button', () => {
+	describe('trigger section', () => {
+		it('should not render trigger section when triggerNodes is empty', () => {
 			const { queryByTestId } = renderComponent({
 				props: { state: createState(), expanded: true },
 			});
 
-			expect(queryByTestId('trigger-setup-card-test-button')).not.toBeInTheDocument();
+			expect(queryByTestId('credential-card-trigger-section')).not.toBeInTheDocument();
+		});
+
+		it('should render trigger execute buttons when triggerNodes has entries', () => {
+			const triggerNode = createTestNode({
+				name: 'SlackTrigger',
+				type: 'n8n-nodes-base.slackTrigger',
+			}) as INodeUi;
+
+			const { getByTestId } = renderComponent({
+				props: {
+					state: createState({ triggerNodes: [triggerNode] }),
+					expanded: true,
+				},
+			});
+
+			expect(getByTestId('credential-card-trigger-section')).toBeInTheDocument();
+			expect(getByTestId('trigger-execute-button')).toBeInTheDocument();
+		});
+
+		it('should render multiple trigger execute buttons for multiple triggers', () => {
+			const trigger1 = createTestNode({
+				name: 'Trigger1',
+				type: 'n8n-nodes-base.slackTrigger',
+			}) as INodeUi;
+			const trigger2 = createTestNode({
+				name: 'Trigger2',
+				type: 'n8n-nodes-base.slackTrigger',
+			}) as INodeUi;
+
+			const { getAllByTestId } = renderComponent({
+				props: {
+					state: createState({ triggerNodes: [trigger1, trigger2] }),
+					expanded: true,
+				},
+			});
+
+			expect(getAllByTestId('trigger-execute-button')).toHaveLength(2);
+		});
+
+		it('should not render trigger section when collapsed', () => {
+			const triggerNode = createTestNode({
+				name: 'SlackTrigger',
+				type: 'n8n-nodes-base.slackTrigger',
+			}) as INodeUi;
+
+			const { queryByTestId } = renderComponent({
+				props: {
+					state: createState({ triggerNodes: [triggerNode] }),
+					expanded: false,
+				},
+			});
+
+			expect(queryByTestId('credential-card-trigger-section')).not.toBeInTheDocument();
 		});
 	});
 });

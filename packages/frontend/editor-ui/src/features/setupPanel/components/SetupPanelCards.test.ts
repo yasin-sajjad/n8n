@@ -74,6 +74,7 @@ const createCredentialCard = (
 		selectedCredentialId: undefined,
 		issues: [],
 		nodeNames: ['OpenAI'],
+		triggerNodes: [],
 		isComplete: false,
 		...overrides,
 	},

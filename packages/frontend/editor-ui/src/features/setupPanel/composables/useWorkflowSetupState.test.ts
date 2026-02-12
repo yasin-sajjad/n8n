@@ -159,7 +159,7 @@ describe('useWorkflowSetupState', () => {
 			expect(credCards).toHaveLength(2);
 		});
 
-		it('should produce both trigger card and credential card(s) for trigger with credentials', () => {
+		it('should embed trigger into credential card for trigger with credentials (no separate trigger card)', () => {
 			const triggerNode = createNode({
 				name: 'SlackTrigger',
 				type: 'n8n-nodes-base.slackTrigger',
@@ -176,8 +176,12 @@ describe('useWorkflowSetupState', () => {
 
 			const triggerCards = setupCards.value.filter((c) => c.type === 'trigger');
 			const credCards = setupCards.value.filter((c) => c.type === 'credential');
-			expect(triggerCards).toHaveLength(1);
+			expect(triggerCards).toHaveLength(0);
 			expect(credCards).toHaveLength(1);
+			if (credCards[0].type === 'credential') {
+				expect(credCards[0].state.triggerNodes).toHaveLength(1);
+				expect(credCards[0].state.triggerNodes[0].name).toBe('SlackTrigger');
+			}
 		});
 
 		it('should produce only trigger card for trigger without credentials', () => {
@@ -194,26 +198,31 @@ describe('useWorkflowSetupState', () => {
 			expect(setupCards.value[0].type).toBe('trigger');
 		});
 
-		it('should order credentials first, then triggers', () => {
+		it('should order credentials first, then standalone triggers', () => {
 			const regularNode = createNode({
 				name: 'Regular',
 				type: 'n8n-nodes-base.regular',
 				position: [0, 0],
 			});
 			const triggerNode = createNode({
-				name: 'Trigger',
-				type: 'n8n-nodes-base.trigger',
+				name: 'ManualTrigger',
+				type: 'n8n-nodes-base.manualTrigger',
 				position: [100, 0],
 			});
 			workflowsStore.allNodes = [regularNode, triggerNode];
-			nodeTypesStore.isTriggerNode = vi.fn((type: string) => type === 'n8n-nodes-base.trigger');
-			mockGetNodeTypeDisplayableCredentials.mockReturnValue([{ name: 'testApi' }]);
+			nodeTypesStore.isTriggerNode = vi.fn(
+				(type: string) => type === 'n8n-nodes-base.manualTrigger',
+			);
+			mockGetNodeTypeDisplayableCredentials.mockImplementation((_store, node) => {
+				if ((node as INodeUi).name === 'Regular') return [{ name: 'testApi' }];
+				return [];
+			});
 			credentialsStore.getCredentialTypeByName = vi.fn().mockReturnValue({
 				displayName: 'Test',
 			});
 			workflowsStore.getNodeByName = vi.fn((name: string) => {
 				if (name === 'Regular') return regularNode;
-				if (name === 'Trigger') return triggerNode;
+				if (name === 'ManualTrigger') return triggerNode;
 				return null;
 			});
 
@@ -286,7 +295,7 @@ describe('useWorkflowSetupState', () => {
 			expect(credentialTypeStates.value[0].nodeNames).toEqual(['Node1', 'Node2']);
 		});
 
-		it('should mark isComplete true when credential is set without issues', () => {
+		it('should mark isComplete true when credential is set without issues (non-trigger node)', () => {
 			const node = createNode({
 				name: 'Slack',
 				credentials: {
@@ -303,6 +312,48 @@ describe('useWorkflowSetupState', () => {
 			const { credentialTypeStates } = useWorkflowSetupState();
 
 			expect(credentialTypeStates.value[0].isComplete).toBe(true);
+		});
+
+		it('should mark isComplete false when credential is set but embedded trigger has not executed', () => {
+			const triggerNode = createNode({
+				name: 'SlackTrigger',
+				type: 'n8n-nodes-base.slackTrigger',
+				credentials: { slackApi: { id: 'cred-1', name: 'My Slack' } },
+			});
+			workflowsStore.allNodes = [triggerNode];
+			nodeTypesStore.isTriggerNode = vi.fn().mockReturnValue(true);
+			mockGetNodeTypeDisplayableCredentials.mockReturnValue([{ name: 'slackApi' }]);
+			credentialsStore.getCredentialTypeByName = vi.fn().mockReturnValue({
+				displayName: 'Slack API',
+			});
+			workflowsStore.getNodeByName = vi.fn().mockReturnValue(triggerNode);
+			workflowsStore.getWorkflowResultDataByNodeName = vi.fn().mockReturnValue(null);
+
+			const { credentialTypeStates } = useWorkflowSetupState();
+
+			expect(credentialTypeStates.value[0].isComplete).toBe(false);
+			expect(credentialTypeStates.value[0].triggerNodes).toHaveLength(1);
+		});
+
+		it('should mark isComplete true when credential is set and embedded trigger has executed', () => {
+			const triggerNode = createNode({
+				name: 'SlackTrigger',
+				type: 'n8n-nodes-base.slackTrigger',
+				credentials: { slackApi: { id: 'cred-1', name: 'My Slack' } },
+			});
+			workflowsStore.allNodes = [triggerNode];
+			nodeTypesStore.isTriggerNode = vi.fn().mockReturnValue(true);
+			mockGetNodeTypeDisplayableCredentials.mockReturnValue([{ name: 'slackApi' }]);
+			credentialsStore.getCredentialTypeByName = vi.fn().mockReturnValue({
+				displayName: 'Slack API',
+			});
+			workflowsStore.getNodeByName = vi.fn().mockReturnValue(triggerNode);
+			workflowsStore.getWorkflowResultDataByNodeName = vi.fn().mockReturnValue([{ data: {} }]);
+
+			const { credentialTypeStates } = useWorkflowSetupState();
+
+			expect(credentialTypeStates.value[0].isComplete).toBe(true);
+			expect(credentialTypeStates.value[0].triggerNodes).toHaveLength(1);
 		});
 
 		it('should mark isComplete false when credential is missing', () => {
@@ -381,7 +432,7 @@ describe('useWorkflowSetupState', () => {
 			expect(triggerStates.value[0].isComplete).toBe(true);
 		});
 
-		it('should mark trigger with credentials as incomplete until credentials AND execution', () => {
+		it('should not include trigger with credentials in triggerStates (it is embedded in credential card)', () => {
 			const triggerNode = createNode({
 				name: 'SlackTrigger',
 				type: 'n8n-nodes-base.slackTrigger',
@@ -397,48 +448,7 @@ describe('useWorkflowSetupState', () => {
 
 			const { triggerStates } = useWorkflowSetupState();
 
-			// Missing credentials and no execution
-			expect(triggerStates.value[0].isComplete).toBe(false);
-		});
-
-		it('should mark trigger with credentials as incomplete when credentials set but no execution', () => {
-			const triggerNode = createNode({
-				name: 'SlackTrigger',
-				type: 'n8n-nodes-base.slackTrigger',
-				credentials: { slackApi: { id: 'cred-1', name: 'My Slack' } },
-			});
-			workflowsStore.allNodes = [triggerNode];
-			nodeTypesStore.isTriggerNode = vi.fn().mockReturnValue(true);
-			mockGetNodeTypeDisplayableCredentials.mockReturnValue([{ name: 'slackApi' }]);
-			credentialsStore.getCredentialTypeByName = vi.fn().mockReturnValue({
-				displayName: 'Slack API',
-			});
-			workflowsStore.getNodeByName = vi.fn().mockReturnValue(triggerNode);
-			workflowsStore.getWorkflowResultDataByNodeName = vi.fn().mockReturnValue(null);
-
-			const { triggerStates } = useWorkflowSetupState();
-
-			expect(triggerStates.value[0].isComplete).toBe(false);
-		});
-
-		it('should mark trigger with credentials as complete when credentials set and execution succeeded', () => {
-			const triggerNode = createNode({
-				name: 'SlackTrigger',
-				type: 'n8n-nodes-base.slackTrigger',
-				credentials: { slackApi: { id: 'cred-1', name: 'My Slack' } },
-			});
-			workflowsStore.allNodes = [triggerNode];
-			nodeTypesStore.isTriggerNode = vi.fn().mockReturnValue(true);
-			mockGetNodeTypeDisplayableCredentials.mockReturnValue([{ name: 'slackApi' }]);
-			credentialsStore.getCredentialTypeByName = vi.fn().mockReturnValue({
-				displayName: 'Slack API',
-			});
-			workflowsStore.getNodeByName = vi.fn().mockReturnValue(triggerNode);
-			workflowsStore.getWorkflowResultDataByNodeName = vi.fn().mockReturnValue([{ data: {} }]);
-
-			const { triggerStates } = useWorkflowSetupState();
-
-			expect(triggerStates.value[0].isComplete).toBe(true);
+			expect(triggerStates.value).toHaveLength(0);
 		});
 
 		it('should mark trigger without credentials and no execution as incomplete', () => {
@@ -850,8 +860,8 @@ describe('useWorkflowSetupState', () => {
 
 		it('should return total number of setup cards', () => {
 			const triggerNode = createNode({
-				name: 'Trigger',
-				type: 'n8n-nodes-base.trigger',
+				name: 'ManualTrigger',
+				type: 'n8n-nodes-base.manualTrigger',
 				position: [0, 0],
 			});
 			const regularNode = createNode({
@@ -860,24 +870,29 @@ describe('useWorkflowSetupState', () => {
 				position: [100, 0],
 			});
 			workflowsStore.allNodes = [triggerNode, regularNode];
-			nodeTypesStore.isTriggerNode = vi.fn((type: string) => type === 'n8n-nodes-base.trigger');
-			mockGetNodeTypeDisplayableCredentials.mockReturnValue([{ name: 'testApi' }]);
+			nodeTypesStore.isTriggerNode = vi.fn(
+				(type: string) => type === 'n8n-nodes-base.manualTrigger',
+			);
+			mockGetNodeTypeDisplayableCredentials.mockImplementation((_store, node) => {
+				if ((node as INodeUi).name === 'Regular') return [{ name: 'testApi' }];
+				return [];
+			});
 			credentialsStore.getCredentialTypeByName = vi.fn().mockReturnValue({
 				displayName: 'Test',
 			});
 			workflowsStore.getNodeByName = vi.fn((name: string) => {
-				if (name === 'Trigger') return triggerNode;
+				if (name === 'ManualTrigger') return triggerNode;
 				if (name === 'Regular') return regularNode;
 				return null;
 			});
 
 			const { totalCardsRequiringSetup } = useWorkflowSetupState();
 
-			// 1 trigger card + 1 credential card (testApi shared by both nodes)
+			// 1 standalone trigger card (no credentials) + 1 credential card
 			expect(totalCardsRequiringSetup.value).toBe(2);
 		});
 
-		it('should count trigger and credential cards separately for trigger with credentials', () => {
+		it('should produce single credential card for trigger with credentials (trigger embedded)', () => {
 			const triggerNode = createNode({
 				name: 'SlackTrigger',
 				type: 'n8n-nodes-base.slackTrigger',
@@ -892,8 +907,8 @@ describe('useWorkflowSetupState', () => {
 
 			const { totalCardsRequiringSetup } = useWorkflowSetupState();
 
-			// 1 trigger card + 1 credential card
-			expect(totalCardsRequiringSetup.value).toBe(2);
+			// 1 credential card with embedded trigger (no separate trigger card)
+			expect(totalCardsRequiringSetup.value).toBe(1);
 		});
 	});
 

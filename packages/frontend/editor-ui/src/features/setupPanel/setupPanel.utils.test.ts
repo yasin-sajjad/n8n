@@ -7,6 +7,7 @@ import {
 	isNodeSetupComplete,
 	buildNodeSetupState,
 	groupCredentialsByType,
+	isCredentialCardComplete,
 	buildTriggerSetupState,
 	sortCredentialTypeStates,
 } from './setupPanel.utils';
@@ -312,8 +313,8 @@ describe('setupPanel.utils', () => {
 
 			const result = groupCredentialsByType(
 				[
-					{ node: nodeA, credentialTypes: ['slackApi'] },
-					{ node: nodeB, credentialTypes: ['slackApi'] },
+					{ node: nodeA, credentialTypes: ['slackApi'], isTrigger: false },
+					{ node: nodeB, credentialTypes: ['slackApi'], isTrigger: false },
 				],
 				displayNameLookup,
 			);
@@ -333,8 +334,8 @@ describe('setupPanel.utils', () => {
 
 			const result = groupCredentialsByType(
 				[
-					{ node: nodeA, credentialTypes: ['slackApi'] },
-					{ node: nodeB, credentialTypes: ['slackApi'] },
+					{ node: nodeA, credentialTypes: ['slackApi'], isTrigger: false },
+					{ node: nodeB, credentialTypes: ['slackApi'], isTrigger: false },
 				],
 				displayNameLookup,
 			);
@@ -354,8 +355,8 @@ describe('setupPanel.utils', () => {
 
 			const result = groupCredentialsByType(
 				[
-					{ node: nodeA, credentialTypes: ['slackApi'] },
-					{ node: nodeB, credentialTypes: ['slackApi'] },
+					{ node: nodeA, credentialTypes: ['slackApi'], isTrigger: false },
+					{ node: nodeB, credentialTypes: ['slackApi'], isTrigger: false },
 				],
 				displayNameLookup,
 			);
@@ -369,7 +370,7 @@ describe('setupPanel.utils', () => {
 			);
 
 			const result = groupCredentialsByType(
-				nodes.map((node) => ({ node, credentialTypes: ['api'] })),
+				nodes.map((node) => ({ node, credentialTypes: ['api'], isTrigger: false })),
 				displayNameLookup,
 			);
 
@@ -383,7 +384,7 @@ describe('setupPanel.utils', () => {
 			});
 
 			const result = groupCredentialsByType(
-				[{ node, credentialTypes: ['slackApi'] }],
+				[{ node, credentialTypes: ['slackApi'], isTrigger: false }],
 				displayNameLookup,
 			);
 
@@ -394,7 +395,7 @@ describe('setupPanel.utils', () => {
 			const node = createNode({ name: 'NodeA' });
 
 			const result = groupCredentialsByType(
-				[{ node, credentialTypes: ['slackApi'] }],
+				[{ node, credentialTypes: ['slackApi'], isTrigger: false }],
 				displayNameLookup,
 			);
 
@@ -409,7 +410,7 @@ describe('setupPanel.utils', () => {
 			});
 
 			const result = groupCredentialsByType(
-				[{ node, credentialTypes: ['slackApi'] }],
+				[{ node, credentialTypes: ['slackApi'], isTrigger: false }],
 				displayNameLookup,
 			);
 
@@ -432,12 +433,158 @@ describe('setupPanel.utils', () => {
 			});
 
 			const result = groupCredentialsByType(
-				[{ node, credentialTypes: ['slackApi', 'githubApi'] }],
+				[{ node, credentialTypes: ['slackApi', 'githubApi'], isTrigger: false }],
 				displayNameLookup,
 			);
 
 			expect(result).toHaveLength(2);
 			expect(result.map((s) => s.credentialType)).toEqual(['slackApi', 'githubApi']);
+		});
+
+		it('should initialize triggerNodes as empty array for non-trigger nodes', () => {
+			const node = createNode({
+				name: 'NodeA',
+				credentials: { slackApi: { id: 'cred-1', name: 'Slack' } },
+			});
+
+			const result = groupCredentialsByType(
+				[{ node, credentialTypes: ['slackApi'], isTrigger: false }],
+				displayNameLookup,
+			);
+
+			expect(result[0].triggerNodes).toEqual([]);
+		});
+
+		it('should populate triggerNodes for trigger nodes', () => {
+			const triggerNode = createNode({
+				name: 'SlackTrigger',
+				type: 'n8n-nodes-base.slackTrigger',
+				credentials: { slackApi: { id: 'cred-1', name: 'Slack' } },
+			});
+
+			const result = groupCredentialsByType(
+				[{ node: triggerNode, credentialTypes: ['slackApi'], isTrigger: true }],
+				displayNameLookup,
+			);
+
+			expect(result[0].triggerNodes).toHaveLength(1);
+			expect(result[0].triggerNodes[0].name).toBe('SlackTrigger');
+		});
+
+		it('should add trigger node to existing credential group', () => {
+			const regularNode = createNode({
+				name: 'SlackNode',
+				credentials: { slackApi: { id: 'cred-1', name: 'Slack' } },
+			});
+			const triggerNode = createNode({
+				name: 'SlackTrigger',
+				type: 'n8n-nodes-base.slackTrigger',
+				credentials: { slackApi: { id: 'cred-1', name: 'Slack' } },
+			});
+
+			const result = groupCredentialsByType(
+				[
+					{ node: regularNode, credentialTypes: ['slackApi'], isTrigger: false },
+					{ node: triggerNode, credentialTypes: ['slackApi'], isTrigger: true },
+				],
+				displayNameLookup,
+			);
+
+			expect(result).toHaveLength(1);
+			expect(result[0].nodeNames).toEqual(['SlackNode', 'SlackTrigger']);
+			expect(result[0].triggerNodes).toHaveLength(1);
+			expect(result[0].triggerNodes[0].name).toBe('SlackTrigger');
+		});
+	});
+
+	describe('isCredentialCardComplete', () => {
+		it('should return true when credential is set, no issues, and no triggers', () => {
+			const state: CredentialTypeSetupState = {
+				credentialType: 'slackApi',
+				credentialDisplayName: 'Slack',
+				selectedCredentialId: 'cred-1',
+				issues: [],
+				nodeNames: ['SlackNode'],
+				triggerNodes: [],
+				isComplete: false,
+			};
+
+			expect(isCredentialCardComplete(state, () => false)).toBe(true);
+		});
+
+		it('should return false when credential is missing', () => {
+			const state: CredentialTypeSetupState = {
+				credentialType: 'slackApi',
+				credentialDisplayName: 'Slack',
+				selectedCredentialId: undefined,
+				issues: [],
+				nodeNames: ['SlackNode'],
+				triggerNodes: [],
+				isComplete: false,
+			};
+
+			expect(isCredentialCardComplete(state, () => true)).toBe(false);
+		});
+
+		it('should return false when there are issues', () => {
+			const state: CredentialTypeSetupState = {
+				credentialType: 'slackApi',
+				credentialDisplayName: 'Slack',
+				selectedCredentialId: 'cred-1',
+				issues: ['Token expired'],
+				nodeNames: ['SlackNode'],
+				triggerNodes: [],
+				isComplete: false,
+			};
+
+			expect(isCredentialCardComplete(state, () => true)).toBe(false);
+		});
+
+		it('should return false when trigger has not executed', () => {
+			const triggerNode = createNode({ name: 'SlackTrigger' });
+			const state: CredentialTypeSetupState = {
+				credentialType: 'slackApi',
+				credentialDisplayName: 'Slack',
+				selectedCredentialId: 'cred-1',
+				issues: [],
+				nodeNames: ['SlackTrigger'],
+				triggerNodes: [triggerNode],
+				isComplete: false,
+			};
+
+			expect(isCredentialCardComplete(state, () => false)).toBe(false);
+		});
+
+		it('should return true when credential is set and all triggers have executed', () => {
+			const triggerNode = createNode({ name: 'SlackTrigger' });
+			const state: CredentialTypeSetupState = {
+				credentialType: 'slackApi',
+				credentialDisplayName: 'Slack',
+				selectedCredentialId: 'cred-1',
+				issues: [],
+				nodeNames: ['SlackTrigger'],
+				triggerNodes: [triggerNode],
+				isComplete: false,
+			};
+
+			expect(isCredentialCardComplete(state, () => true)).toBe(true);
+		});
+
+		it('should return false when one of multiple triggers has not executed', () => {
+			const trigger1 = createNode({ name: 'Trigger1' });
+			const trigger2 = createNode({ name: 'Trigger2' });
+			const state: CredentialTypeSetupState = {
+				credentialType: 'slackApi',
+				credentialDisplayName: 'Slack',
+				selectedCredentialId: 'cred-1',
+				issues: [],
+				nodeNames: ['Trigger1', 'Trigger2'],
+				triggerNodes: [trigger1, trigger2],
+				isComplete: false,
+			};
+
+			const hasTriggerExecuted = (name: string) => name === 'Trigger1';
+			expect(isCredentialCardComplete(state, hasTriggerExecuted)).toBe(false);
 		});
 	});
 
@@ -468,6 +615,7 @@ describe('setupPanel.utils', () => {
 					selectedCredentialId: 'cred-1',
 					issues: [],
 					nodeNames: ['Trigger'],
+					triggerNodes: [],
 					isComplete: true,
 				},
 			];
@@ -486,6 +634,7 @@ describe('setupPanel.utils', () => {
 					selectedCredentialId: undefined,
 					issues: [],
 					nodeNames: ['Trigger'],
+					triggerNodes: [],
 					isComplete: false,
 				},
 			];
@@ -504,6 +653,7 @@ describe('setupPanel.utils', () => {
 					selectedCredentialId: 'cred-1',
 					issues: [],
 					nodeNames: ['Trigger'],
+					triggerNodes: [],
 					isComplete: true,
 				},
 				{
@@ -512,6 +662,7 @@ describe('setupPanel.utils', () => {
 					selectedCredentialId: 'cred-2',
 					issues: [],
 					nodeNames: ['Trigger'],
+					triggerNodes: [],
 					isComplete: true,
 				},
 			];
@@ -554,6 +705,7 @@ describe('setupPanel.utils', () => {
 					credentialDisplayName: 'A',
 					issues: [],
 					nodeNames: ['NodeA'],
+					triggerNodes: [],
 					isComplete: true,
 				},
 				{
@@ -561,6 +713,7 @@ describe('setupPanel.utils', () => {
 					credentialDisplayName: 'B',
 					issues: [],
 					nodeNames: ['NodeB'],
+					triggerNodes: [],
 					isComplete: true,
 				},
 				{
@@ -568,6 +721,7 @@ describe('setupPanel.utils', () => {
 					credentialDisplayName: 'C',
 					issues: [],
 					nodeNames: ['NodeC'],
+					triggerNodes: [],
 					isComplete: true,
 				},
 			];
@@ -595,6 +749,7 @@ describe('setupPanel.utils', () => {
 					credentialDisplayName: 'X',
 					issues: [],
 					nodeNames: ['NodeA', 'NodeB'],
+					triggerNodes: [],
 					isComplete: true,
 				},
 				{
@@ -602,6 +757,7 @@ describe('setupPanel.utils', () => {
 					credentialDisplayName: 'Y',
 					issues: [],
 					nodeNames: ['NodeC'],
+					triggerNodes: [],
 					isComplete: true,
 				},
 			];
@@ -624,6 +780,7 @@ describe('setupPanel.utils', () => {
 					credentialDisplayName: 'Unknown',
 					issues: [],
 					nodeNames: ['MissingNode'],
+					triggerNodes: [],
 					isComplete: true,
 				},
 				{
@@ -631,6 +788,7 @@ describe('setupPanel.utils', () => {
 					credentialDisplayName: 'Known',
 					issues: [],
 					nodeNames: ['NodeA'],
+					triggerNodes: [],
 					isComplete: true,
 				},
 			];
@@ -647,6 +805,7 @@ describe('setupPanel.utils', () => {
 					credentialDisplayName: 'B',
 					issues: [],
 					nodeNames: ['NodeB'],
+					triggerNodes: [],
 					isComplete: true,
 				},
 				{
@@ -654,6 +813,7 @@ describe('setupPanel.utils', () => {
 					credentialDisplayName: 'A',
 					issues: [],
 					nodeNames: ['NodeA'],
+					triggerNodes: [],
 					isComplete: true,
 				},
 			];

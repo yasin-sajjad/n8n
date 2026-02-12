@@ -111,16 +111,20 @@ export function buildNodeSetupState(
  * Returns one CredentialTypeSetupState per unique credential type.
  */
 export function groupCredentialsByType(
-	nodesWithCredentials: Array<{ node: INodeUi; credentialTypes: string[] }>,
+	nodesWithCredentials: Array<{ node: INodeUi; credentialTypes: string[]; isTrigger: boolean }>,
 	getCredentialDisplayName: (type: string) => string,
 ): CredentialTypeSetupState[] {
 	const map = new Map<string, CredentialTypeSetupState>();
 
-	for (const { node, credentialTypes } of nodesWithCredentials) {
+	for (const { node, credentialTypes, isTrigger } of nodesWithCredentials) {
 		for (const credType of credentialTypes) {
 			const existing = map.get(credType);
 			if (existing) {
 				existing.nodeNames.push(node.name);
+
+				if (isTrigger) {
+					existing.triggerNodes.push(node);
+				}
 
 				const nodeIssues = node.issues?.credentials?.[credType];
 				if (nodeIssues) {
@@ -153,6 +157,7 @@ export function groupCredentialsByType(
 					selectedCredentialId,
 					issues: issueMessages,
 					nodeNames: [node.name],
+					triggerNodes: isTrigger ? [node] : [],
 					isComplete: false,
 				});
 			}
@@ -164,6 +169,19 @@ export function groupCredentialsByType(
 	}
 
 	return Array.from(map.values());
+}
+
+/**
+ * Checks whether a credential card is fully complete.
+ * For cards with embedded triggers, complete = credential set + no issues + all triggers executed.
+ */
+export function isCredentialCardComplete(
+	credState: CredentialTypeSetupState,
+	hasTriggerExecuted: (nodeName: string) => boolean,
+): boolean {
+	const credentialComplete = !!credState.selectedCredentialId && credState.issues.length === 0;
+	if (!credentialComplete) return false;
+	return credState.triggerNodes.every((node) => hasTriggerExecuted(node.name));
 }
 
 /**

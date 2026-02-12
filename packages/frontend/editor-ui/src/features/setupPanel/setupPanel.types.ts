@@ -24,6 +24,8 @@ export interface CredentialTypeSetupState {
 	issues: string[];
 	/** All node names that require this credential type */
 	nodeNames: string[];
+	/** Trigger nodes within this credential group (for embedded execute buttons) */
+	triggerNodes: INodeUi[];
 	isComplete: boolean;
 }
 
