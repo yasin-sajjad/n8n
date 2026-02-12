@@ -11,6 +11,9 @@ import { useTelemetry } from '@/app/composables/useTelemetry';
 const i18n = useI18n();
 const telemetry = useTelemetry();
 const workflowsStore = useWorkflowsStore();
+import { useSetupPanelStore } from '../setupPanel.store';
+
+const setupPanelStore = useSetupPanelStore();
 const { nodeSetupStates, isAllComplete, setCredential, unsetCredential, isReadyToDemo } =
 	useWorkflowSetupState();
 
@@ -60,7 +63,7 @@ const onCredentialDeselected = (nodeName: string, credentialType: string) => {
 			</div>
 		</div>
 		<div v-else :class="$style['card-list']" data-test-id="setup-cards-list">
-			<DemoWorkflowCard />
+			<DemoWorkflowCard v-if="wasReadyToDemo && setupPanelStore.isFeatureEnabled" />
 			<NodeSetupCard
 				v-for="(state, index) in nodeSetupStates"
 				:key="state.node.id"

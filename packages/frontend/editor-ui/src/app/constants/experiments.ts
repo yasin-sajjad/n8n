@@ -81,6 +81,7 @@ export const EMPTY_STATE_EXPERIMENT = createExperiment('070_empty_screen_layout'
 export const SETUP_PANEL = createExperiment('069_setup_panel', {
 	control: 'control',
 	variant: 'variant',
+	variantDemo: 'variant-demo',
 });
 
 export const CODE_WORKFLOW_BUILDER_EXPERIMENT = createExperiment('071_coding_workflow_builder', {
