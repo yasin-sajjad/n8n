@@ -10,7 +10,11 @@ import { ConflictError } from '@/errors/response-errors/conflict.error';
 import { NotFoundError } from '@/errors/response-errors/not-found.error';
 
 import { QuickConnectHandlerRegistry } from './handlers/quick-connect.handler';
-import { QuickConnectConfig } from './quick-connect.config';
+import {
+	QuickConnectBackendOption,
+	QuickConnectConfig,
+	QuickConnectOption,
+} from './quick-connect.config';
 import { QuickConnectError } from './quick-connect.errors';
 
 @Service()
@@ -43,7 +47,7 @@ export class QuickConnectService {
 			);
 		}
 
-		if (!option.backendFlowConfig?.secret) {
+		if (!this.isValidBackendConfig(option)) {
 			throw new BadRequestError(
 				`Quick connect is not configured for credential type: ${credentialType}`,
 			);
@@ -94,5 +98,11 @@ export class QuickConnectService {
 		});
 
 		return decryptedCredential;
+	}
+
+	private isValidBackendConfig(config: QuickConnectOption): config is QuickConnectBackendOption {
+		return (
+			typeof config.backendFlowConfig?.secret === 'string' && config.backendFlowConfig.secret !== ''
+		);
 	}
 }

@@ -2,7 +2,7 @@ import type { User } from '@n8n/db';
 import { Service } from '@n8n/di';
 import type { ICredentialDataDecryptedObject } from 'n8n-workflow';
 
-import type { QuickConnectOption } from '../quick-connect.config';
+import type { QuickConnectBackendOption } from '../quick-connect.config';
 
 /**
  * Interface for quick connect handlers.
@@ -22,7 +22,7 @@ export interface IQuickConnectHandler {
 	 * @returns The credential data to be saved
 	 */
 	getCredentialData?(
-		config: QuickConnectOption,
+		config: QuickConnectBackendOption,
 		user: User,
 	): Promise<ICredentialDataDecryptedObject>;
 }

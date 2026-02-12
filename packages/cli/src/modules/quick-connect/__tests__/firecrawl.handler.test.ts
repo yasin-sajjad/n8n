@@ -3,7 +3,7 @@ import axios from 'axios';
 import { mock } from 'jest-mock-extended';
 
 import { FirecrawlHandler } from '../handlers/firecrawl.handler';
-import type { QuickConnectOption } from '../quick-connect.config';
+import type { QuickConnectBackendOption } from '../quick-connect.config';
 
 jest.mock('axios');
 
@@ -14,7 +14,7 @@ describe('FirecrawlHandler', () => {
 
 	const mockUser = mock<User>({ email: 'test@example.com' });
 
-	const mockConfig: QuickConnectOption = {
+	const mockConfig: QuickConnectBackendOption = {
 		packageName: '@n8n/firecrawl-package',
 		credentialType: 'firecrawlApi',
 		text: 'Connect with Firecrawl',
