@@ -96,7 +96,7 @@ const { check: checkEnvFeatureFlag } = useEnvFeatureFlag();
 const isQuickConnectEnabled = computed(() =>
 	posthogStore.isVariantEnabled(QUICK_CONNECT_EXPERIMENT.name, 'variant'),
 );
-const { hasQuickConnect } = useQuickConnect();
+const { hasQuickConnect, getQuickConnect } = useQuickConnect();
 const { isOAuthCredentialType, isGoogleOAuthType, hasManagedOAuthCredentials, authorize } =
 	useCredentialOAuth();
 
@@ -555,17 +555,54 @@ function showStandardEmptyState(type: INodeCredentialDescription): boolean {
 }
 
 async function onQuickConnectSignIn(credentialTypeName: string) {
-	if (hasQuickConnect(credentialTypeName, props.node.type)) {
+	const credentialType = credentialsStore.getCredentialTypeByName(credentialTypeName);
+	if (!credentialType) {
+		return;
+	}
+
+	const quickConnectOption = getQuickConnect(credentialTypeName, props.node.type);
+	if (quickConnectOption) {
 		// TODO: Implement quick connect flows here
+
+		switch (quickConnectOption.quickConnectType) {
+			case 'pinecone': {
+				const { ConnectPopup } = await import('@pinecone-database/connect');
+				const popup = ConnectPopup({
+					onConnect: async (apiKey) => {
+						console.log('got a pinecone key', apiKey);
+
+						try {
+							// Create credential on backend but don't add to store yet (wait for OAuth success)
+							const credential = await credentialsStore.createNewCredential(
+								{
+									id: '',
+									name: credentialType.displayName,
+									type: credentialTypeName,
+									data: {
+										apiKey,
+									},
+								},
+								projectsStore.currentProject?.id,
+							);
+
+							onCredentialSelected(credentialTypeName, credential.id);
+						} catch (error) {
+							console.error(error);
+							toast.showError(error, i18n.baseText('nodeCredentials.showMessage.title'));
+							return;
+						}
+					},
+					integrationId: 'myApp',
+				});
+
+				popup.open();
+			}
+		}
+
 		return;
 	}
 
 	if (!isOAuthCredentialType(credentialTypeName)) {
-		return;
-	}
-
-	const credentialType = credentialsStore.getCredentialTypeByName(credentialTypeName);
-	if (!credentialType) {
 		return;
 	}
 
