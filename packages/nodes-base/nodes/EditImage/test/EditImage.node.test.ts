@@ -20,6 +20,7 @@ interface MockJimpInstance {
 	cover: jest.Mock;
 	rotate: jest.Mock;
 	getBuffer: jest.Mock;
+	background: number;
 	width: number;
 	height: number;
 	mime: string;
@@ -38,6 +39,7 @@ function resetJimpMock() {
 		cover: jest.fn(),
 		rotate: jest.fn(),
 		getBuffer: jest.fn(async () => createTestBuffer()),
+		background: 0,
 		width: 100,
 		height: 100,
 		mime: 'image/png',
@@ -1402,6 +1404,8 @@ describe('EditImage Node', () => {
 
 			await editImageNode.execute.call(mockExecuteFunctions);
 
+			// cssColorToInt('#00ff00') → rgbaToInt(0, 255, 0, 255) → 0x00FF00FF
+			expect(mockJimpInstance.background).toBe(0x00ff00ff);
 			expect(mockJimpInstance.rotate).toHaveBeenCalledWith(45);
 		});
 

@@ -797,6 +797,7 @@ export class EditImage implements INodeType {
 							image!.scaleToFit({ w: width, h: height });
 						}
 					} else if (operationData.operation === 'rotate') {
+						image!.background = cssColorToInt(operationData.backgroundColor as string);
 						image!.rotate(operationData.rotate as number);
 					} else if (operationData.operation === 'transparent') {
 						const targetColor = operationData.color as string;
