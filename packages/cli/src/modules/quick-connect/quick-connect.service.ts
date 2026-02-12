@@ -25,11 +25,7 @@ export class QuickConnectService {
 		this.logger = this.logger.scoped('quick-connect');
 	}
 
-	async createCredential(
-		credentialType: string,
-		user: User,
-		projectId?: string,
-	): Promise<{ id: string }> {
+	async createCredential(credentialType: string, user: User, projectId?: string) {
 		const option = this.config.options.find((opt) => opt.credentialType === credentialType);
 		if (!option) {
 			throw new NotFoundError(
@@ -89,11 +85,14 @@ export class QuickConnectService {
 			user,
 		);
 
+		// this object will have sensitive fields masked,
+		// so no secrets are exposed to the frontend
+		const decryptedCredential = await this.credentialsService.getOne(user, credential.id, true);
 		this.logger.info('Quick connect credential created', {
 			credentialId: credential.id,
 			credentialType,
 		});
 
-		return { id: credential.id };
+		return decryptedCredential;
 	}
 }
