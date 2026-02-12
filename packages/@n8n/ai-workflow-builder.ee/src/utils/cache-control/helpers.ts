@@ -12,7 +12,8 @@ function isTextBlock(
 		typeof block === 'object' &&
 		block !== null &&
 		'text' in block &&
-		typeof (block as { text: unknown }).text === 'string'
+		typeof (block as { text: unknown }).text === 'string' &&
+		(block as { text: string }).text.length > 0
 	);
 }
 
@@ -128,13 +129,15 @@ export function applyCacheControlMarkers(
 		const secondToLastMessage = messages[secondToLastIdx];
 
 		if (typeof secondToLastMessage.content === 'string') {
-			secondToLastMessage.content = [
-				{
-					type: 'text',
-					text: secondToLastMessage.content,
-					cache_control: { type: 'ephemeral' },
-				},
-			];
+			if (secondToLastMessage.content.length > 0) {
+				secondToLastMessage.content = [
+					{
+						type: 'text',
+						text: secondToLastMessage.content,
+						cache_control: { type: 'ephemeral' },
+					},
+				];
+			}
 		} else if (Array.isArray(secondToLastMessage.content)) {
 			const lastBlock = secondToLastMessage.content[secondToLastMessage.content.length - 1];
 			if (isTextBlock(lastBlock)) {
@@ -148,13 +151,15 @@ export function applyCacheControlMarkers(
 	const lastUserToolMessage = messages[lastUserToolIdx];
 
 	if (typeof lastUserToolMessage.content === 'string') {
-		lastUserToolMessage.content = [
-			{
-				type: 'text',
-				text: lastUserToolMessage.content,
-				cache_control: { type: 'ephemeral' },
-			},
-		];
+		if (lastUserToolMessage.content.length > 0) {
+			lastUserToolMessage.content = [
+				{
+					type: 'text',
+					text: lastUserToolMessage.content,
+					cache_control: { type: 'ephemeral' },
+				},
+			];
+		}
 	} else if (Array.isArray(lastUserToolMessage.content)) {
 		const lastBlock = lastUserToolMessage.content[lastUserToolMessage.content.length - 1];
 		if (isTextBlock(lastBlock)) {
@@ -198,13 +203,15 @@ export function applySubgraphCacheMarkers(messages: BaseMessage[]): void {
 	const lastMessage = messages[lastIdx];
 
 	if (typeof lastMessage.content === 'string') {
-		lastMessage.content = [
-			{
-				type: 'text',
-				text: lastMessage.content,
-				cache_control: { type: 'ephemeral' },
-			},
-		];
+		if (lastMessage.content.length > 0) {
+			lastMessage.content = [
+				{
+					type: 'text',
+					text: lastMessage.content,
+					cache_control: { type: 'ephemeral' },
+				},
+			];
+		}
 	} else if (Array.isArray(lastMessage.content)) {
 		const lastBlock = lastMessage.content[lastMessage.content.length - 1];
 		if (isTextBlock(lastBlock)) {
