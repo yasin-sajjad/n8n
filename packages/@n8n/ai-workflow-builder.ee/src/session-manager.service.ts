@@ -448,6 +448,27 @@ export class SessionManagerService {
 					getBuilderToolsForDisplay({ nodeTypes: this.nodeTypes }),
 				);
 
+				// Inject HITL history that isn't in the checkpoint.
+				// Command.update messages don't persist when a subgraph node
+				// interrupts multiple times, so we replay them from stored history.
+				this.injectHitlHistory(threadId, formattedMessages);
+
+				const pendingHitl = this.getPendingHitl(threadId);
+				if (pendingHitl) {
+					formattedMessages.push({
+						role: 'assistant',
+						type: pendingHitl.type,
+						...(pendingHitl.type === 'questions'
+							? {
+									questions: pendingHitl.questions,
+									...(pendingHitl.introMessage ? { introMessage: pendingHitl.introMessage } : {}),
+								}
+							: {
+									plan: pendingHitl.plan,
+								}),
+					});
+				}
+
 				sessions.push({
 					sessionId: threadId,
 					messages: formattedMessages,

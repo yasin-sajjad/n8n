@@ -499,7 +499,7 @@ describe('SessionManagerService', () => {
 			const result = await service.truncateMessagesAfter(workflowId, userId, messageId);
 
 			expect(result).toBe(false);
-			expect(mockLogger.debug).toHaveBeenCalledWith('No checkpoint found for truncation', {
+			expect(mockLogger.debug).toHaveBeenCalledWith('No messages found for truncation', {
 				threadId: 'workflow-test-workflow-user-test-user',
 				messageId: 'msg-123',
 			});
@@ -523,7 +523,7 @@ describe('SessionManagerService', () => {
 			const result = await service.truncateMessagesAfter(workflowId, userId, messageId);
 
 			expect(result).toBe(false);
-			expect(mockLogger.debug).toHaveBeenCalledWith('No valid messages found for truncation', {
+			expect(mockLogger.debug).toHaveBeenCalledWith('No messages found for truncation', {
 				threadId: 'workflow-test-workflow-user-test-user',
 				messageId: 'msg-123',
 			});
@@ -886,13 +886,18 @@ describe('SessionManagerService', () => {
 			const msg2 = new AIMessage({ content: 'Hi there' });
 			msg2.additional_kwargs = { messageId: 'msg-2' };
 
-			// Mock for the messages thread (first getTuple call)
+			// Mock for the messages thread (getTuple calls)
 			const messagesCheckpoint = {
 				checkpoint: {
 					channel_values: {
 						messages: [msg1, msg2],
 					},
 					ts: '2023-12-01T12:00:00Z',
+				},
+				metadata: {
+					source: 'update' as const,
+					step: -1,
+					parents: {},
 				},
 			};
 
@@ -915,8 +920,9 @@ describe('SessionManagerService', () => {
 			};
 
 			(mockMemorySaver.getTuple as jest.Mock)
-				.mockResolvedValueOnce(messagesCheckpoint)
-				.mockResolvedValueOnce(sessionCheckpoint);
+				.mockResolvedValueOnce(messagesCheckpoint) // loadMessagesForTruncation
+				.mockResolvedValueOnce(messagesCheckpoint) // update checkpoint
+				.mockResolvedValueOnce(sessionCheckpoint); // resetCodeBuilderSession
 			(mockMemorySaver.put as jest.Mock).mockResolvedValue(undefined);
 
 			const result = await service.truncateMessagesAfter(
@@ -1577,7 +1583,7 @@ describe('SessionManagerService', () => {
 
 				expect(result).toBe(false);
 				expect(mockLogger.debug).toHaveBeenCalledWith(
-					'No stored session found for truncation',
+					'No messages found for truncation',
 					expect.any(Object),
 				);
 			});
