@@ -324,7 +324,14 @@ export class AiWorkflowBuilderService {
 		// Track telemetry after stream completes (onGenerationSuccess is called by the agent)
 		if (this.onTelemetryEvent && userId) {
 			try {
-				await this.trackBuilderReplyTelemetry(agent, workflowId, userId, payload.id, threadId, isCodeBuilder);
+				await this.trackBuilderReplyTelemetry(
+					agent,
+					workflowId,
+					userId,
+					payload.id,
+					threadId,
+					isCodeBuilder,
+				);
 			} catch (error) {
 				this.logger?.error('Failed to track builder reply telemetry', { error });
 			}
