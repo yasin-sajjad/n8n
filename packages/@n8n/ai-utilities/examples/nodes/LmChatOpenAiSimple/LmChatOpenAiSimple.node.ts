@@ -55,7 +55,7 @@ export class LmChatOpenAiSimple extends createChatModelNode({
 		properties: openAiProperties,
 	},
 
-	model: async (context: ISupplyDataFunctions, itemIndex: number) => {
+	getModel: async (context: ISupplyDataFunctions, itemIndex: number) => {
 		const credentials = await context.getCredentials('openAiApi');
 		const modelName = context.getNodeParameter('model', itemIndex) as string;
 		const options = context.getNodeParameter('options', itemIndex, {}) as ModelOptions;

@@ -19,7 +19,7 @@ export type GetChatModelFn = (
 ) => Promise<ChatModelOptions>;
 
 export interface ChatModelNodeConfig extends AiNode {
-	model: GetChatModelFn | ChatModelOptions;
+	getModel: GetChatModelFn;
 }
 
 export interface ChatMemoryOptions {
@@ -30,7 +30,7 @@ export type GetChatMemoryFn = (
 	itemIndex: number,
 ) => Promise<ChatMemory>;
 export interface ChatMemoryNodeConfig extends AiNode {
-	memory: GetChatMemoryFn;
+	getMemory: GetChatMemoryFn;
 	memoryOptions?: ChatMemoryOptions;
 }
 

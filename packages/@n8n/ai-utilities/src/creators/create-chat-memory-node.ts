@@ -7,7 +7,7 @@ export const createChatMemoryNode = (chatMemoryNode: ChatMemoryNodeConfig) => {
 		description = chatMemoryNode.description;
 		methods = chatMemoryNode.methods;
 		async supplyData(this: ISupplyDataFunctions, itemIndex: number) {
-			const memory = await chatMemoryNode.memory(this, itemIndex);
+			const memory = await chatMemoryNode.getMemory(this, itemIndex);
 			return supplyMemory(this, memory, chatMemoryNode.memoryOptions);
 		}
 	};

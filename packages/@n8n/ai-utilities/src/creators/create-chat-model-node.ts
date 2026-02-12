@@ -8,9 +8,9 @@ export const createChatModelNode = (chatModelNode: ChatModelNodeConfig) => {
 		methods = chatModelNode.methods;
 		async supplyData(this: ISupplyDataFunctions, itemIndex: number) {
 			const model =
-				typeof chatModelNode.model === 'function'
-					? await chatModelNode.model(this, itemIndex)
-					: chatModelNode.model;
+				typeof chatModelNode.getModel === 'function'
+					? await chatModelNode.getModel(this, itemIndex)
+					: chatModelNode.getModel;
 			return supplyModel(this, model);
 		}
 	};

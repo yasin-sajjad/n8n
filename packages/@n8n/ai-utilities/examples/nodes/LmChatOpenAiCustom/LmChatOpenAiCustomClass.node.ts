@@ -19,7 +19,7 @@ class LmChatOpenAiNodeConfig implements ChatModelNodeConfig {
 		displayName: 'OpenAI Custom Class',
 		name: 'lmChatOpenAiCustomClass',
 	};
-	async model(context: ISupplyDataFunctions, itemIndex: number) {
+	async getModel(context: ISupplyDataFunctions, itemIndex: number) {
 		const credentials = await context.getCredentials('openAiApi');
 		const modelName = context.getNodeParameter('model', itemIndex) as string;
 		const options = context.getNodeParameter('options', itemIndex, {}) as ModelOptions;
