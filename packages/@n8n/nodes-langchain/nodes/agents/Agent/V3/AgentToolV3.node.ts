@@ -40,6 +40,7 @@ export class AgentToolV3 implements INodeType {
 					ai_languageModel: { required: true },
 					ai_memory: { required: false },
 					ai_tool: { required: false },
+					ai_skill: { required: false },
 					ai_outputParser: {
 						required: false,
 						displayOptions: { show: { hasOutputParser: [true] } },

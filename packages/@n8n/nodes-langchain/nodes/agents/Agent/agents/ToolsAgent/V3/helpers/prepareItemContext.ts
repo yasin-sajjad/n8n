@@ -14,6 +14,7 @@ import type { N8nOutputParser } from '@utils/output_parsers/N8nOutputParser';
 
 import { getTools, prepareMessages, preparePrompt } from '../../common';
 import type { AgentOptions } from '../types';
+import type { SkillData } from '../../../../../../skills/types';
 
 /**
  * Context specific to a single item's processing
@@ -31,18 +32,30 @@ export type ItemContext = {
 /**
  * Prepares the context for processing a single item.
  * This includes loading steps, input, tools, prompt, and options.
+ * Supports progressive disclosure of skills.
  *
  * @param ctx - The execution context
  * @param itemIndex - The index of the item to process
  * @param response - Optional engine response with previous tool calls
+ * @param allSkills - All connected skills
+ * @param activatedSkillNames - Set of already-activated skill names
+ * @param activationSteps - Synthetic steps from skill activation calls
  * @returns ItemContext containing all item-specific state
  */
 export async function prepareItemContext(
 	ctx: IExecuteFunctions | ISupplyDataFunctions,
 	itemIndex: number,
 	response?: EngineResponse<RequestResponseMetadata>,
+	allSkills?: SkillData[],
+	activatedSkillNames?: Set<string>,
+	activationSteps?: ToolCallData[],
 ): Promise<ItemContext> {
 	const steps = buildSteps(response, itemIndex);
+
+	// Merge activation steps into conversation history
+	if (activationSteps?.length) {
+		steps.unshift(...activationSteps);
+	}
 
 	const input = getPromptInputByType({
 		ctx,
@@ -55,18 +68,22 @@ export async function prepareItemContext(
 	}
 
 	const outputParser = await getOptionalOutputParser(ctx, itemIndex);
-	const tools = await getTools(ctx, outputParser);
+	const tools = await getTools(ctx, outputParser, allSkills, activatedSkillNames);
 	const options = ctx.getNodeParameter('options', itemIndex) as AgentOptions;
 
 	if (options.enableStreaming === undefined) {
 		options.enableStreaming = true;
 	}
 
+	// Determine activated skill data for prompt injection
+	const activatedSkills = allSkills?.filter((s) => activatedSkillNames?.has(s.name)) ?? [];
+
 	// Prepare the prompt messages and prompt template.
 	const messages = await prepareMessages(ctx, itemIndex, {
 		systemMessage: options.systemMessage,
 		passthroughBinaryImages: options.passthroughBinaryImages ?? true,
 		outputParser,
+		activatedSkills,
 	});
 	const prompt: ChatPromptTemplate = preparePrompt(messages);
 

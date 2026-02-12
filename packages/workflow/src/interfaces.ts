@@ -2249,6 +2249,7 @@ export const NodeConnectionTypes = {
 	AiOutputParser: 'ai_outputParser',
 	AiRetriever: 'ai_retriever',
 	AiReranker: 'ai_reranker',
+	AiSkill: 'ai_skill',
 	AiTextSplitter: 'ai_textSplitter',
 	AiTool: 'ai_tool',
 	AiVectorStore: 'ai_vectorStore',

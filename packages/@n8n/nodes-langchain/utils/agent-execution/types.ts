@@ -152,6 +152,10 @@ export type RequestResponseMetadata = {
 	anthropic?: AnthropicThinkingMetadata;
 	/** HITL (Human-in-the-Loop) metadata - presence indicates this is an HITL tool action */
 	hitl?: HitlMetadata;
+	/** Skill names that have been activated (persisted across engine invocations) */
+	activatedSkills?: string[];
+	/** Synthetic steps from skill activation calls (persisted across engine invocations) */
+	activationSteps?: ToolCallData[];
 };
 
 /**

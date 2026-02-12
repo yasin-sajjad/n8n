@@ -622,6 +622,19 @@
 		var(--node-type--ai-output-parser--color--s),
 		var(--node-type--color--background--l)
 	);
+	--node-type--ai-skill--color--h: var(--node-type--supplemental--color--h);
+	--node-type--ai-skill--color--s: var(--node-type--supplemental--color--s);
+	--node-type--ai-skill--color--l: var(--node-type--supplemental--color--l);
+	--node-type--ai-skill--color: hsl(
+		var(--node-type--ai-skill--color--h),
+		var(--node-type--ai-skill--color--s),
+		var(--node-type--ai-skill--color--l)
+	);
+	--node-type--ai-skill--color--background: hsl(
+		var(--node-type--ai-skill--color--h),
+		var(--node-type--ai-skill--color--s),
+		var(--node-type--color--background--l)
+	);
 	--node-type--ai-tool--color--h: var(--node-type--supplemental--color--h);
 	--node-type--ai-tool--color--s: var(--node-type--supplemental--color--s);
 	--node-type--ai-tool--color--l: var(--node-type--supplemental--color--l);

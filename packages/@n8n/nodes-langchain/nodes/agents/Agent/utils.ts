@@ -76,6 +76,10 @@ export function getInputs(
 			type: 'ai_tool',
 		},
 		{
+			displayName: 'Skill',
+			type: 'ai_skill',
+		},
+		{
 			displayName: 'Output Parser',
 			type: 'ai_outputParser',
 		},

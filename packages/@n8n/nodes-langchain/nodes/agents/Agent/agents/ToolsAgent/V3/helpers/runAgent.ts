@@ -8,6 +8,7 @@ import {
 	processEventStream,
 	saveToMemory,
 	type RequestResponseMetadata,
+	type ToolCallRequest,
 } from '@utils/agent-execution';
 import { getTracingConfig } from '@utils/tracing';
 import type {
@@ -21,10 +22,36 @@ import { SYSTEM_MESSAGE } from '../../prompt';
 import type { AgentResult } from '../types';
 import type { ItemContext } from './prepareItemContext';
 
-type RunAgentResult = AgentResult | EngineRequest<RequestResponseMetadata>;
+export type ActivationResult = {
+	type: 'activation';
+	activationCalls: ToolCallRequest[];
+};
+
+type RunAgentResult = AgentResult | EngineRequest<RequestResponseMetadata> | ActivationResult;
+
+/**
+ * Checks if any tool calls are for skill activation tools, and if so returns
+ * an ActivationResult instead of creating engine requests.
+ */
+function checkForActivationCalls(
+	toolCalls: ToolCallRequest[],
+	tools: ItemContext['tools'],
+): ActivationResult | null {
+	const activationCalls = toolCalls.filter((tc) => {
+		const foundTool = tools.find((t) => t.name === tc.tool);
+		return foundTool?.metadata?.isActivationTool === true;
+	});
+
+	if (activationCalls.length > 0) {
+		return { type: 'activation', activationCalls };
+	}
+	return null;
+}
+
 /**
  * Runs the agent for a single item, choosing between streaming or non-streaming execution.
  * Handles both regular execution and execution after tool calls.
+ * Intercepts skill activation tool calls before they reach createEngineRequests().
  *
  * @param ctx - The execution context
  * @param executor - The agent runnable sequence
@@ -32,7 +59,7 @@ type RunAgentResult = AgentResult | EngineRequest<RequestResponseMetadata>;
  * @param model - The chat model for token counting
  * @param memory - Optional memory for conversation context
  * @param response - Optional engine response with previous tool calls
- * @returns AgentResult or engine request with tool calls
+ * @returns AgentResult, engine request with tool calls, or ActivationResult
  */
 export async function runAgent(
 	ctx: IExecuteFunctions | ISupplyDataFunctions,
@@ -77,8 +104,11 @@ export async function runAgent(
 
 		const result = await processEventStream(ctx, eventStream, itemIndex);
 
-		// If result contains tool calls, build the request object like the normal flow
+		// If result contains tool calls, check for activation tools first
 		if (result.toolCalls && result.toolCalls.length > 0) {
+			const activation = checkForActivationCalls(result.toolCalls, tools);
+			if (activation) return activation;
+
 			const actions = createEngineRequests(result.toolCalls, itemIndex, tools);
 
 			return {
@@ -119,6 +149,10 @@ export async function runAgent(
 			}
 			return result;
 		}
+
+		// Check for activation tool calls before creating engine requests
+		const activation = checkForActivationCalls(modelResponse as ToolCallRequest[], tools);
+		if (activation) return activation;
 
 		// If response contains tool calls, we need to return this in the right format
 		const actions = createEngineRequests(modelResponse, itemIndex, tools);

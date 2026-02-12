@@ -5,15 +5,23 @@ import { ChatPromptTemplate, type BaseMessagePromptTemplateLike } from '@langcha
 import type { AgentAction, AgentFinish } from '@langchain/classic/agents';
 import type { ToolsAgentAction } from '@langchain/classic/dist/agents/tool_calling/output_parser';
 import type { BaseChatMemory } from '@langchain/classic/memory';
-import { DynamicStructuredTool, type Tool } from '@langchain/classic/tools';
-import { BINARY_ENCODING, jsonParse, NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
+import { DynamicStructuredTool, DynamicTool, type Tool } from '@langchain/classic/tools';
+import {
+	BINARY_ENCODING,
+	jsonParse,
+	NodeConnectionTypes,
+	nodeNameToToolName,
+	NodeOperationError,
+} from 'n8n-workflow';
 import type { IExecuteFunctions, ISupplyDataFunctions, IWebhookFunctions } from 'n8n-workflow';
 import type { ZodObject } from 'zod';
 import { z } from 'zod';
 
 import { isChatInstance } from '@n8n/ai-utilities';
-import { getConnectedTools } from '@utils/helpers';
+import { getConnectedTools, escapeSingleCurlyBrackets } from '@utils/helpers';
 import { type N8nOutputParser } from '@utils/output_parsers/N8nOutputParser';
+
+import type { SkillData } from '../../../../skills/types';
 
 /* -----------------------------------------------------------
    Output Parser Helper
@@ -382,18 +390,74 @@ export async function getOptionalMemory(
 }
 
 /**
+ * Retrieves the connected skills from the AiSkill input connections.
+ *
+ * @param ctx - The execution context
+ * @returns Array of connected SkillData objects
+ */
+export async function getConnectedSkills(
+	ctx: IExecuteFunctions | ISupplyDataFunctions | IWebhookFunctions,
+): Promise<SkillData[]> {
+	const connections = await ctx.getInputConnectionData(NodeConnectionTypes.AiSkill, 0);
+	if (!connections) return [];
+	const skills = Array.isArray(connections) ? connections : [connections];
+	return skills.filter((s): s is SkillData => s != null);
+}
+
+/**
  * Retrieves the connected tools and (if an output parser is defined)
  * appends a structured output parser tool.
+ * For progressive disclosure: creates activation tools for unactivated skills
+ * and includes sub-tools for activated skills.
  *
  * @param ctx - The execution context
  * @param outputParser - The optional output parser
+ * @param allSkills - All connected skills
+ * @param activatedSkillNames - Set of already-activated skill names
  * @returns The array of connected tools
  */
 export async function getTools(
 	ctx: IExecuteFunctions | ISupplyDataFunctions | IWebhookFunctions,
 	outputParser?: N8nOutputParser,
+	allSkills?: SkillData[],
+	activatedSkillNames?: Set<string>,
 ): Promise<Array<DynamicStructuredTool | Tool>> {
 	const tools = (await getConnectedTools(ctx, true, false)) as Array<DynamicStructuredTool | Tool>;
+
+	// Progressive disclosure: skills
+	if (allSkills) {
+		for (const skill of allSkills) {
+			if (activatedSkillNames?.has(skill.name)) {
+				// Activated: add skill's sub-tools
+				tools.push(...skill.tools);
+			} else {
+				// Not activated: add activation tool
+				const toolName = `activate_skill_${nodeNameToToolName(skill.name)}`;
+				const description = `Activate the "${skill.name}" skill.${skill.description ? ` ${skill.description}.` : ''} Call this tool to load the full skill instructions and unlock its tools.`;
+				tools.push(
+					new DynamicTool({
+						name: toolName,
+						description,
+						func: async () => skill.instructions,
+						metadata: { isActivationTool: true, skillName: skill.name },
+					}),
+				);
+			}
+		}
+
+		// Validate no duplicate tool names across skills
+		const toolNames = tools.map((t) => t.name);
+		const seen = new Set<string>();
+		for (const name of toolNames) {
+			if (seen.has(name)) {
+				throw new NodeOperationError(
+					ctx.getNode(),
+					`Duplicate tool name "${name}" found across skills. Each tool name must be unique.`,
+				);
+			}
+			seen.add(name);
+		}
+	}
 
 	// If an output parser is available, create a dynamic tool to validate the final output.
 	if (outputParser) {
@@ -426,19 +490,35 @@ export async function prepareMessages(
 		systemMessage?: string;
 		passthroughBinaryImages?: boolean;
 		outputParser?: N8nOutputParser;
+		activatedSkills?: SkillData[];
 	},
 ): Promise<BaseMessagePromptTemplateLike[]> {
 	const useSystemMessage = options.systemMessage ?? ctx.getNode().typeVersion < 1.9;
+	const activatedSkills = options.activatedSkills ?? [];
+
+	let skillBlock = '';
+	if (activatedSkills.length > 0) {
+		const sections = activatedSkills.map((s: SkillData) => {
+			const toolNames = s.tools.map((t: { name: string }) => t.name).join(', ');
+			const toolsLine = toolNames ? `\nAvailable tools: ${toolNames}` : '';
+			return `## Skill: ${s.name}\n${s.description ? s.description + '\n' : ''}${s.instructions}${toolsLine}`;
+		});
+		skillBlock = escapeSingleCurlyBrackets(
+			'\n\n# Active Skills\n' + sections.join('\n\n'),
+		) as string;
+	}
 
 	const messages: BaseMessagePromptTemplateLike[] = [];
 
 	if (useSystemMessage) {
 		messages.push([
 			'system',
-			`{system_message}${options.outputParser ? '\n\n{formatting_instructions}' : ''}`,
+			`{system_message}${options.outputParser ? '\n\n{formatting_instructions}' : ''}${skillBlock}`,
 		]);
 	} else if (options.outputParser) {
-		messages.push(['system', '{formatting_instructions}']);
+		messages.push(['system', `{formatting_instructions}${skillBlock}`]);
+	} else if (skillBlock) {
+		messages.push(['system', skillBlock]);
 	}
 
 	messages.push(['placeholder', '{chat_history}'], ['human', '{input}']);

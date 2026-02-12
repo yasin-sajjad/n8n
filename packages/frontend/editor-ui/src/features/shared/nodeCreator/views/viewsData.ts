@@ -8,6 +8,7 @@ import {
 	AI_CATEGORY_MEMORY,
 	AI_CATEGORY_OUTPUTPARSER,
 	AI_CATEGORY_RETRIEVERS,
+	AI_CATEGORY_SKILLS,
 	AI_CATEGORY_TEXT_SPLITTERS,
 	AI_CATEGORY_TOOLS,
 	AI_CATEGORY_VECTOR_STORES,
@@ -322,6 +323,16 @@ export function AINodesView(_nodes: SimplifiedNodeType[]): NodeView {
 							items: [AI_WORKFLOW_TOOL_LANGCHAIN_NODE_TYPE, AI_CODE_TOOL_LANGCHAIN_NODE_TYPE],
 						},
 					],
+				},
+			},
+			{
+				key: AI_CATEGORY_SKILLS,
+				type: 'subcategory',
+				properties: {
+					title: AI_CATEGORY_SKILLS,
+					info: getSubcategoryInfo(AI_CATEGORY_SKILLS),
+					icon: 'graduation-cap',
+					...getAISubcategoryProperties(NodeConnectionTypes.AiSkill),
 				},
 			},
 			{
