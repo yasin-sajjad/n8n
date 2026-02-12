@@ -570,21 +570,19 @@ describe('setupPanel.utils', () => {
 			expect(isCredentialCardComplete(state, () => true)).toBe(true);
 		});
 
-		it('should return false when one of multiple triggers has not executed', () => {
-			const trigger1 = createNode({ name: 'Trigger1' });
-			const trigger2 = createNode({ name: 'Trigger2' });
+		it('should return true when single embedded trigger has executed', () => {
+			const trigger = createNode({ name: 'Trigger1' });
 			const state: CredentialTypeSetupState = {
 				credentialType: 'slackApi',
 				credentialDisplayName: 'Slack',
 				selectedCredentialId: 'cred-1',
 				issues: [],
-				nodeNames: ['Trigger1', 'Trigger2'],
-				triggerNodes: [trigger1, trigger2],
+				nodeNames: ['Trigger1'],
+				triggerNodes: [trigger],
 				isComplete: false,
 			};
 
-			const hasTriggerExecuted = (name: string) => name === 'Trigger1';
-			expect(isCredentialCardComplete(state, hasTriggerExecuted)).toBe(false);
+			expect(isCredentialCardComplete(state, () => true)).toBe(true);
 		});
 	});
 

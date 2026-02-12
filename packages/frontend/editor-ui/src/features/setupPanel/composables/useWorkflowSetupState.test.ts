@@ -184,6 +184,46 @@ describe('useWorkflowSetupState', () => {
 			}
 		});
 
+		it('should only embed first trigger into credential card and create standalone cards for extras', () => {
+			const trigger1 = createNode({
+				name: 'SlackTrigger1',
+				type: 'n8n-nodes-base.slackTrigger',
+				position: [0, 0],
+			});
+			const trigger2 = createNode({
+				name: 'SlackTrigger2',
+				type: 'n8n-nodes-base.slackTrigger',
+				position: [100, 0],
+			});
+			workflowsStore.allNodes = [trigger1, trigger2];
+			nodeTypesStore.isTriggerNode = vi.fn().mockReturnValue(true);
+			mockGetNodeTypeDisplayableCredentials.mockReturnValue([{ name: 'slackApi' }]);
+			credentialsStore.getCredentialTypeByName = vi.fn().mockReturnValue({
+				displayName: 'Slack API',
+			});
+			workflowsStore.getNodeByName = vi.fn((name: string) => {
+				if (name === 'SlackTrigger1') return trigger1;
+				if (name === 'SlackTrigger2') return trigger2;
+				return null;
+			});
+
+			const { setupCards } = useWorkflowSetupState();
+
+			const credCards = setupCards.value.filter((c) => c.type === 'credential');
+			const triggerCards = setupCards.value.filter((c) => c.type === 'trigger');
+
+			// Only one credential card with the first trigger embedded
+			expect(credCards).toHaveLength(1);
+			if (credCards[0].type === 'credential') {
+				expect(credCards[0].state.triggerNodes).toHaveLength(1);
+				expect(credCards[0].state.triggerNodes[0].name).toBe('SlackTrigger1');
+			}
+
+			// Second trigger becomes a standalone trigger card
+			expect(triggerCards).toHaveLength(1);
+			expect(triggerCards[0].state.node.name).toBe('SlackTrigger2');
+		});
+
 		it('should produce only trigger card for trigger without credentials', () => {
 			const triggerNode = createNode({
 				name: 'ManualTrigger',
@@ -909,6 +949,35 @@ describe('useWorkflowSetupState', () => {
 
 			// 1 credential card with embedded trigger (no separate trigger card)
 			expect(totalCardsRequiringSetup.value).toBe(1);
+		});
+
+		it('should produce credential card + standalone trigger for two triggers sharing a credential', () => {
+			const trigger1 = createNode({
+				name: 'SlackTrigger1',
+				type: 'n8n-nodes-base.slackTrigger',
+				position: [0, 0],
+			});
+			const trigger2 = createNode({
+				name: 'SlackTrigger2',
+				type: 'n8n-nodes-base.slackTrigger',
+				position: [100, 0],
+			});
+			workflowsStore.allNodes = [trigger1, trigger2];
+			nodeTypesStore.isTriggerNode = vi.fn().mockReturnValue(true);
+			mockGetNodeTypeDisplayableCredentials.mockReturnValue([{ name: 'slackApi' }]);
+			credentialsStore.getCredentialTypeByName = vi.fn().mockReturnValue({
+				displayName: 'Slack API',
+			});
+			workflowsStore.getNodeByName = vi.fn((name: string) => {
+				if (name === 'SlackTrigger1') return trigger1;
+				if (name === 'SlackTrigger2') return trigger2;
+				return null;
+			});
+
+			const { totalCardsRequiringSetup } = useWorkflowSetupState();
+
+			// 1 credential card (first trigger embedded) + 1 standalone trigger card
+			expect(totalCardsRequiringSetup.value).toBe(2);
 		});
 	});
 

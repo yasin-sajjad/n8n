@@ -90,6 +90,8 @@ export const useWorkflowSetupState = (nodes?: Ref<INodeUi[]>) => {
 		);
 		const sorted = sortCredentialTypeStates(grouped, (name) => workflowsStore.getNodeByName(name));
 		for (const state of sorted) {
+			// Only embed the first trigger; extras become standalone trigger cards
+			state.triggerNodes = state.triggerNodes.slice(0, 1);
 			state.isComplete = isCredentialCardComplete(state, hasTriggerExecutedSuccessfully);
 		}
 		return sorted;

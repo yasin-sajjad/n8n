@@ -197,7 +197,7 @@ onMounted(() => {
 .footer {
 	display: flex;
 	justify-content: flex-end;
-	padding: var(--spacing--sm);
+	padding: 0 var(--spacing--sm) var(--spacing--sm);
 }
 
 .footer-complete-check {

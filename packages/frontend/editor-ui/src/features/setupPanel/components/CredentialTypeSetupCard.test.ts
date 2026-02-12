@@ -193,12 +193,12 @@ describe('CredentialTypeSetupCard', () => {
 	});
 
 	describe('trigger section', () => {
-		it('should not render trigger section when triggerNodes is empty', () => {
+		it('should not render trigger buttons when triggerNodes is empty', () => {
 			const { queryByTestId } = renderComponent({
 				props: { state: createState(), expanded: true },
 			});
 
-			expect(queryByTestId('credential-card-trigger-section')).not.toBeInTheDocument();
+			expect(queryByTestId('trigger-execute-button')).not.toBeInTheDocument();
 		});
 
 		it('should render trigger execute buttons when triggerNodes has entries', () => {
@@ -214,7 +214,6 @@ describe('CredentialTypeSetupCard', () => {
 				},
 			});
 
-			expect(getByTestId('credential-card-trigger-section')).toBeInTheDocument();
 			expect(getByTestId('trigger-execute-button')).toBeInTheDocument();
 		});
 
@@ -238,7 +237,7 @@ describe('CredentialTypeSetupCard', () => {
 			expect(getAllByTestId('trigger-execute-button')).toHaveLength(2);
 		});
 
-		it('should not render trigger section when collapsed', () => {
+		it('should not render trigger buttons when collapsed', () => {
 			const triggerNode = createTestNode({
 				name: 'SlackTrigger',
 				type: 'n8n-nodes-base.slackTrigger',
@@ -251,7 +250,7 @@ describe('CredentialTypeSetupCard', () => {
 				},
 			});
 
-			expect(queryByTestId('credential-card-trigger-section')).not.toBeInTheDocument();
+			expect(queryByTestId('trigger-execute-button')).not.toBeInTheDocument();
 		});
 	});
 });

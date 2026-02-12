@@ -196,7 +196,7 @@ export function buildTriggerSetupState(
 ): TriggerSetupState {
 	const allCredentialsComplete = triggerCredentialTypes.every((credType) => {
 		const credState = credentialTypeStates.find((s) => s.credentialType === credType);
-		return credState?.isComplete ?? true;
+		return credState ? !!credState.selectedCredentialId && credState.issues.length === 0 : true;
 	});
 
 	return {

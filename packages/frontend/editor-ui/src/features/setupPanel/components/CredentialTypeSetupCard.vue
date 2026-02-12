@@ -82,6 +82,7 @@ onMounted(() => {
 			{
 				[$style.collapsed]: !expanded,
 				[$style.completed]: state.isComplete,
+				[$style['has-content']]: state.credentialType,
 			},
 		]"
 	>
@@ -110,7 +111,7 @@ onMounted(() => {
 		</header>
 
 		<template v-if="expanded">
-			<div :class="{ [$style.content]: true, ['pb-s']: !state.isComplete }">
+			<div :class="$style.content" class="pb-s">
 				<div :class="$style['credential-container']">
 					<div :class="$style['credential-label-row']">
 						<label
@@ -146,27 +147,22 @@ onMounted(() => {
 						@credential-deselected="onCredentialDeselected"
 					/>
 				</div>
-				<div
-					v-if="state.triggerNodes.length > 0"
-					data-test-id="credential-card-trigger-section"
-					:class="$style['trigger-section']"
-				>
-					<div
-						v-for="triggerNode in state.triggerNodes"
-						:key="triggerNode.id"
-						:class="$style['trigger-execute-row']"
-					>
-						<TriggerExecuteButton :node="triggerNode" @executed="hadManualInteraction = true" />
-					</div>
-				</div>
 			</div>
 
-			<footer v-if="state.isComplete" :class="$style.footer">
-				<div :class="$style['footer-complete-check']">
+			<footer v-if="state.triggerNodes.length > 0 || state.isComplete" :class="$style.footer">
+				<div v-if="state.isComplete" :class="$style['footer-complete-check']">
 					<N8nIcon icon="check" :class="$style['complete-icon']" size="large" />
 					<N8nText size="medium" color="success">
 						{{ i18n.baseText('generic.complete') }}
 					</N8nText>
+				</div>
+				<div v-if="state.triggerNodes.length > 0" :class="$style['footer-trigger-buttons']">
+					<TriggerExecuteButton
+						v-for="triggerNode in state.triggerNodes"
+						:key="triggerNode.id"
+						:node="triggerNode"
+						@executed="hadManualInteraction = true"
+					/>
 				</div>
 			</footer>
 		</template>
@@ -182,6 +178,12 @@ onMounted(() => {
 	background-color: var(--color--background--light-2);
 	border: var(--border);
 	border-radius: var(--radius);
+
+	&.has-content {
+		footer {
+			padding-top: 0;
+		}
+	}
 }
 
 .header {
@@ -249,20 +251,10 @@ onMounted(() => {
 	flex: 1;
 }
 
-.trigger-section {
-	display: flex;
-	flex-direction: column;
-	gap: var(--spacing--2xs);
-}
-
-.trigger-execute-row {
-	display: flex;
-	justify-content: flex-end;
-}
-
 .footer {
 	display: flex;
 	justify-content: flex-end;
+	align-items: center;
 	padding: var(--spacing--sm);
 }
 
@@ -270,6 +262,12 @@ onMounted(() => {
 	display: flex;
 	align-items: center;
 	gap: var(--spacing--4xs);
+}
+
+.footer-trigger-buttons {
+	display: flex;
+	gap: var(--spacing--2xs);
+	margin-left: auto;
 }
 
 .card.collapsed {
