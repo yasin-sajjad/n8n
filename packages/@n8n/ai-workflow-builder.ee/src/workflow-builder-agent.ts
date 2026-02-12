@@ -236,7 +236,13 @@ export class WorkflowBuilderAgent {
 					userId,
 					action: decision.action,
 				});
-				yield* this.runMultiAgentSystem(payload, userId, abortSignal, externalCallbacks);
+				yield* this.runMultiAgentSystem(
+					payload,
+					userId,
+					abortSignal,
+					externalCallbacks,
+					historicalMessages,
+				);
 				return;
 			}
 
@@ -245,7 +251,13 @@ export class WorkflowBuilderAgent {
 				this.logger?.debug('Plan mode with code builder, routing to multi-agent for planning', {
 					userId,
 				});
-				yield* this.runMultiAgentSystem(payload, userId, abortSignal, externalCallbacks);
+				yield* this.runMultiAgentSystem(
+					payload,
+					userId,
+					abortSignal,
+					externalCallbacks,
+					historicalMessages,
+				);
 				return;
 			}
 
@@ -257,7 +269,13 @@ export class WorkflowBuilderAgent {
 
 		// Fall back to legacy multi-agent system
 		this.logger?.debug('Routing to legacy multi-agent system', { userId });
-		yield* this.runMultiAgentSystem(payload, userId, abortSignal, externalCallbacks);
+		yield* this.runMultiAgentSystem(
+			payload,
+			userId,
+			abortSignal,
+			externalCallbacks,
+			historicalMessages,
+		);
 	}
 
 	private async *runCodeWorkflowBuilder(
@@ -290,6 +308,7 @@ export class WorkflowBuilderAgent {
 		userId: string | undefined,
 		abortSignal: AbortSignal | undefined,
 		externalCallbacks: Callbacks | undefined,
+		historicalMessages?: BaseMessage[],
 	) {
 		const { agent, threadConfig, streamConfig } = this.setupAgentAndConfigs(
 			payload,

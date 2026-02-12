@@ -462,6 +462,38 @@ export class SessionManagerService {
 	}
 
 	/**
+	 * Load messages from storage or checkpointer for truncation operations.
+	 * Returns null if no messages are found.
+	 */
+	private async loadMessagesForTruncation(
+		threadId: string,
+	): Promise<{ messages: LangchainMessage[]; previousSummary?: string } | null> {
+		if (this.storage) {
+			const stored = await this.storage.getSession(threadId);
+			if (!stored) {
+				return null;
+			}
+			return { messages: stored.messages, previousSummary: stored.previousSummary };
+		}
+
+		const threadConfig: RunnableConfig = {
+			configurable: { thread_id: threadId },
+		};
+
+		const checkpointTuple = await this.checkpointer.getTuple(threadConfig);
+		if (!checkpointTuple?.checkpoint) {
+			return null;
+		}
+
+		const rawMessages = checkpointTuple.checkpoint.channel_values?.messages;
+		if (!isLangchainMessagesArray(rawMessages)) {
+			return null;
+		}
+
+		return { messages: rawMessages };
+	}
+
+	/**
 	 * Truncate all messages including and after the message with the specified messageId in metadata.
 	 * Used when restoring to a previous version.
 	 */
@@ -474,37 +506,13 @@ export class SessionManagerService {
 		const threadId = SessionManagerService.generateThreadId(workflowId, userId, agentType);
 
 		try {
-			// Get messages from the appropriate source
-			// Both sources provide LangchainMessage[] (StoredSession.messages or type-guarded rawMessages)
-			let messages: LangchainMessage[] = [];
-			let previousSummary: string | undefined;
-
-			if (this.storage) {
-				const stored = await this.storage.getSession(threadId);
-				if (!stored) {
-					this.logger?.debug('No stored session found for truncation', { threadId, messageId });
-					return false;
-				}
-				messages = stored.messages;
-				previousSummary = stored.previousSummary;
-			} else {
-				const threadConfig: RunnableConfig = {
-					configurable: { thread_id: threadId },
-				};
-
-				const checkpointTuple = await this.checkpointer.getTuple(threadConfig);
-				if (!checkpointTuple?.checkpoint) {
-					this.logger?.debug('No checkpoint found for truncation', { threadId, messageId });
-					return false;
-				}
-
-				const rawMessages = checkpointTuple.checkpoint.channel_values?.messages;
-				if (!isLangchainMessagesArray(rawMessages)) {
-					this.logger?.debug('No valid messages found for truncation', { threadId, messageId });
-					return false;
-				}
-				messages = rawMessages;
+			const loaded = await this.loadMessagesForTruncation(threadId);
+			if (!loaded) {
+				this.logger?.debug('No messages found for truncation', { threadId, messageId });
+				return false;
 			}
+
+			const { messages, previousSummary } = loaded;
 
 			// Find the index of the message with the target messageId
 			const msgIndex = messages.findIndex((msg) => msg.additional_kwargs?.messageId === messageId);
