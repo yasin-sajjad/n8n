@@ -1811,6 +1811,12 @@ describe('CredentialsService', () => {
 				).rejects.toThrow(
 					'The secret providers "outsideProvider" (used in "apiKey"), "anotherOutsideProvider" (used in "anotherApiKey") do not exist in this project',
 				);
+				expect(
+					externalSecretsProviderAccessCheckService.isProviderAvailableInProject.mock.calls,
+				).toEqual([
+					['outsideProvider', 'WHwt9vP3keCUvmB5'],
+					['anotherOutsideProvider', 'WHwt9vP3keCUvmB5'],
+				]);
 			});
 
 			it('should throw BadRequestError when referencing external secret provider that is not available in current project', async () => {
@@ -1839,6 +1845,9 @@ describe('CredentialsService', () => {
 				).rejects.toThrow(
 					'The secret provider "outsideProvider" used in "apiKey" does not exist in this project',
 				);
+				expect(
+					externalSecretsProviderAccessCheckService.isProviderAvailableInProject,
+				).toHaveBeenCalledWith('outsideProvider', 'WHwt9vP3keCUvmB5');
 			});
 
 			it('should create credential that references external secret provider that is shared with current project', async () => {
