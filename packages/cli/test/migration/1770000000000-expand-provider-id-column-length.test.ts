@@ -208,16 +208,24 @@ describe('ExpandProviderIdColumnLength Migration', () => {
 		const providerTypeColumn = context.escape.columnName('providerType');
 
 		const result = await context.queryRunner.query(
-			`SELECT ${userIdColumn} as userId,
-					${providerIdColumn} as providerId,
-					${providerTypeColumn} as providerType
+			`SELECT ${userIdColumn}, ${providerIdColumn}, ${providerTypeColumn}
 			 FROM ${tableName}
 			 WHERE ${providerIdColumn} = ${getParamPlaceholder(context, 1)}
 			   AND ${providerTypeColumn} = ${getParamPlaceholder(context, 2)}`,
 			[providerId, providerType],
 		);
 
-		return result[0] || null;
+		if (!result || result.length === 0) {
+			return null;
+		}
+
+		const row = result[0];
+		// Handle different database result formats (SQLite uses lowercase, PostgreSQL uses the actual column names)
+		return {
+			userId: row.userId || row.userid || row[userIdColumn],
+			providerId: row.providerId || row.providerid || row[providerIdColumn],
+			providerType: row.providerType || row.providertype || row[providerTypeColumn],
+		};
 	}
 
 	describe('up migration', () => {
