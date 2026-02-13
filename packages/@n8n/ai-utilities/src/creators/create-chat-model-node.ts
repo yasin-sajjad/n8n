@@ -1,4 +1,5 @@
 import type { INodeType, ISupplyDataFunctions } from 'n8n-workflow';
+
 import { supplyModel } from 'src/suppliers/supplyModel';
 import type { ChatModelNodeConfig, UnextendableNodeType } from 'src/types/creators';
 

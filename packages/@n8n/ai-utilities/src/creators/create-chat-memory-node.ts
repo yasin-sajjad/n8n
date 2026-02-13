@@ -1,4 +1,5 @@
 import type { INodeType, ISupplyDataFunctions } from 'n8n-workflow';
+
 import { supplyMemory } from 'src/suppliers/supplyMemory';
 import type { ChatMemoryNodeConfig, UnextendableNodeType } from 'src/types/creators';
 
