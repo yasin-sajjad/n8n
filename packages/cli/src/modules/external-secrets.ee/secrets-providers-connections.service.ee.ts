@@ -6,6 +6,7 @@ import {
 	reloadSecretProviderConnectionResponseSchema,
 	ReloadSecretProviderConnectionResponse,
 } from '@n8n/api-types';
+import { Logger } from '@n8n/backend-common';
 import type { SecretsProviderConnection } from '@n8n/db';
 import {
 	ProjectSecretsProviderAccessRepository,
@@ -25,12 +26,15 @@ import { SecretsProvidersResponses } from '@/modules/external-secrets.ee/secrets
 @Service()
 export class SecretsProvidersConnectionsService {
 	constructor(
+		private readonly logger: Logger,
 		private readonly repository: SecretsProviderConnectionRepository,
 		private readonly projectAccessRepository: ProjectSecretsProviderAccessRepository,
 		private readonly cipher: Cipher,
 		private readonly externalSecretsManager: ExternalSecretsManager,
 		private readonly redactionService: RedactionService,
-	) {}
+	) {
+		this.logger = this.logger.scoped('external-secrets');
+	}
 
 	async createConnection(
 		proposedConnection: CreateSecretsProviderConnectionDto,
@@ -203,9 +207,14 @@ export class SecretsProvidersConnectionsService {
 	async reloadConnectionSecrets(
 		providerKey: string,
 	): Promise<ReloadSecretProviderConnectionResponse> {
-		await this.getConnection(providerKey);
-		await this.externalSecretsManager.updateProvider(providerKey);
-		return reloadSecretProviderConnectionResponseSchema.parse({ success: true });
+		try {
+			await this.getConnection(providerKey);
+			await this.externalSecretsManager.updateProvider(providerKey);
+			return reloadSecretProviderConnectionResponseSchema.parse({ success: true });
+		} catch (error) {
+			this.logger.warn(`Failed to reload provider ${providerKey}`, { providerKey });
+			return reloadSecretProviderConnectionResponseSchema.parse({ success: false });
+		}
 	}
 
 	async reloadProjectConnectionSecrets(
@@ -216,8 +225,12 @@ export class SecretsProvidersConnectionsService {
 			projectConnections.map(async (c) => {
 				try {
 					await this.externalSecretsManager.updateProvider(c.providerKey);
-				} catch {
-					// Individual provider failures are ignored so other providers still reload
+				} catch (error) {
+					// Individual provider reload failures are caught so that other providers still reload
+					this.logger.warn(`Failed to reload provider ${c.providerKey}`, {
+						projectId,
+						providerKey: c.providerKey,
+					});
 				}
 			}),
 		);

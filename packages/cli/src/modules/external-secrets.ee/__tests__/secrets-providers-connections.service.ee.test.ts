@@ -1,4 +1,5 @@
 import type { IDataObject } from 'n8n-workflow';
+import { mockLogger } from '@n8n/backend-test-utils';
 import type { SecretsProviderConnection, SecretsProviderConnectionRepository } from '@n8n/db';
 import { mock } from 'jest-mock-extended';
 
@@ -19,6 +20,7 @@ describe('SecretsProvidersConnectionsService', () => {
 	};
 
 	const service = new SecretsProvidersConnectionsService(
+		mockLogger(),
 		mockRepository,
 		mock(),
 		mockCipher as any,
