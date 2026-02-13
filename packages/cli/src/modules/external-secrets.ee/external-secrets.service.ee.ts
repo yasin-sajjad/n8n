@@ -67,6 +67,10 @@ export class ExternalSecretsService {
 		return this.externalSecretsManager.getAllSecretNames();
 	}
 
+	getGlobalSecrets(): Record<string, string[]> {
+		return this.externalSecretsManager.getSecretsForOldExternalSecretsApi();
+	}
+
 	async testProviderSettings(providerName: string, data: IDataObject) {
 		const providerAndSettings = this.externalSecretsManager.getProviderWithSettings(providerName);
 		const { settings } = providerAndSettings;

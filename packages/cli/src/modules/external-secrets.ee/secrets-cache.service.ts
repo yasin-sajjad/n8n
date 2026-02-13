@@ -87,4 +87,30 @@ export class ExternalSecretsSecretsCache {
 
 		return result;
 	}
+
+	/**
+	 * Before we implemented project-scoped external secrets,
+	 * there was a hardcoded list of 5 supported provider names.
+	 * This method is only intended for the old GET /rest/external-secrets/secrets
+	 * to be backwards-compatible, by not including project-scoped secrets.
+	 */
+	getSecretsForVaultNamesBeforeProjectScopedRelease(): Record<string, string[]> {
+		const providers = this.registry.getAll();
+		const result: Record<string, string[]> = {};
+		const setOfPreviouslySupportedProviderNames = new Set([
+			'vault',
+			'awsSecretsManager',
+			'gcpSecretsManager',
+			'infisical',
+			'azureKeyVault',
+		]);
+
+		for (const [name, provider] of providers.entries()) {
+			if (setOfPreviouslySupportedProviderNames.has(name)) {
+				result[name] = provider.getSecretNames();
+			}
+		}
+
+		return result;
+	}
 }

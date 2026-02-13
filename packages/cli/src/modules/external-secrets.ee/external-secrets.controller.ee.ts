@@ -88,6 +88,6 @@ export class ExternalSecretsController {
 	@Get('/secrets')
 	@GlobalScope('externalSecret:list')
 	getSecretNames() {
-		return this.secretsService.getAllSecrets();
+		return this.secretsService.getGlobalSecrets();
 	}
 }

@@ -168,6 +168,10 @@ export class ExternalSecretsManager implements IExternalSecretsManager {
 		return this.secretsCache.getAllSecretNames();
 	}
 
+	getSecretsForOldExternalSecretsApi(): Record<string, string[]> {
+		return this.secretsCache.getSecretsForVaultNamesBeforeProjectScopedRelease();
+	}
+
 	// ========================================
 	// Public API - Settings
 	// ========================================
