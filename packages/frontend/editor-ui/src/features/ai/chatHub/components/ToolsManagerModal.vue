@@ -279,7 +279,7 @@ function handleSettingsChangeName(name: string) {
 						icon="arrow-left"
 						text
 						size="large"
-						type="secondary"
+						variant="ghost"
 						:class="$style.backButton"
 						@click="handleBack"
 					/>
@@ -290,7 +290,7 @@ function handleSettingsChangeName(name: string) {
 						@update:model-value="handleSettingsChangeName"
 					/>
 				</div>
-				<N8nButton type="primary" size="small" :disabled="!settingsIsValid" @click="handleSave">
+				<N8nButton variant="solid" size="small" :disabled="!settingsIsValid" @click="handleSave">
 					{{ i18n.baseText('chatHub.toolSettings.confirm') }}
 				</N8nButton>
 			</div>

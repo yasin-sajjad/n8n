@@ -57,7 +57,7 @@ const displayName = computed(() => {
 				<N8nTooltip :content="i18n.baseText('chatHub.toolsManager.configure')">
 					<N8nIconButton
 						icon="settings"
-						type="tertiary"
+						variant="ghost"
 						text
 						:class="$style.actionButton"
 						@click="emit('configure')"
@@ -67,7 +67,7 @@ const displayName = computed(() => {
 				<N8nTooltip :content="i18n.baseText('chatHub.toolsManager.remove')">
 					<N8nIconButton
 						icon="trash-2"
-						type="tertiary"
+						variant="ghost"
 						text
 						:class="$style.actionButton"
 						@click="emit('remove')"
@@ -90,7 +90,7 @@ const displayName = computed(() => {
 			</template>
 
 			<template v-else>
-				<N8nButton type="tertiary" size="small" icon="plus" @click="emit('add')">
+				<N8nButton variant="subtle" size="small" icon="plus" @click="emit('add')">
 					{{ i18n.baseText('chatHub.toolsManager.add') }}
 				</N8nButton>
 			</template>

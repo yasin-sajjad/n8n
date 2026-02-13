@@ -94,11 +94,11 @@ function handleNodeNameUpdate(name: string) {
 		</div>
 		<N8nDialogFooter>
 			<N8nDialogClose as-child>
-				<N8nButton type="tertiary" @click="handleCancel">
+				<N8nButton variant="subtle" @click="handleCancel">
 					{{ i18n.baseText('chatHub.toolSettings.cancel') }}
 				</N8nButton>
 			</N8nDialogClose>
-			<N8nButton type="primary" :disabled="!isValid" @click="handleConfirm">
+			<N8nButton variant="solid" :disabled="!isValid" @click="handleConfirm">
 				{{ i18n.baseText('chatHub.toolSettings.confirm') }}
 			</N8nButton>
 		</N8nDialogFooter>

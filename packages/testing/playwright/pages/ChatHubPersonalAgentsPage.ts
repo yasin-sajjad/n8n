@@ -2,7 +2,6 @@ import type { Locator, Page } from '@playwright/test';
 
 import { BasePage } from './BasePage';
 import { ChatHubPersonalAgentModal } from './components/ChatHubPersonalAgentModal';
-import { ChatHubSidebar } from './components/ChatHubSidebar';
 
 export class ChatHubPersonalAgentsPage extends BasePage {
 	readonly sidebar = new ChatHubSidebar(this.page.locator('#sidebar'));

@@ -144,7 +144,7 @@ onMounted(async () => {
 		<!-- When no tools configured, show just the button that opens the manager -->
 		<N8nButton
 			v-if="chatStore.configuredTools.length === 0"
-			type="secondary"
+			variant="subtle"
 			native-type="button"
 			:class="$style.toolsButton"
 			:disabled="disabled"
@@ -170,9 +170,8 @@ onMounted(async () => {
 		>
 			<template #trigger>
 				<N8nButton
-					type="secondary"
+					variant="subtle"
 					native-type="button"
-					:class="$style.toolsButton"
 					:disabled="disabled"
 					:icon="toolCount === 0 ? 'plus' : undefined"
 					data-test-id="chat-tools-button"
@@ -205,7 +204,7 @@ onMounted(async () => {
 			<template #search-suffix>
 				<N8nIconButton
 					icon="settings"
-					type="tertiary"
+					variant="ghost"
 					size="medium"
 					text
 					:class="$style.settingsButton"
@@ -220,7 +219,7 @@ onMounted(async () => {
 			<template #item-trailing="{ item }">
 				<N8nIconButton
 					icon="settings"
-					type="tertiary"
+					variant="ghost"
 					size="medium"
 					text
 					:class="$style.itemSettingsButton"

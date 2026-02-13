@@ -284,7 +284,7 @@ async function onDelete() {
 					</N8nDialogTitle>
 					<N8nButton
 						v-if="isEditMode"
-						type="secondary"
+						variant="subtle"
 						icon="trash-2"
 						:class="$style.deleteButton"
 						:disabled="isDeleting"
@@ -386,11 +386,14 @@ async function onDelete() {
 					</N8nInputLabel>
 				</div>
 			</div>
+
 			<N8nDialogFooter>
 				<N8nDialogClose as-child>
-					<N8nButton type="secondary">{{ i18n.baseText('chatHub.tools.editor.cancel') }}</N8nButton>
+					<N8nButton variant="subtle" @click="modalBus.emit('close')">
+						{{ i18n.baseText('chatHub.tools.editor.cancel') }}
+					</N8nButton>
 				</N8nDialogClose>
-				<N8nButton type="primary" :disabled="!isValid || isSaving" @click="onSave">
+				<N8nButton variant="solid" :disabled="!isValid || isSaving" @click="onSave">
 					{{ saveButtonLabel }}
 				</N8nButton>
 			</N8nDialogFooter>
