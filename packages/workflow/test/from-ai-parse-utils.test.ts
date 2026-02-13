@@ -165,6 +165,8 @@ describe('isFromAIOnlyExpression', () => {
 		`={{ ${FROM_AI_AUTO_GENERATED_MARKER} $fromAI("key", "desc") }}`,
 		'={{ $fromAI("key", "desc", "number", 5) }}',
 		'={{ $fromAI( "key" ) }}',
+		'={{ $fromAI("key", ``, "boolean") }}',
+		'={{ $fromAI("key", `plain backtick desc`) }}',
 	])('should accept valid $fromAI-only expression: %s', (expr) => {
 		expect(isFromAIOnlyExpression(expr)).toBe(true);
 	});
@@ -181,6 +183,9 @@ describe('isFromAIOnlyExpression', () => {
 		'={{ $fromAI(evil()) }}',
 		'={{ $fromAI(require("child_process").exec("rm -rf /")) }}',
 		'={{ $fromAI("key", getSecret()) }}',
+		'={{ $fromAI(`${evil()}`) }}',
+		'={{ $fromAI(`prefix${evil()}suffix`) }}',
+		'={{ $fromAI("key", `${$env.SECRET}`) }}',
 	])('should reject expression with extra content: %s', (expr) => {
 		expect(isFromAIOnlyExpression(expr)).toBe(false);
 	});

@@ -402,6 +402,15 @@ export function isFromAIOnlyExpression(expr: string): boolean {
 				current += 2;
 				continue;
 			}
+			// Reject template literal interpolation `${...}` inside backtick strings
+			if (
+				quoteChar === '`' &&
+				char === '$' &&
+				current + 1 < str.length &&
+				str[current + 1] === '{'
+			) {
+				return false;
+			}
 			if (char === quoteChar) {
 				inQuotes = false;
 				quoteChar = '';
