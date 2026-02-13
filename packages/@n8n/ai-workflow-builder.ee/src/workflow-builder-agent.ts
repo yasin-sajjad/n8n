@@ -322,11 +322,20 @@ export class WorkflowBuilderAgent {
 			logger: this.logger,
 		});
 
+		// Only reuse the SDK session if the most recent interaction was an
+		// assistant exchange. If build requests or plans happened in between,
+		// the SDK's internal conversation context is stale and would confuse
+		// the assistant (e.g. "Did this answer solve your question?" from an
+		// unrelated earlier exchange).
+		const lastEntry = session?.conversationEntries?.at(-1);
+		const sdkSessionId =
+			lastEntry?.type === 'assistant-exchange' ? session?.sdkSessionId : undefined;
+
 		const gen = triageAgent.run({
 			payload,
 			userId: resolvedUserId,
 			abortSignal,
-			sdkSessionId: session?.sdkSessionId,
+			sdkSessionId,
 			conversationHistory: session?.conversationEntries,
 		});
 
