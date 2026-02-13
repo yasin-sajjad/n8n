@@ -22,7 +22,7 @@ import {
 	type IDataObject,
 } from 'n8n-workflow';
 import { computed, onBeforeUnmount, onMounted, provide, ref, shallowRef, watch } from 'vue';
-import { ExpressionLocalResolveContextSymbol } from '@/app/constants';
+import { ChatHubToolContextKey, ExpressionLocalResolveContextSymbol } from '@/app/constants';
 import type { ExpressionLocalResolveContext } from '@/app/types/expressions';
 import useEnvironmentsStore from '@/features/settings/environments.ee/environments.store';
 
@@ -169,6 +169,7 @@ const isValid = computed(() => {
 
 // Provide expression resolve context for dynamic parameter loading
 provide(ExpressionLocalResolveContextSymbol, expressionResolveCtx);
+provide(ChatHubToolContextKey, true);
 
 function makeUniqueName(baseName: string, existingNames: string[]): string {
 	if (!existingNames.includes(baseName)) return baseName;
