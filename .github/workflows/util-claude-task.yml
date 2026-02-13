@@ -25,6 +25,11 @@ on:
         required: false
         type: string
         default: 'claude-sonnet-4-5-20250929'
+      ref:
+        description: 'Git ref (branch/tag/SHA) to check out and work on'
+        required: false
+        type: string
+        default: 'master'
 
 jobs:
   run-claude-task:
@@ -43,7 +48,7 @@ jobs:
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           token: ${{ inputs.user_token }}
-          ref: master
+          ref: ${{ inputs.ref }}
           fetch-depth: 1
 
       - name: Setup Node.js
@@ -131,7 +136,7 @@ jobs:
           TRIGGERED_BY: ${{ github.actor }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          if ! git diff --quiet master; then
+          if ! git diff --quiet "${{ inputs.ref }}"; then
             git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
             git push -u origin "$BRANCH_NAME"
 
@@ -150,7 +155,7 @@ jobs:
                 echo "*Triggered by @$TRIGGERED_BY via the Claude Task Runner workflow.*"
               } > /tmp/pr-body.md
 
-              gh pr create --title "$PR_TITLE" --body-file /tmp/pr-body.md --base master
+              gh pr create --title "$PR_TITLE" --body-file /tmp/pr-body.md --base "${{ inputs.ref }}"
             else
               echo "::notice::PR creation is disabled. Changes pushed to branch but no PR created."
             fi
