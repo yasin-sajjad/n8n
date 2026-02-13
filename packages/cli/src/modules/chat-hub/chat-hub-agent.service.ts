@@ -56,12 +56,12 @@ export class ChatHubAgentService {
 	}
 
 	async getAgentsByUserIdAsDtos(userId: string): Promise<ChatHubAgentDto[]> {
-		const agents = await this.chatAgentRepository.getManyByUserId(userId);
-		return await Promise.all(
-			agents.map(async (agent) => {
-				const toolIds = await this.chatHubToolService.getToolIdsForAgent(agent.id);
-				return this.toDto(agent, toolIds);
-			}),
+		const agents = await this.chatAgentRepository.getManyByUserIdWithToolIds(userId);
+		return agents.map((agent) =>
+			this.toDto(
+				agent,
+				(agent.tools ?? []).map((t) => t.id),
+			),
 		);
 	}
 
