@@ -294,6 +294,7 @@ const onAddCustomRoleClick = () => {
 	padding: 0;
 	background-color: transparent;
 	min-height: auto;
+	max-width: 200px;
 
 	&:not([data-disabled]):hover {
 		background-color: transparent;
@@ -301,9 +302,7 @@ const onAddCustomRoleClick = () => {
 }
 
 .triggerContent {
-	display: inline-flex;
-	align-items: center;
-	gap: var(--spacing--3xs);
+	display: inline-block;
 	font-size: var(--font-size--sm);
 	overflow: hidden;
 	text-overflow: ellipsis;
