@@ -245,19 +245,36 @@ watch(
 					...nodeData,
 					parameters: defaultParameters ?? {},
 				};
+
+				// Determine if the name is still a default (not user-edited).
+				// Check both isDefaultNodeName and displayName since tool variants
+				// set the initial name from displayName ("Airtable Tool")
+				// while defaults.name stays as the base ("Airtable").
+				const nameForCheck = nodeData.name.replace(/ \(\d+\)$/, '');
+				userEditedName.value = !(
+					NodeHelpers.isDefaultNodeName(
+						nameForCheck,
+						nodeTypeDescription.value,
+						nodeData.parameters,
+					) || nameForCheck === nodeTypeDescription.value.displayName
+				);
+
+				// Generate resource/operation-based automatic name for non-edited names
+				if (!userEditedName.value) {
+					const newName = NodeHelpers.makeNodeName(
+						nodeData.parameters ?? {},
+						nodeTypeDescription.value,
+					);
+					if (newName && newName !== nameForCheck) {
+						nodeData = {
+							...nodeData,
+							name: makeUniqueName(newName, existingToolNames.value),
+						};
+					}
+				}
 			}
 
 			node.value = nodeData;
-
-			if (nodeTypeDescription.value) {
-				// Strip " (N)" suffix that makeUniqueName adds for duplicate detection
-				const nameForCheck = nodeData.name.replace(/ \(\d+\)$/, '');
-				userEditedName.value = !NodeHelpers.isDefaultNodeName(
-					nameForCheck,
-					nodeTypeDescription.value,
-					nodeData.parameters,
-				);
-			}
 		} else {
 			node.value = initialNode;
 			userEditedName.value = false;
