@@ -740,7 +740,7 @@ importers:
         version: 4.0.7
       axios:
         specifier: 1.12.0
-        version: 1.12.0
+        version: 1.12.0(debug@4.4.3)
       dotenv:
         specifier: 17.2.3
         version: 17.2.3
@@ -775,7 +775,7 @@ importers:
     dependencies:
       axios:
         specifier: 1.12.0
-        version: 1.12.0
+        version: 1.12.0(debug@4.4.3)
     devDependencies:
       '@n8n/typescript-config':
         specifier: workspace:*
@@ -1441,11 +1441,11 @@ importers:
         specifier: 0.1.0-preview.64
         version: 0.1.0-preview.64(7adf44cc9b9f5337e788df4d5a28b71f)
       '@microsoft/agents-activity':
-        specifier: 1.1.0-alpha.85
-        version: 1.1.0-alpha.85
+        specifier: 1.2.3
+        version: 1.2.3
       '@microsoft/agents-hosting':
-        specifier: 1.1.0-alpha.85
-        version: 1.1.0-alpha.85
+        specifier: 1.2.3
+        version: 1.2.3
       '@modelcontextprotocol/sdk':
         specifier: 1.25.2
         version: 1.25.2(hono@4.11.3)(zod@3.25.67)
@@ -1639,7 +1639,7 @@ importers:
         version: link:../eslint-plugin-community-nodes
       axios:
         specifier: 1.12.0
-        version: 1.12.0
+        version: 1.12.0(debug@4.4.3)
       eslint:
         specifier: 'catalog:'
         version: 9.29.0(jiti@2.6.1)
@@ -1917,7 +1917,7 @@ importers:
         version: 1.11.0
       axios:
         specifier: 1.12.0
-        version: 1.12.0
+        version: 1.12.0(debug@4.4.3)
       bcryptjs:
         specifier: 2.4.3
         version: 2.4.3
@@ -2275,7 +2275,7 @@ importers:
         version: 10.36.0
       axios:
         specifier: 1.12.0
-        version: 1.12.0
+        version: 1.12.0(debug@4.4.3)
       callsites:
         specifier: 'catalog:'
         version: 3.1.0
@@ -2748,7 +2748,7 @@ importers:
         version: link:../../../@n8n/utils
       axios:
         specifier: 1.12.0
-        version: 1.12.0
+        version: 1.12.0(debug@4.4.3)
       flatted:
         specifier: 'catalog:'
         version: 3.2.7
@@ -3063,7 +3063,7 @@ importers:
         version: 1.1.4
       axios:
         specifier: 1.12.0
-        version: 1.12.0
+        version: 1.12.0(debug@4.4.3)
       bowser:
         specifier: 2.11.0
         version: 2.11.0
@@ -6589,12 +6589,12 @@ packages:
     resolution: {integrity: sha512-mn+AjqbZPTk4yrLMv5GZ+tQSZMtxH8fu5fLynKukYNKuxClKmUhLmkQIqS9mKnheZpC52HyveCanDCKQKDLmcw==}
     engines: {node: '>=18.0.0'}
 
-  '@microsoft/agents-activity@1.1.0-alpha.85':
-    resolution: {integrity: sha512-iMzeYFJZPSrXkhHpHesKQ1gjvCm6uyPlH0ojsNf8Z3EODCeiFsxHOahoLyzCuqzcWBYhNCcQ45aarNbeJ84HgA==}
+  '@microsoft/agents-activity@1.2.3':
+    resolution: {integrity: sha512-XRQF+AVn6f9sGDUsfDQFiwLtmqqWNhM9JIwZRzK9XQLPTQmoWwjoWz8KMKc5fuvj5Ybly3974VrqYUbDOeMyTg==}
     engines: {node: '>=20.0.0'}
 
-  '@microsoft/agents-hosting@1.1.0-alpha.85':
-    resolution: {integrity: sha512-1Ii92EJSaQTuqjOBWUqoioClum+6Dh82uBmzoExMi3ZDJ9UTV6Kqg4W1h4PYhUZPmqIP3HLSVNvty84Gx/mqYg==}
+  '@microsoft/agents-hosting@1.2.3':
+    resolution: {integrity: sha512-8paXuxdbRc9X6tccYoR3lk0DSglt1SxpJG+6qDa8TVTuGiTvIuhnN4st9JZhIiazxPiFPTJAkhK5JSsOk+wLVQ==}
     engines: {node: '>=20.0.0'}
 
   '@microsoft/api-extractor-model@7.30.4':
@@ -20912,7 +20912,7 @@ snapshots:
   '@azure/keyvault-keys@4.6.0':
     dependencies:
       '@azure/abort-controller': 1.1.0
-      '@azure/core-auth': 1.9.0
+      '@azure/core-auth': 1.10.1
       '@azure/core-client': 1.9.2
       '@azure/core-http-compat': 1.3.0
       '@azure/core-lro': 2.4.0
@@ -23355,8 +23355,8 @@ snapshots:
   '@microsoft/agents-a365-notifications@0.1.0-preview.64':
     dependencies:
       '@microsoft/agents-a365-runtime': 0.1.0-preview.64
-      '@microsoft/agents-activity': 1.1.0-alpha.85
-      '@microsoft/agents-hosting': 1.1.0-alpha.85
+      '@microsoft/agents-activity': 1.2.3
+      '@microsoft/agents-hosting': 1.2.3
     transitivePeerDependencies:
       - debug
       - supports-color
@@ -23379,7 +23379,7 @@ snapshots:
   '@microsoft/agents-a365-runtime@0.1.0-preview.64':
     dependencies:
       '@azure/identity': 4.13.0
-      '@microsoft/agents-hosting': 1.1.0-alpha.85
+      '@microsoft/agents-hosting': 1.2.3
       jsonwebtoken: 9.0.3
     transitivePeerDependencies:
       - debug
@@ -23390,7 +23390,7 @@ snapshots:
       '@langchain/mcp-adapters': 1.1.2(@langchain/core@1.1.8(@opentelemetry/api@1.9.0)(@opentelemetry/exporter-trace-otlp-proto@0.204.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.5.0(@opentelemetry/api@1.9.0))(openai@6.9.1(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.67)))(@langchain/langgraph@1.0.2(@langchain/core@1.1.8(@opentelemetry/api@1.9.0)(@opentelemetry/exporter-trace-otlp-proto@0.204.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.5.0(@opentelemetry/api@1.9.0))(openai@6.9.1(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.67)))(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(zod-to-json-schema@3.23.3(zod@3.25.67))(zod@3.25.67))(hono@4.11.3)
       '@microsoft/agents-a365-runtime': 0.1.0-preview.64
       '@microsoft/agents-a365-tooling': 0.1.0-preview.64(hono@4.11.3)(zod@3.25.67)
-      '@microsoft/agents-hosting': 1.1.0-alpha.85
+      '@microsoft/agents-hosting': 1.2.3
       langchain: 1.2.3(@langchain/core@1.1.8(@opentelemetry/api@1.9.0)(@opentelemetry/exporter-trace-otlp-proto@0.204.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.5.0(@opentelemetry/api@1.9.0))(openai@6.9.1(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.67)))(@opentelemetry/api@1.9.0)(@opentelemetry/exporter-trace-otlp-proto@0.204.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.5.0(@opentelemetry/api@1.9.0))(openai@6.9.1(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.67))(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(zod-to-json-schema@3.23.3(zod@3.25.67))
     transitivePeerDependencies:
       - '@cfworker/json-schema'
@@ -23411,7 +23411,7 @@ snapshots:
   '@microsoft/agents-a365-tooling@0.1.0-preview.64(hono@4.11.3)(zod@3.25.67)':
     dependencies:
       '@microsoft/agents-a365-runtime': 0.1.0-preview.64
-      '@microsoft/agents-hosting': 1.1.0-alpha.85
+      '@microsoft/agents-hosting': 1.2.3
       '@modelcontextprotocol/sdk': 1.25.2(hono@4.11.3)(zod@3.25.67)
       express: 5.2.1
     transitivePeerDependencies:
@@ -23421,7 +23421,7 @@ snapshots:
       - supports-color
       - zod
 
-  '@microsoft/agents-activity@1.1.0-alpha.85':
+  '@microsoft/agents-activity@1.2.3':
     dependencies:
       debug: 4.4.3(supports-color@8.1.1)
       uuid: 11.1.0
@@ -23429,15 +23429,16 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@microsoft/agents-hosting@1.1.0-alpha.85':
+  '@microsoft/agents-hosting@1.2.3':
     dependencies:
       '@azure/core-auth': 1.10.1
       '@azure/msal-node': 3.8.4
-      '@microsoft/agents-activity': 1.1.0-alpha.85
-      axios: 1.12.0
+      '@microsoft/agents-activity': 1.2.3
+      axios: 1.12.0(debug@4.4.3)
       jsonwebtoken: 9.0.3
       jwks-rsa: 3.2.2
       object-path: 0.11.8
+      zod: 3.25.67
     transitivePeerDependencies:
       - debug
       - supports-color
@@ -24775,7 +24776,7 @@ snapshots:
 
   '@rudderstack/rudder-sdk-node@3.0.0':
     dependencies:
-      axios: 1.12.0
+      axios: 1.12.0(debug@4.4.3)
       axios-retry: 4.5.0(axios@1.12.0)
       component-type: 2.0.0
       join-component: 1.1.0
@@ -27859,20 +27860,12 @@ snapshots:
 
   axios-retry@4.5.0(axios@1.12.0):
     dependencies:
-      axios: 1.12.0
+      axios: 1.12.0(debug@4.4.3)
       is-retry-allowed: 2.2.0
-
-  axios@1.12.0:
-    dependencies:
-      follow-redirects: 1.15.11(debug@4.4.1)
-      form-data: 4.0.4
-      proxy-from-env: 1.1.0
-    transitivePeerDependencies:
-      - debug
 
   axios@1.12.0(debug@4.4.3):
     dependencies:
-      follow-redirects: 1.15.11(debug@4.4.3)
+      follow-redirects: 1.15.11(debug@4.4.1)
       form-data: 4.0.4
       proxy-from-env: 1.1.0
     transitivePeerDependencies:
@@ -30652,10 +30645,6 @@ snapshots:
     optionalDependencies:
       debug: 4.4.1(supports-color@8.1.1)
 
-  follow-redirects@1.15.11(debug@4.4.3):
-    optionalDependencies:
-      debug: 4.4.3(supports-color@8.1.1)
-
   for-each@0.3.5:
     dependencies:
       is-callable: 1.2.7
@@ -31369,7 +31358,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.3
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.12.0)
+      retry-axios: 2.6.0(axios@1.12.0(debug@4.4.3))
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -31454,7 +31443,7 @@ snapshots:
 
   infisical-node@1.3.0:
     dependencies:
-      axios: 1.12.0
+      axios: 1.12.0(debug@4.4.3)
       dotenv: 16.6.1
       tweetnacl: 1.0.3
       tweetnacl-util: 0.15.1
@@ -35159,7 +35148,7 @@ snapshots:
 
   posthog-node@3.2.1:
     dependencies:
-      axios: 1.12.0
+      axios: 1.12.0(debug@4.4.3)
       rusha: 0.8.14
     transitivePeerDependencies:
       - debug
@@ -35856,9 +35845,9 @@ snapshots:
       onetime: 5.1.2
       signal-exit: 3.0.7
 
-  retry-axios@2.6.0(axios@1.12.0):
+  retry-axios@2.6.0(axios@1.12.0(debug@4.4.3)):
     dependencies:
-      axios: 1.12.0
+      axios: 1.12.0(debug@4.4.3)
 
   retry-request@7.0.2(encoding@0.1.13):
     dependencies:
@@ -36474,7 +36463,7 @@ snapshots:
       asn1.js: 5.4.1
       asn1.js-rfc2560: 5.0.1(asn1.js@5.4.1)
       asn1.js-rfc5280: 3.0.0
-      axios: 1.12.0
+      axios: 1.12.0(debug@4.4.3)
       big-integer: 1.6.52
       bignumber.js: 9.1.2
       binascii: 0.0.2
