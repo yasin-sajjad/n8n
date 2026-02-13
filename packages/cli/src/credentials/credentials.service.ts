@@ -139,8 +139,6 @@ export class CredentialsService {
 		const returnAll = hasGlobalScope(user, 'credential:list');
 		const isDefaultSelect = !listQueryOptions.select;
 
-		this.applyOnlySharedWithMeFilter(listQueryOptions, onlySharedWithMe, user);
-
 		// Auto-enable includeScopes when includeData is requested
 		if (includeData) {
 			includeScopes = true;
@@ -157,6 +155,7 @@ export class CredentialsService {
 				listQueryOptions,
 				includeGlobal,
 				includeData,
+				onlySharedWithMe,
 			);
 		}
 
@@ -204,20 +203,6 @@ export class CredentialsService {
 		return credentials;
 	}
 
-	private applyOnlySharedWithMeFilter(
-		listQueryOptions: ListQuery.Options & { includeData?: boolean },
-		onlySharedWithMe: boolean,
-		user: User,
-	): void {
-		if (onlySharedWithMe) {
-			listQueryOptions.filter = {
-				...listQueryOptions.filter,
-				withRole: 'credential:user',
-				user,
-			};
-		}
-	}
-
 	private async getManyForAdminUser(
 		listQueryOptions: ListQuery.Options & { includeData?: boolean },
 		includeGlobal: boolean,
@@ -239,15 +224,62 @@ export class CredentialsService {
 		listQueryOptions: ListQuery.Options & { includeData?: boolean },
 		includeGlobal: boolean,
 		includeData: boolean,
+		onlySharedWithMe: boolean,
 	): Promise<CredentialsEntity[]> {
-		const ids = await this.credentialsFinderService.getCredentialIdsByUserAndRole([user.id], {
-			scopes: ['credential:read'],
-		});
+		let isPersonalProject = false;
+		let personalProjectOwnerId: string | null = null;
 
-		let credentials = await this.credentialsRepository.findMany(listQueryOptions, ids);
+		// Check if filtering by personal project
+		if (listQueryOptions.filter?.projectId) {
+			const project = await this.projectRepository.findOneBy({
+				id: listQueryOptions.filter.projectId as string,
+			});
+			if (!project) {
+				return [];
+			}
+			isPersonalProject = project.type === 'personal';
+			personalProjectOwnerId = project.creatorId;
+		}
+
+		// Prepare sharing options for the subquery
+		const sharingOptions: {
+			scopes?: Scope[];
+			projectRoles?: string[];
+			credentialRoles?: string[];
+			isPersonalProject?: boolean;
+			personalProjectOwnerId?: string;
+			onlySharedWithMe?: boolean;
+		} = {};
+
+		if (isPersonalProject && personalProjectOwnerId) {
+			// Prevent users from accessing another user's personal project credentials
+			if (personalProjectOwnerId !== user.id && !hasGlobalScope(user, 'credential:read')) {
+				return [];
+			}
+			sharingOptions.isPersonalProject = true;
+			sharingOptions.personalProjectOwnerId = personalProjectOwnerId;
+		} else if (onlySharedWithMe) {
+			sharingOptions.onlySharedWithMe = true;
+		} else {
+			// Get roles from scopes
+			const projectRoles = await this.roleService.rolesWithScope('project', ['credential:read']);
+			const credentialRoles = await this.roleService.rolesWithScope('credential', [
+				'credential:read',
+			]);
+			sharingOptions.scopes = ['credential:read'];
+			sharingOptions.projectRoles = projectRoles;
+			sharingOptions.credentialRoles = credentialRoles;
+		}
+
+		// Use the new subquery-based repository method
+		const { credentials } = await this.credentialsRepository.getManyAndCountWithSharingSubquery(
+			user,
+			sharingOptions,
+			listQueryOptions,
+		);
 
 		if (includeGlobal) {
-			credentials = await this.addGlobalCredentials(credentials, includeData);
+			return await this.addGlobalCredentials(credentials, includeData);
 		}
 
 		return credentials;
