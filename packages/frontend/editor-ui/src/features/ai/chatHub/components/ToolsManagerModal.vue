@@ -30,6 +30,7 @@ import { useChatStore } from '@/features/ai/chatHub/chat.store';
 import { useToast } from '@/app/composables/useToast';
 import { useMessage } from '@/app/composables/useMessage';
 import { hasRole } from '@/app/utils/rbac/checks/hasRole';
+import nodePopularity from 'virtual:node-popularity-data';
 
 const props = defineProps<{
 	modalName: string;
@@ -68,6 +69,8 @@ const chatStore = useChatStore();
 const toast = useToast();
 const message = useMessage();
 const uiStore = useUIStore();
+
+const nodePopularityMap = new Map(nodePopularity.map((node) => [node.id, node.popularity]));
 
 const searchQuery = ref('');
 const debouncedSearchQuery = ref('');
@@ -111,7 +114,12 @@ const availableToolTypes = computed<INodeTypeDescription[]>(() => {
 				nodeType !== null &&
 				!excludedToolTypes.value.includes(nodeType.name) &&
 				!hasInputs(nodeType),
-		);
+		)
+		.sort((a, b) => {
+			const popA = nodePopularityMap.get(a.name) ?? 0;
+			const popB = nodePopularityMap.get(b.name) ?? 0;
+			return popB - popA;
+		});
 });
 
 const filteredConfiguredTools = computed(() => {
