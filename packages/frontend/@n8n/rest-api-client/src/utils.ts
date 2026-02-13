@@ -182,7 +182,7 @@ export async function getFullApiResponse<T>(
 		baseURL: context.baseUrl,
 		endpoint,
 		// eslint-disable-next-line @typescript-eslint/naming-convention
-		headers: { 'push-ref': context.pushRef, 'x-client-id': context.pushRef },
+		headers: { 'push-ref': context.pushRef },
 		data,
 	});
 
@@ -200,7 +200,7 @@ export async function makeRestApiRequest<T>(
 		baseURL: context.baseUrl,
 		endpoint,
 		// eslint-disable-next-line @typescript-eslint/naming-convention
-		headers: { 'push-ref': context.pushRef, 'x-client-id': context.pushRef },
+		headers: { 'push-ref': context.pushRef },
 		data,
 	});
 

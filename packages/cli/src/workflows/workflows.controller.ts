@@ -441,7 +441,7 @@ export class WorkflowsController {
 		@Body body: UpdateWorkflowDto,
 	) {
 		const forceSave = req.query.forceSave === 'true';
-		const clientId = req.headers['x-client-id'] as string | undefined;
+		const clientId = req.headers['push-ref'] as string | undefined;
 
 		await this.collaborationService.validateWriteLock(req.user.id, clientId, workflowId, 'update');
 
@@ -501,7 +501,7 @@ export class WorkflowsController {
 	@Delete('/:workflowId')
 	@ProjectScope('workflow:delete')
 	async delete(req: AuthenticatedRequest, _res: Response, @Param('workflowId') workflowId: string) {
-		const clientId = req.headers['x-client-id'] as string | undefined;
+		const clientId = req.headers['push-ref'] as string | undefined;
 
 		await this.collaborationService.validateWriteLock(req.user.id, clientId, workflowId, 'delete');
 
@@ -527,7 +527,7 @@ export class WorkflowsController {
 		@Param('workflowId') workflowId: string,
 		@Body body: ArchiveWorkflowDto,
 	) {
-		const clientId = req.headers['x-client-id'] as string | undefined;
+		const clientId = req.headers['push-ref'] as string | undefined;
 
 		await this.collaborationService.validateWriteLock(req.user.id, clientId, workflowId, 'archive');
 
@@ -560,7 +560,7 @@ export class WorkflowsController {
 		_res: Response,
 		@Param('workflowId') workflowId: string,
 	) {
-		const clientId = req.headers['x-client-id'] as string | undefined;
+		const clientId = req.headers['push-ref'] as string | undefined;
 
 		await this.collaborationService.validateWriteLock(
 			req.user.id,
@@ -595,7 +595,7 @@ export class WorkflowsController {
 		@Param('workflowId') workflowId: string,
 		@Body body: ActivateWorkflowDto,
 	) {
-		const clientId = req.headers['x-client-id'] as string | undefined;
+		const clientId = req.headers['push-ref'] as string | undefined;
 
 		await this.collaborationService.validateWriteLock(
 			req.user.id,
@@ -629,7 +629,7 @@ export class WorkflowsController {
 		@Param('workflowId') workflowId: string,
 		@Body body: DeactivateWorkflowDto,
 	) {
-		const clientId = req.headers['x-client-id'] as string | undefined;
+		const clientId = req.headers['push-ref'] as string | undefined;
 
 		await this.collaborationService.validateWriteLock(
 			req.user.id,
