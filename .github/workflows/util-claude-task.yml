@@ -111,11 +111,6 @@ jobs:
             --model ${{ inputs.model }}
             --allowedTools Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch,TodoWrite
 
-      - name: Debug Claude outputs
-        run: |
-          echo "=== Claude Action Outputs ==="
-          echo '${{ toJSON(steps.claude.outputs) }}'
-
       - name: Extract PR title
         run: |
           # Use the last commit message as PR title
@@ -179,20 +174,17 @@ jobs:
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
         run: |
-          # Build payload and pipe directly to curl
+          # Extract only the result message (last element) from Claude's output
           if [ -f "$EXECUTION_FILE" ]; then
             jq -n \
               --arg branch "$BRANCH_NAME" \
-              --slurpfile claudeOutput "$EXECUTION_FILE" \
-              '{success: true, branch: $branch, claudeOutput: $claudeOutput[0]}' \
+              --argjson result "$(jq '.[-1]' "$EXECUTION_FILE")" \
+              '{success: true, branch: $branch, result: $result}' \
             | curl -X POST "${{ inputs.resumeUrl }}" \
               -H "Content-Type: application/json" \
               --data-binary @-
           else
-            jq -n \
-              --arg branch "$BRANCH_NAME" \
-              '{success: true, branch: $branch, claudeOutput: null}' \
-            | curl -X POST "${{ inputs.resumeUrl }}" \
+            curl -X POST "${{ inputs.resumeUrl }}" \
               -H "Content-Type: application/json" \
-              --data-binary @-
+              -d "{\"success\": true, \"branch\": \"$BRANCH_NAME\", \"result\": null}"
           fi
