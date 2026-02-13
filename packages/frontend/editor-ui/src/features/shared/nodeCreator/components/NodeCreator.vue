@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { watch, reactive, toRefs, computed, onBeforeUnmount, type StyleValue } from 'vue';
+import { watch, reactive, toRefs, computed, onBeforeUnmount } from 'vue';
 
 import { useNodeTypesStore } from '@/app/stores/nodeTypes.store';
 import { useNodeCreatorStore } from '@/features/shared/nodeCreator/nodeCreator.store';
@@ -10,7 +10,10 @@ import { useKeyboardNavigation } from '../composables/useKeyboardNavigation';
 import { useActionsGenerator } from '../composables/useActionsGeneration';
 import NodesListPanel from './Panel/NodesListPanel.vue';
 import { useCredentialsStore } from '@/features/credentials/credentials.store';
+import { useBannersStore } from '@/features/shared/banners/banners.store';
+import { useUIStore } from '@/app/stores/ui.store';
 import { DRAG_EVENT_DATA_KEY } from '@/app/constants';
+import { useChatPanelStore } from '@/features/ai/assistant/chatPanel.store';
 import type { NodeTypeSelectedPayload } from '@/Interface';
 import { onClickOutside } from '@vueuse/core';
 
@@ -23,7 +26,6 @@ const OUTSIDE_CLICK_WHITELIST = [
 
 export interface Props {
 	active?: boolean;
-	style?: StyleValue;
 	onNodeTypeSelected?: (value: NodeTypeSelectedPayload[]) => void;
 }
 
@@ -34,6 +36,9 @@ const emit = defineEmits<{
 	closeNodeCreator: [];
 	nodeTypeSelected: [value: NodeTypeSelectedPayload[]];
 }>();
+const uiStore = useUIStore();
+const bannersStore = useBannersStore();
+const chatPanelStore = useChatPanelStore();
 
 const { setShowScrim, setActions, setMergeNodes } = useNodeCreatorStore();
 const { generateMergedNodesAndActions } = useActionsGenerator();
@@ -46,6 +51,22 @@ const state = reactive({
 const showScrim = computed(() => useNodeCreatorStore().showScrim);
 
 const viewStacksLength = computed(() => useViewStacks().viewStacks.length);
+
+const nodeCreatorInlineStyle = computed(() => {
+	const rightPosition = getRightOffset();
+	return {
+		top: `${bannersStore.bannersHeight + uiStore.headerHeight}px`,
+		right: `${rightPosition}px`,
+	};
+});
+
+function getRightOffset() {
+	if (chatPanelStore.isOpen) {
+		return chatPanelStore.width;
+	}
+
+	return 0;
+}
 
 function onMouseUpOutside() {
 	if (state.mousedownInsideEvent) {
@@ -168,7 +189,7 @@ onClickOutside(
 				v-if="active"
 				ref="nodeCreator"
 				:class="{ [$style.nodeCreator]: true }"
-				:style="style"
+				:style="nodeCreatorInlineStyle"
 				data-test-id="node-creator"
 				@dragover="onDragOver"
 				@drop="onDrop"
