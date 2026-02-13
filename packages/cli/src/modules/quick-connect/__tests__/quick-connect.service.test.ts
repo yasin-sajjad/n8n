@@ -227,10 +227,18 @@ describe('QuickConnectService', () => {
 				{ type: 'differentCredentialType' } as never,
 			]);
 			credentialsService.createUnmanagedCredential.mockResolvedValue({ id: 'cred-123' } as never);
+			credentialsService.getOne.mockResolvedValue(mockDecryptedCredential as never);
 
 			const result = await service.createCredential('testCredentialType', mockUser);
 
-			expect(result).toEqual({ id: 'cred-123' });
+			expect(result).toEqual({
+				data: {
+					apiKey: '__n8n_BLANK_VALUE_e5362baf-c777-4d57-a609-6eaf1f9e87f6',
+				},
+				id: 'cred-123',
+				name: 'Test Service (Quick connect)',
+				type: 'testCredentialType',
+			});
 		});
 	});
 });
