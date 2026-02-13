@@ -1510,6 +1510,50 @@ describe('SessionManagerService', () => {
 					threadId: 'thread-123',
 				});
 			});
+
+			it('should clear pending HITL state for the thread', async () => {
+				(mockMemorySaver.getTuple as jest.Mock).mockResolvedValue(null);
+
+				serviceWithStorage.setPendingHitl('thread-123', {
+					type: 'questions',
+					questions: [{ id: 'q1', question: 'Test?', type: 'single', options: ['A'] }],
+				});
+				serviceWithStorage.addHitlEntry('thread-123', {
+					type: 'questions_answered',
+					afterMessageId: 'msg-1',
+					interrupt: {
+						type: 'questions',
+						questions: [{ id: 'q1', question: 'Test?', type: 'single', options: ['A'] }],
+					},
+					answers: [{ questionId: 'q1', selectedOptions: ['A'] }],
+				});
+
+				expect(serviceWithStorage.getPendingHitl('thread-123')).toBeDefined();
+				expect(serviceWithStorage.getHitlHistory('thread-123')).toHaveLength(1);
+
+				await serviceWithStorage.clearSession('thread-123');
+
+				expect(serviceWithStorage.getPendingHitl('thread-123')).toBeUndefined();
+				expect(serviceWithStorage.getHitlHistory('thread-123')).toEqual([]);
+			});
+		});
+
+		describe('clearAllSessions', () => {
+			it('should clear the main multi-agent thread', async () => {
+				(mockMemorySaver.getTuple as jest.Mock).mockResolvedValue(null);
+				mockStorage.deleteSession.mockResolvedValue(undefined);
+
+				await serviceWithStorage.clearAllSessions('test-workflow', 'test-user');
+
+				expect(mockStorage.deleteSession).toHaveBeenCalledWith(
+					'workflow-test-workflow-user-test-user',
+				);
+
+				expect(mockLogger.debug).toHaveBeenCalledWith('All sessions cleared for workflow', {
+					workflowId: 'test-workflow',
+					userId: 'test-user',
+				});
+			});
 		});
 
 		describe('getPreviousSummary', () => {

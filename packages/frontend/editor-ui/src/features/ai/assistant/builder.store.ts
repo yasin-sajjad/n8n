@@ -16,6 +16,7 @@ import { useWorkflowsStore } from '@/app/stores/workflows.store';
 import { useBuilderMessages } from './composables/useBuilderMessages';
 import {
 	chatWithBuilder,
+	clearBuilderSession,
 	getAiSessions,
 	getBuilderCredits,
 	truncateBuilderMessages,
@@ -290,6 +291,18 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 		loadedSessionsForWorkflowId.value = undefined;
 		hasHadSuccessfulExecution.value = false;
 		builderMode.value = 'build';
+	}
+
+	/**
+	 * Explicitly clear the backend session for the current workflow.
+	 * Only called when the user explicitly requests a clear (e.g. /clear command).
+	 * This deletes persisted messages so they won't be reloaded on next visit.
+	 */
+	function clearBackendSession() {
+		const workflowId = workflowsStore.workflowId;
+		if (workflowId) {
+			void clearBuilderSession(rootStore.restApiContext, workflowId);
+		}
 	}
 
 	function setBuilderMode(mode: 'build' | 'plan') {
@@ -1198,6 +1211,8 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 		// Version management
 		restoreToVersion,
 		clearExistingWorkflow,
+		// Session management
+		clearBackendSession,
 		// Title management for AI builder
 		clearDoneIndicatorTitle,
 	};

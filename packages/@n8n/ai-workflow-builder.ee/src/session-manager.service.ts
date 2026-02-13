@@ -367,7 +367,23 @@ export class SessionManagerService {
 			this.logger?.debug('Failed to clear in-memory checkpointer state', { threadId, error });
 		}
 
+		// Clear HITL state for this thread
+		this.pendingHitlByThreadId.delete(threadId);
+		this.hitlHistoryByThreadId.delete(threadId);
+
 		this.logger?.debug('Session cleared', { threadId });
+	}
+
+	/**
+	 * Clear all sessions for a given workflow and user.
+	 * Currently clears the regular multi-agent thread only.
+	 * Code-builder session clearing will be handled in a follow-up.
+	 */
+	async clearAllSessions(workflowId: string, userId: string): Promise<void> {
+		const mainThreadId = SessionManagerService.generateThreadId(workflowId, userId);
+		await this.clearSession(mainThreadId);
+
+		this.logger?.debug('All sessions cleared for workflow', { workflowId, userId });
 	}
 
 	/**

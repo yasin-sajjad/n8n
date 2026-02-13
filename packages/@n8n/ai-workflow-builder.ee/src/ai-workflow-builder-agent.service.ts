@@ -284,8 +284,9 @@ export class AiWorkflowBuilderService {
 
 		const threadId = SessionManagerService.generateThreadId(workflowId, userId);
 
-		// Load historical messages from persistent storage to include in initial state
-		const historicalMessages = await this.sessionManager.loadSessionMessages(threadId);
+		// Load historical messages from persistent storage to include in initial state.
+		// Degrades gracefully if storage is temporarily unavailable.
+		const historicalMessages = await this.loadSessionMessagesSafe(threadId);
 
 		const pendingHitl = payload.resumeData
 			? this.sessionManager.getAndClearPendingHitl(threadId)
@@ -315,11 +316,9 @@ export class AiWorkflowBuilderService {
 			yield output;
 		}
 
-		// Save session to persistent storage after chat completes
-		// Get previousSummary from state if available (set during compaction)
-		const state = await agent.getState(workflowId, userId);
-		const previousSummary = state?.values?.previousSummary;
-		await this.sessionManager.saveSessionFromCheckpointer(threadId, previousSummary);
+		// Save session to persistent storage after chat completes.
+		// Non-critical: if storage is unavailable, the in-memory checkpointer still has the state.
+		await this.saveSessionSafe(agent, workflowId, userId, threadId);
 
 		// Track telemetry after stream completes (onGenerationSuccess is called by the agent)
 		if (this.onTelemetryEvent && userId) {
@@ -456,6 +455,49 @@ export class AiWorkflowBuilderService {
 			messageId,
 			agentType,
 		);
+	}
+
+	/**
+	 * Load session messages, degrading gracefully if storage is unavailable.
+	 * Chat still works via the in-memory checkpointer, just without cross-restart persistence.
+	 */
+	private async loadSessionMessagesSafe(threadId: string) {
+		try {
+			return await this.sessionManager.loadSessionMessages(threadId);
+		} catch (error) {
+			this.logger?.error(
+				'Failed to load session messages from storage, continuing without history',
+				{ threadId, error },
+			);
+			return [];
+		}
+	}
+
+	/**
+	 * Save session to persistent storage, logging errors without propagating.
+	 * Non-critical: the in-memory checkpointer still has the state.
+	 */
+	private async saveSessionSafe(
+		agent: WorkflowBuilderAgent,
+		workflowId: string | undefined,
+		userId: string | undefined,
+		threadId: string,
+	) {
+		try {
+			const state = await agent.getState(workflowId, userId);
+			const previousSummary = state?.values?.previousSummary;
+			await this.sessionManager.saveSessionFromCheckpointer(threadId, previousSummary);
+		} catch (error) {
+			this.logger?.error('Failed to save session to persistent storage', { threadId, error });
+		}
+	}
+
+	/**
+	 * Clear all sessions for a given workflow and user.
+	 * Used when user explicitly clears the chat.
+	 */
+	async clearSession(workflowId: string, user: IUser): Promise<void> {
+		await this.sessionManager.clearAllSessions(workflowId, user.id);
 	}
 
 	private static readonly questionsInterruptSchema = z.object({

@@ -204,6 +204,11 @@ export class WorkflowBuilderService {
 		return await service.getBuilderInstanceCredits(user);
 	}
 
+	async clearSession(workflowId: string, user: IUser): Promise<void> {
+		const service = await this.getService();
+		await service.clearSession(workflowId, user);
+	}
+
 	async truncateMessagesAfter(
 		workflowId: string,
 		user: IUser,
