@@ -1,6 +1,10 @@
 import type { IDataObject } from 'n8n-workflow';
 import { mockLogger } from '@n8n/backend-test-utils';
-import type { SecretsProviderConnection, SecretsProviderConnectionRepository } from '@n8n/db';
+import type {
+	ProjectSecretsProviderAccessRepository,
+	SecretsProviderConnection,
+	SecretsProviderConnectionRepository,
+} from '@n8n/db';
 import { mock } from 'jest-mock-extended';
 
 import { CREDENTIAL_BLANKING_VALUE } from '@/constants';
@@ -11,9 +15,10 @@ import { SecretsProvidersConnectionsService } from '@/modules/external-secrets.e
 import type { SecretsProvider } from '@/modules/external-secrets.ee/types';
 
 describe('SecretsProvidersConnectionsService', () => {
+	const mockRepository = mock<SecretsProviderConnectionRepository>();
+	const mockProjectAccessRepository = mock<ProjectSecretsProviderAccessRepository>();
 	const mockExternalSecretsManager = mock<ExternalSecretsManager>();
 	const mockRedactionService = mock<RedactionService>();
-	const mockRepository = mock<SecretsProviderConnectionRepository>();
 	const mockCipher = {
 		encrypt: jest.fn((data: IDataObject) => JSON.stringify(data)),
 		decrypt: jest.fn((data: string) => data),
@@ -22,7 +27,7 @@ describe('SecretsProvidersConnectionsService', () => {
 	const service = new SecretsProvidersConnectionsService(
 		mockLogger(),
 		mockRepository,
-		mock(),
+		mockProjectAccessRepository,
 		mockCipher as any,
 		mockExternalSecretsManager,
 		mockRedactionService,
@@ -296,6 +301,53 @@ describe('SecretsProvidersConnectionsService', () => {
 			await expect(service.getConnectionForProject('global-conn', 'project-1')).rejects.toThrow(
 				NotFoundError,
 			);
+		});
+	});
+
+	describe('CRUD operations reload providers', () => {
+		const savedConnection = {
+			id: 1,
+			providerKey: 'my-aws',
+			type: 'awsSecretsManager',
+			encryptedSettings: '{"apiKey":"secret"}',
+			isEnabled: true,
+			projectAccess: [],
+			createdAt: new Date('2024-01-01'),
+			updatedAt: new Date('2024-01-02'),
+		} as unknown as SecretsProviderConnection;
+
+		it('should sync provider connection after createConnection', async () => {
+			mockRepository.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(savedConnection);
+			mockRepository.create.mockReturnValue(savedConnection);
+			mockRepository.save.mockResolvedValue(savedConnection);
+
+			await service.createConnection({
+				providerKey: 'my-aws',
+				type: 'awsSecretsManager',
+				settings: { apiKey: 'secret' },
+				projectIds: [],
+			});
+
+			expect(mockExternalSecretsManager.syncProviderConnection).toHaveBeenCalledWith('my-aws');
+		});
+
+		it('should sync provider connection after updateConnection', async () => {
+			mockRepository.findOne
+				.mockResolvedValueOnce(savedConnection)
+				.mockResolvedValueOnce(savedConnection);
+
+			await service.updateConnection('my-aws', { projectIds: ['p1'] });
+
+			expect(mockExternalSecretsManager.syncProviderConnection).toHaveBeenCalledWith('my-aws');
+		});
+
+		it('should sync provider connection after deleteConnection', async () => {
+			mockRepository.findOne.mockResolvedValueOnce(savedConnection);
+			mockRepository.remove.mockResolvedValue(savedConnection);
+
+			await service.deleteConnection('my-aws');
+
+			expect(mockExternalSecretsManager.syncProviderConnection).toHaveBeenCalledWith('my-aws');
 		});
 	});
 });
