@@ -15,7 +15,6 @@ import {
 	type IDataObject,
 	type INodeProperties,
 	type INodePropertyOptions,
-	UnexpectedError,
 } from 'n8n-workflow';
 
 import { CredentialsService } from '@/credentials/credentials.service';
