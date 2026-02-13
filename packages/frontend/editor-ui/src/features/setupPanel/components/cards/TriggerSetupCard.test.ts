@@ -188,7 +188,7 @@ describe('TriggerSetupCard', () => {
 				props: { state: createState(), expanded: true },
 			});
 
-			expect(getByTestId('trigger-execute-button')).toBeDisabled();
+			expect(getByTestId('trigger-execute-btn')).toBeDisabled();
 		});
 
 		it('should disable test button when node is executing', () => {
@@ -198,7 +198,7 @@ describe('TriggerSetupCard', () => {
 				props: { state: createState(), expanded: true },
 			});
 
-			expect(getByTestId('trigger-execute-button')).toBeDisabled();
+			expect(getByTestId('trigger-execute-btn')).toBeDisabled();
 		});
 
 		it('should enable test button when node has no issues and is not executing', () => {
@@ -206,7 +206,7 @@ describe('TriggerSetupCard', () => {
 				props: { state: createState(), expanded: true },
 			});
 
-			expect(getByTestId('trigger-execute-button')).not.toBeDisabled();
+			expect(getByTestId('trigger-execute-btn')).not.toBeDisabled();
 		});
 	});
 
@@ -216,7 +216,7 @@ describe('TriggerSetupCard', () => {
 				props: { state: createState(), expanded: true },
 			});
 
-			await userEvent.click(getByTestId('trigger-execute-button'));
+			await userEvent.click(getByTestId('trigger-execute-btn'));
 
 			expect(mockExecute).toHaveBeenCalledTimes(1);
 		});

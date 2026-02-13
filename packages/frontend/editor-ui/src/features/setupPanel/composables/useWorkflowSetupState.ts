@@ -95,18 +95,10 @@ export const useWorkflowSetupState = (nodes?: Ref<INodeUi[]>) => {
 			isGenericAuthType,
 		);
 		const sorted = sortCredentialTypeStates(grouped, (name) => workflowsStore.getNodeByName(name));
-		// Only embed the first trigger; extras become standalone trigger cards.
-		return sorted.map((state) => {
-			const triggerNodes = state.triggerNodes.slice(0, 1);
-			return {
-				...state,
-				triggerNodes,
-				isComplete: isCredentialCardComplete(
-					{ ...state, triggerNodes },
-					hasTriggerExecutedSuccessfully,
-				),
-			};
-		});
+		return sorted.map((state) => ({
+			...state,
+			isComplete: isCredentialCardComplete(state, hasTriggerExecutedSuccessfully),
+		}));
 	});
 
 	/**

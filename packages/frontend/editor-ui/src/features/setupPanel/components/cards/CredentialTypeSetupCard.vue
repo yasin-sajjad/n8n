@@ -114,14 +114,11 @@ const onCredentialDeselected = () => {
 		</div>
 
 		<template #footer-actions>
-			<div v-if="state.triggerNodes.length > 0" :class="$style['footer-trigger-buttons']">
-				<TriggerExecuteButton
-					v-for="triggerNode in state.triggerNodes"
-					:key="triggerNode.id"
-					:node="triggerNode"
-					@executed="setupCard?.markInteracted()"
-				/>
-			</div>
+			<TriggerExecuteButton
+				v-if="state.triggerNodes.length > 0"
+				:nodes="state.triggerNodes"
+				@executed="setupCard?.markInteracted()"
+			/>
 		</template>
 	</SetupCard>
 </template>
@@ -164,11 +161,5 @@ const onCredentialDeselected = () => {
 
 .credential-picker {
 	flex: 1;
-}
-
-.footer-trigger-buttons {
-	display: flex;
-	gap: var(--spacing--2xs);
-	margin-left: auto;
 }
 </style>

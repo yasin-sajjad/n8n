@@ -56,7 +56,7 @@ const onExecuted = () => {
 			</N8nTooltip>
 		</template>
 		<template #footer-actions>
-			<TriggerExecuteButton :node="state.node" @executed="onExecuted" />
+			<TriggerExecuteButton :nodes="[state.node]" @executed="onExecuted" />
 		</template>
 	</SetupCard>
 </template>

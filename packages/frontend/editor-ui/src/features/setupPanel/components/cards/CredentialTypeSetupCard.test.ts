@@ -29,8 +29,10 @@ vi.mock('@/features/credentials/components/CredentialIcon.vue', () => ({
 vi.mock('../TriggerExecuteButton.vue', () => ({
 	default: {
 		template:
-			'<button data-test-id="trigger-execute-button" @click="$emit(\'executed\')">Test</button>',
-		props: ['node'],
+			'<div data-test-id="trigger-execute-button" @click="$emit(\'executed\')">' +
+			'<span data-test-id="trigger-node-count">{{ nodes.length }}</span>' +
+			'</div>',
+		props: ['nodes'],
 		emits: ['executed'],
 	},
 }));
@@ -237,7 +239,7 @@ describe('CredentialTypeSetupCard', () => {
 			expect(getByTestId('trigger-execute-button')).toBeInTheDocument();
 		});
 
-		it('should render multiple trigger execute buttons for multiple triggers', () => {
+		it('should pass all trigger nodes to a single TriggerExecuteButton', () => {
 			const trigger1 = createTestNode({
 				name: 'Trigger1',
 				type: 'n8n-nodes-base.slackTrigger',
@@ -247,14 +249,15 @@ describe('CredentialTypeSetupCard', () => {
 				type: 'n8n-nodes-base.slackTrigger',
 			}) as INodeUi;
 
-			const { getAllByTestId } = renderComponent({
+			const { getByTestId } = renderComponent({
 				props: {
 					state: createState({ triggerNodes: [trigger1, trigger2] }),
 					expanded: true,
 				},
 			});
 
-			expect(getAllByTestId('trigger-execute-button')).toHaveLength(2);
+			expect(getByTestId('trigger-execute-button')).toBeInTheDocument();
+			expect(getByTestId('trigger-node-count')).toHaveTextContent('2');
 		});
 
 		it('should not render trigger buttons when collapsed', () => {
