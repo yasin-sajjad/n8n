@@ -52,7 +52,7 @@ export const useWorkflowSetupState = (nodes?: Ref<INodeUi[]>) => {
 	 * Get nodes that require setup:
 	 * - Nodes with credential requirements
 	 * - Trigger nodes (regardless of credentials)
-	 * Sorted by execution order (grouped by trigger, BFS through connections).
+	 * Sorted by execution order (grouped by trigger, DFS through connections).
 	 */
 	const nodesRequiringSetup = computed(() => {
 		const nodesForSetup = sourceNodes.value

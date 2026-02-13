@@ -394,6 +394,35 @@ describe('setupPanel.utils', () => {
 			expect(result.map((n) => n.node.name)).toEqual(['Trigger', 'C']);
 		});
 
+		it('should follow depth-first order, completing each branch before the next', () => {
+			const trigger = makeSetupNode('Trigger', [0, 0], true);
+			const nodeA = makeSetupNode('A', [100, 0]);
+			const nodeB = makeSetupNode('B', [200, 0]);
+			const nodeC = makeSetupNode('C', [100, 100]);
+			const nodeD = makeSetupNode('D', [200, 100]);
+
+			// Trigger → A → B
+			//         ↘ C → D
+			const connections = {
+				Trigger: {
+					main: [
+						[
+							{ node: 'A', type: 'main' as const, index: 0 },
+							{ node: 'C', type: 'main' as const, index: 0 },
+						],
+					],
+				},
+				A: { main: [[{ node: 'B', type: 'main' as const, index: 0 }]] },
+				C: { main: [[{ node: 'D', type: 'main' as const, index: 0 }]] },
+			};
+
+			const result = sortNodesByExecutionOrder([nodeD, nodeC, nodeB, nodeA, trigger], connections);
+
+			// DFS: completes A→B before visiting C→D
+			// (BFS would produce: Trigger, A, C, B, D)
+			expect(result.map((n) => n.node.name)).toEqual(['Trigger', 'A', 'B', 'C', 'D']);
+		});
+
 		it('should not duplicate nodes reachable from multiple triggers', () => {
 			const triggerA = makeSetupNode('TriggerA', [0, 0], true);
 			const triggerB = makeSetupNode('TriggerB', [100, 100], true);

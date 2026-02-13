@@ -111,9 +111,11 @@ interface SetupNode {
 
 /**
  * Orders setup panel nodes by execution order, grouped by trigger.
- * Iterates triggers (sorted by X position), BFS-ing each trigger's subgraph
- * to collect downstream nodes in execution order. Nodes reachable from multiple
- * triggers appear only under the first trigger visited.
+ * Iterates triggers (sorted by X position), DFS-ing each trigger's subgraph
+ * to collect downstream nodes in execution order (depth-first, matching the
+ * backend v1 execution strategy). This lets users complete one full branch
+ * before moving to the next. Nodes reachable from multiple triggers appear
+ * only under the first trigger visited.
  * Orphaned nodes (not reachable from any trigger) are dropped.
  * When there are no triggers, returns an empty array.
  */
@@ -140,12 +142,10 @@ export function sortNodesByExecutionOrder(
 		visited.add(trigger.node.name);
 		result.push(trigger);
 
-		// BFS through all workflow connections from this trigger
-		const queue = [trigger.node.name];
-		while (queue.length > 0) {
-			const name = queue.shift()!;
+		// DFS through all workflow connections from this trigger
+		const dfs = (name: string) => {
 			const nodeConns = connectionsBySourceNode[name];
-			if (!nodeConns) continue;
+			if (!nodeConns) return;
 			for (const type of Object.keys(nodeConns)) {
 				for (const outputs of nodeConns[type]) {
 					for (const conn of outputs ?? []) {
@@ -155,11 +155,12 @@ export function sortNodesByExecutionOrder(
 						if (setupNode) {
 							result.push(setupNode);
 						}
-						queue.push(conn.node);
+						dfs(conn.node);
 					}
 				}
 			}
-		}
+		};
+		dfs(trigger.node.name);
 	}
 
 	return result;
