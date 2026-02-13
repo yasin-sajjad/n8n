@@ -115,6 +115,11 @@ const targetProjectName = computed(() => {
 	return getTruncatedProjectName(selectedProject.value?.name);
 });
 const resourceName = computed(() => truncate(props.data.resource.name, MAX_NAME_LENGTH));
+const isPersonalSpaceRestricted = computed(
+	() =>
+		props.data.resource.homeProject?.type === ProjectTypes.Personal &&
+		props.data.resource.homeProject?.id === projectsStore.personalProject?.id,
+);
 
 const isHomeProjectTeam = (resource: IWorkflowDb | ICredentialsResponse) =>
 	resource.homeProject?.type === ProjectTypes.Team;
@@ -335,7 +340,11 @@ onMounted(async () => {
 						:class="$style.textBlock"
 					>
 						<I18nT
-							keypath="projects.move.resource.modal.message.unAccessibleCredentials.note"
+							:keypath="
+								isPersonalSpaceRestricted
+									? 'projects.move.resource.modal.message.unAccessibleCredentials.personalSpaceNote'
+									: 'projects.move.resource.modal.message.unAccessibleCredentials.note'
+							"
 							scope="global"
 						>
 							<template #credentials>
