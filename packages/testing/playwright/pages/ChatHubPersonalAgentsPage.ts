@@ -4,7 +4,6 @@ import { BasePage } from './BasePage';
 import { ChatHubPersonalAgentModal } from './components/ChatHubPersonalAgentModal';
 
 export class ChatHubPersonalAgentsPage extends BasePage {
-	readonly sidebar = new ChatHubSidebar(this.page.locator('#sidebar'));
 	readonly editModal = new ChatHubPersonalAgentModal(this.page.getByRole('dialog'));
 
 	constructor(page: Page) {
