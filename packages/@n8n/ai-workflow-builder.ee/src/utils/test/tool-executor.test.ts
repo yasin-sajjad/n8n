@@ -54,6 +54,7 @@ describe('tool-executor', () => {
 			previousSummary: 'EMPTY',
 			templateIds: [],
 			cachedTemplates: [],
+			expressionExamples: {},
 		});
 
 		// Helper to create mock tool

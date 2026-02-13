@@ -1,5 +1,6 @@
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import type { BaseMessage } from '@langchain/core/messages';
+import { HumanMessage } from '@langchain/core/messages';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import type { Runnable } from '@langchain/core/runnables';
 import type { StructuredTool } from '@langchain/core/tools';
@@ -22,11 +23,8 @@ import { createConnectNodesTool } from '../tools/connect-nodes.tool';
 import { createGetExecutionLogsTool } from '../tools/get-execution-logs.tool';
 import { createGetExecutionSchemaTool } from '../tools/get-execution-schema.tool';
 import { createGetExpressionDataMappingTool } from '../tools/get-expression-data-mapping.tool';
+import { createGetExpressionExamplesTool } from '../tools/get-expression-examples.tool';
 import { createGetNodeContextTool } from '../tools/get-node-context.tool';
-import {
-	createGetNodeConnectionExamplesTool,
-	createGetNodeConfigurationExamplesTool,
-} from '../tools/get-node-examples.tool';
 import { createGetNodeParameterTool } from '../tools/get-node-parameter.tool';
 import { createGetResourceLocatorOptionsTool } from '../tools/get-resource-locator-options.tool';
 import { createGetWorkflowOverviewTool } from '../tools/get-workflow-overview.tool';
@@ -136,6 +134,17 @@ export const BuilderSubgraphState = Annotation.Root({
 		reducer: (x, y) => y ?? x,
 		default: () => [],
 	}),
+
+	// Expression examples from community templates, keyed by node type.
+	// Populated by get_expression_examples tool, consumed by update_node_parameters.
+	expressionExamples: Annotation<Record<string, string>>({
+		reducer: (x, y) => {
+			if (!y || Object.keys(y).length === 0) return x;
+			if (!x || Object.keys(x).length === 0) return y;
+			return { ...x, ...y };
+		},
+		default: () => ({}),
+	}),
 });
 
 export interface BuilderSubgraphConfig {
@@ -208,6 +217,11 @@ export class BuilderSubgraph extends BaseSubgraph<
 			createGetNodeContextTool(config.logger),
 		];
 
+		// Conditionally add expression examples tool if template examples are enabled
+		if (includeExamples) {
+			baseTools.push(createGetExpressionExamplesTool(config.logger));
+		}
+
 		// Conditionally add resource locator tool if callback is provided
 		if (config.resourceLocatorCallback) {
 			baseTools.push(
@@ -224,14 +238,7 @@ export class BuilderSubgraph extends BaseSubgraph<
 			baseTools.push(createIntrospectTool(config.logger));
 		}
 
-		// Conditionally add example tools if feature flag is enabled
-		const tools = includeExamples
-			? [
-					...baseTools,
-					createGetNodeConnectionExamplesTool(config.logger),
-					createGetNodeConfigurationExamplesTool(config.logger),
-				]
-			: baseTools;
+		const tools = baseTools;
 
 		this.toolMap = new Map<string, StructuredTool>(tools.map((bt) => [bt.tool.name, bt.tool]));
 
@@ -321,9 +328,27 @@ export class BuilderSubgraph extends BaseSubgraph<
 			// Apply cache markers to accumulated messages (for tool loop iterations)
 			applySubgraphCacheMarkers(state.messages);
 
+			// Inject expression examples into the context so the builder
+			// uses verified field paths when generating update_node_parameters changes.
+			const messages = [...state.messages];
+			if (state.expressionExamples && Object.keys(state.expressionExamples).length > 0) {
+				const exampleBlocks = Object.values(state.expressionExamples).join('\n\n');
+				messages.push(
+					new HumanMessage(
+						'=== VERIFIED EXPRESSION FIELD PATHS FROM REAL n8n WORKFLOWS ===\n\n' +
+							'IMPORTANT: n8n nodes restructure API responses. The field paths below are extracted from ' +
+							'real community workflows and show the ACTUAL output structure of each node type in n8n. ' +
+							'These paths often differ from the raw service API because n8n wraps data in additional objects.\n\n' +
+							'When writing expressions in update_node_parameters changes, you MUST use ONLY the field ' +
+							'paths listed below. Do NOT substitute your own knowledge of the service API.\n\n' +
+							exampleBlocks,
+					),
+				);
+			}
+
 			// Messages already contain context from transformInput
 			const response: unknown = await this.agent.invoke({
-				messages: state.messages,
+				messages,
 				instanceUrl: state.instanceUrl ?? '',
 			});
 
