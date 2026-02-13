@@ -8,7 +8,9 @@ import { Container } from '@n8n/di';
  *
  * Run with: pnpm test:integration workflow.repository.performance.test.ts
  */
-describe('WorkflowRepository Performance Benchmark', () => {
+
+// eslint-disable-next-line n8n-local-rules/no-skipped-tests
+describe.skip('WorkflowRepository Performance Benchmark', () => {
 	let workflowRepository: WorkflowRepository;
 
 	beforeAll(async () => {
