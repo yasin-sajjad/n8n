@@ -179,18 +179,20 @@ jobs:
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
         run: |
-          # Build payload with Claude's execution output if available
+          # Build payload and pipe directly to curl
           if [ -f "$EXECUTION_FILE" ]; then
-            PAYLOAD=$(jq -n \
+            jq -n \
               --arg branch "$BRANCH_NAME" \
               --slurpfile claudeOutput "$EXECUTION_FILE" \
-              '{success: true, branch: $branch, claudeOutput: $claudeOutput[0]}')
+              '{success: true, branch: $branch, claudeOutput: $claudeOutput[0]}' \
+            | curl -X POST "${{ inputs.resumeUrl }}" \
+              -H "Content-Type: application/json" \
+              --data-binary @-
           else
-            PAYLOAD=$(jq -n \
+            jq -n \
               --arg branch "$BRANCH_NAME" \
-              '{success: true, branch: $branch, claudeOutput: null}')
+              '{success: true, branch: $branch, claudeOutput: null}' \
+            | curl -X POST "${{ inputs.resumeUrl }}" \
+              -H "Content-Type: application/json" \
+              --data-binary @-
           fi
-
-          curl -X POST "${{ inputs.resumeUrl }}" \
-            -H "Content-Type: application/json" \
-            -d "$PAYLOAD"
