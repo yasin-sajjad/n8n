@@ -9,6 +9,7 @@ import type { INodeUi } from '@/Interface';
 
 const mockSetCredential = vi.fn();
 const mockUnsetCredential = vi.fn();
+const mockIsReadyToDemo = vi.fn().mockReturnValue(false);
 const mockNodeSetupStates = ref<NodeSetupState[]>([]);
 const mockIsAllComplete = computed(
 	() =>
@@ -21,6 +22,7 @@ vi.mock('../composables/useWorkflowSetupState', () => ({
 		isAllComplete: mockIsAllComplete,
 		setCredential: mockSetCredential,
 		unsetCredential: mockUnsetCredential,
+		isReadyToDemo: mockIsReadyToDemo,
 	}),
 }));
 
