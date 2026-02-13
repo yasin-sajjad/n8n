@@ -1,3 +1,8 @@
+// AI Node SDK version — the source of truth is in this package's package.json.
+// Bumped only on significant breaking changes to the AI Node SDK.
+// Used by n8n instances to request compatible AI community nodes from the Strapi API.
+export { AI_NODE_SDK_VERSION } from './ai-node-sdk-version';
+
 // Log wrapper and related utilities
 export { logWrapper } from './utils/log-wrapper';
 export { logAiEvent } from './utils/log-ai-event';

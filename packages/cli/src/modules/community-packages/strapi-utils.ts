@@ -38,6 +38,8 @@ interface PaginationRequestParams {
 		page: number;
 		pageSize: number;
 	};
+	/** When set, the Strapi API also returns AI community nodes compatible with this SDK version */
+	includeAiNodesSdkVersion?: number;
 }
 
 const REQUEST_TIMEOUT_MS = 6000;

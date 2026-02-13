@@ -1,3 +1,4 @@
+import { AI_NODE_SDK_VERSION } from '@n8n/ai-utilities';
 import type { INodeTypeDescription } from 'n8n-workflow';
 
 import { paginatedRequest, type StrapiFilters } from './strapi-utils';
@@ -20,6 +21,8 @@ export type StrapiCommunityNodeType = {
 	companyName?: string;
 	nodeDescription: INodeTypeDescription;
 	nodeVersions?: Array<{ npmVersion: string; checksum: string }>;
+	/** AI community nodes declare this to indicate which SDK version they target */
+	aiNodeSdkVersion?: number;
 };
 
 export type CommunityNodesMetadata = Pick<
@@ -43,6 +46,7 @@ export async function getCommunityNodeTypes(
 	const url = getUrl(environment);
 	const params = {
 		...qs,
+		includeAiNodesSdkVersion: AI_NODE_SDK_VERSION,
 		pagination: {
 			page: 1,
 			pageSize: 25,
@@ -57,6 +61,7 @@ export async function getCommunityNodesMetadata(
 	const url = getUrl(environment);
 	const params = {
 		fields: ['npmVersion', 'name', 'updatedAt'],
+		includeAiNodesSdkVersion: AI_NODE_SDK_VERSION,
 		pagination: {
 			page: 1,
 			pageSize: 500,
