@@ -150,7 +150,11 @@ export class TriageAgent {
 		if (!this.llm.bindTools) {
 			throw new Error('LLM does not support bindTools');
 		}
-		const llmWithTools = this.llm.bindTools([ASK_ASSISTANT_TOOL, BUILD_WORKFLOW_TOOL]);
+		const tools =
+			payload.featureFlags?.mergeAskBuild && this.assistantHandler
+				? [ASK_ASSISTANT_TOOL, BUILD_WORKFLOW_TOOL]
+				: [BUILD_WORKFLOW_TOOL];
+		const llmWithTools = this.llm.bindTools(tools);
 
 		const systemContent = buildTriagePrompt(conversationHistory);
 

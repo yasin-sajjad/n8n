@@ -110,6 +110,8 @@ export interface BuilderFeatureFlags {
 	planMode?: boolean;
 	/** Enable introspection tool for diagnostic data collection. Disabled by default. */
 	enableIntrospection?: boolean;
+	/** Enable merged ask/build triage routing (075_merge_ask_build). */
+	mergeAskBuild?: boolean;
 }
 
 export interface ChatPayload {
