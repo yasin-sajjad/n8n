@@ -22,6 +22,7 @@ import type {
 } from '@/modules/external-secrets.ee/types';
 
 import {
+	createDummyProvider,
 	DummyProvider,
 	FailedProvider,
 	MockProviders,
@@ -103,6 +104,7 @@ const getDummyProviderData = ({
 	state,
 	connectedAt,
 	displayName,
+	name,
 }: {
 	data?: IDataObject;
 	includeProperties?: boolean;
@@ -110,14 +112,16 @@ const getDummyProviderData = ({
 	state?: SecretsProviderState;
 	connectedAt?: string | null;
 	displayName?: string;
+	name?: string;
 } = {}) => {
+	const providerName = name ?? 'dummy';
 	const dummy: IDataObject = {
 		connected: connected ?? true,
 		connectedAt: connectedAt === undefined ? connectedDate : connectedAt,
 		data: data ?? {},
-		name: 'dummy',
-		displayName: displayName ?? 'Dummy Provider',
-		icon: 'dummy',
+		name: providerName,
+		displayName: displayName ?? (providerName === 'vault' ? 'Vault' : 'Dummy Provider'),
+		icon: providerName,
 		state: state ?? 'connected',
 	};
 
@@ -164,12 +168,22 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+	const hashicorpProvider = createDummyProvider({ name: 'vault', displayName: 'Vault' });
+	mockProvidersInstance.setProviders({
+		vault: hashicorpProvider,
+	});
 	mockProvidersInstance.setProviders({
 		dummy: DummyProvider,
+		vault: hashicorpProvider,
 	});
 
 	await setExternalSecretsSettings({
 		dummy: {
+			connected: true,
+			connectedAt: new Date(connectedDate),
+			settings: {},
+		},
+		vault: {
 			connected: true,
 			connectedAt: new Date(connectedDate),
 			settings: {},
@@ -187,7 +201,7 @@ describe('GET /external-secrets/providers', () => {
 	test('can retrieve providers as owner', async () => {
 		const resp = await authOwnerAgent.get('/external-secrets/providers');
 		expect(resp.body).toEqual({
-			data: [getDummyProviderData()],
+			data: [getDummyProviderData(), getDummyProviderData({ name: 'vault' })],
 		});
 	});
 
@@ -206,6 +220,11 @@ describe('GET /external-secrets/providers', () => {
 					password: 'testpass',
 				},
 			},
+			vault: {
+				connected: true,
+				connectedAt: new Date(connectedDate),
+				settings: {},
+			},
 		});
 
 		await resetManager();
@@ -219,6 +238,7 @@ describe('GET /external-secrets/providers', () => {
 						password: CREDENTIAL_BLANKING_VALUE,
 					},
 				}),
+				getDummyProviderData({ name: 'vault' }),
 			],
 		});
 	});
@@ -392,21 +412,22 @@ describe('POST /external-secrets/providers/:provider/update', () => {
 		// Baseline: current secrets before any change
 		const listBefore = await authOwnerAgent.get('/external-secrets/secrets');
 		expect(listBefore.status).toBe(200);
-		expect(listBefore.body.data).toEqual({ dummy: ['test1', 'test2'] });
+		expect(listBefore.body.data).toEqual({ vault: ['test1', 'test2'] });
 
 		// Arrange: change what the provider will publish on update()
 		const manager = Container.get(ExternalSecretsManager);
-		const provider = manager.getProvider('dummy') as unknown as DummyProvider;
+		const provider = manager.getProvider('vault');
+		// @ts-expect-error - accessing internal property for testing
 		provider._updateSecrets = { rotated: 'new-value' };
 
 		// Act: trigger manual update (as frontend would do)
-		const resp = await authOwnerAgent.post('/external-secrets/providers/dummy/update');
+		const resp = await authOwnerAgent.post('/external-secrets/providers/vault/update');
 		expect(resp.status).toBe(200);
 
 		// Assert: list endpoint reflects freshly updated secrets
 		const listAfter = await authOwnerAgent.get('/external-secrets/secrets');
 		expect(listAfter.status).toBe(200);
-		expect(listAfter.body.data).toEqual({ dummy: ['rotated'] });
+		expect(listAfter.body.data).toEqual({ vault: ['rotated'] });
 	});
 });
 
@@ -415,7 +436,7 @@ describe('GET /external-secrets/secrets', () => {
 		const resp = await authOwnerAgent.get('/external-secrets/secrets');
 		expect(resp.status).toBe(200);
 		expect(resp.body.data).toEqual({
-			dummy: ['test1', 'test2'],
+			vault: ['test1', 'test2'],
 		});
 	});
 
@@ -423,7 +444,41 @@ describe('GET /external-secrets/secrets', () => {
 		const resp = await authMemberAgent.get('/external-secrets/secrets');
 		expect(resp.status).toBe(403);
 		expect(resp.body.data).not.toEqual({
-			dummy: ['test1', 'test2'],
+			vault: ['test1', 'test2'],
 		});
+	});
+
+	test('does not return any connected vaults that have other names than what was supported before project-scoped secrets release', async () => {
+		const vaultProvider = createDummyProvider({ name: 'vault', displayName: 'Vault' });
+		const newProvider = createDummyProvider({
+			name: 'newConnection',
+			displayName: 'New connection',
+		});
+		mockProvidersInstance.setProviders({
+			vault: vaultProvider,
+			newProvider: newProvider,
+		});
+
+		await setExternalSecretsSettings({
+			vault: {
+				connected: true,
+				connectedAt: new Date(connectedDate),
+				settings: {},
+			},
+			newProvider: {
+				connected: true,
+				connectedAt: new Date(connectedDate),
+				settings: {},
+			},
+		});
+
+		await resetManager();
+
+		const resp = await authOwnerAgent.get('/external-secrets/secrets');
+		expect(resp.status).toBe(200);
+		expect(resp.body.data).toEqual({
+			vault: ['test1', 'test2'],
+		});
+		expect(resp.body.data).not.toHaveProperty(newProvider.name);
 	});
 });
