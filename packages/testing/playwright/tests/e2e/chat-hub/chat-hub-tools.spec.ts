@@ -40,7 +40,7 @@ test.describe('Tools usage @capability:proxy', () => {
 		await expect(page.toolsModal.getRoot()).toBeHidden();
 
 		// Verify tool is shown
-		await expect(page.getToolsButton()).toContainText('Jina AI Tool');
+		await expect(page.getToolsButton()).toContainText('Search web in Jina AI');
 
 		// Send message and check response
 		await page.getChatInput().fill('What is n8n?');
