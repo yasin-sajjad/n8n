@@ -8,7 +8,9 @@ import { ChatHubToolsModal } from './components/ChatHubToolsModal';
 
 export class ChatHubChatPage extends BasePage {
 	readonly sidebar = new ChatHubSidebar(this.page.locator('#sidebar'));
-	readonly toolsModal = new ChatHubToolsModal(this.page.getByTestId('toolsManagerModal-modal'));
+	readonly toolsModal = new ChatHubToolsModal(
+		this.page.getByRole('dialog').filter({ has: this.page.locator('[data-tools-manager-modal]') }),
+	);
 	readonly credModal = new ChatHubCredentialModal(
 		this.page.getByTestId('chatCredentialSelectorModal-modal'),
 	);
