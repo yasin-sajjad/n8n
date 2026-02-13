@@ -12,7 +12,7 @@ on:
         required: true
         type: string
       resumeUrl:
-        description: 'Optional URL to resume a Claude Code session'
+        description: 'Optional callback URL to call with the result when the workflow completes'
         required: false
         type: string
       createPr:
@@ -181,10 +181,8 @@ jobs:
         run: |
           # Extract only the result message (last element) from Claude's output
           if [ -f "$EXECUTION_FILE" ]; then
-            jq -n \
-              --arg branch "$BRANCH_NAME" \
-              --argjson result "$(jq '.[-1]' "$EXECUTION_FILE")" \
-              '{success: true, branch: $branch, result: $result}' \
+            jq --arg branch "$BRANCH_NAME" \
+              '{success: true, branch: $branch, result: .[-1]}' "$EXECUTION_FILE" \
             | curl -X POST "${{ inputs.resumeUrl }}" \
               -H "Content-Type: application/json" \
               --data-binary @-
