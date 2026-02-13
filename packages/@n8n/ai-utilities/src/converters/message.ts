@@ -157,7 +157,7 @@ function fromLcContent(
 					type: 'invalid-tool-call',
 					toolCallId: block.id,
 					error: block.error,
-					args: JSON.stringify(block.args),
+					args: block.args,
 					name: block.name,
 				};
 			} else if (isToolResultBlock(block)) {
