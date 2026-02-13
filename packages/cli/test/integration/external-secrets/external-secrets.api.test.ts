@@ -456,7 +456,7 @@ describe('GET /external-secrets/secrets', () => {
 		});
 		mockProvidersInstance.setProviders({
 			vault: vaultProvider,
-			newProvider: newProvider,
+			newProvider,
 		});
 
 		await setExternalSecretsSettings({
