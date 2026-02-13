@@ -293,7 +293,7 @@ async function onDelete() {
 					/>
 				</div>
 			</N8nDialogHeader>
-			<div :class="$style.content">
+			<div data-agent-editor-modal :class="$style.content">
 				<N8nInputLabel
 					input-name="agent-name"
 					:label="i18n.baseText('chatHub.agent.editor.name.label')"
@@ -450,5 +450,11 @@ async function onDelete() {
 	justify-content: center;
 	align-items: center;
 	min-height: 200px;
+}
+</style>
+
+<style lang="scss">
+[role='dialog']:has([data-agent-editor-modal]) {
+	background-color: var(--dialog--color--background);
 }
 </style>

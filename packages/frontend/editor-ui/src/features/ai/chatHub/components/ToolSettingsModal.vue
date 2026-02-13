@@ -140,3 +140,9 @@ function handleNodeNameUpdate(name: string) {
 	}
 }
 </style>
+
+<style lang="scss">
+[role='dialog']:has([data-tool-settings-content]) {
+	background-color: var(--dialog--color--background);
+}
+</style>
