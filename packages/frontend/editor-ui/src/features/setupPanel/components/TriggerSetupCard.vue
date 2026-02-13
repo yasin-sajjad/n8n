@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from '@n8n/i18n';
-import { N8nButton, N8nIcon, N8nText, N8nTooltip } from '@n8n/design-system';
+import { N8nIcon, N8nText, N8nTooltip } from '@n8n/design-system';
 
 import NodeIcon from '@/app/components/NodeIcon.vue';
+import TriggerExecuteButton from './TriggerExecuteButton.vue';
 import { useNodeTypesStore } from '@/app/stores/nodeTypes.store';
 import { useWorkflowsStore } from '@/app/stores/workflows.store';
 
 import type { TriggerSetupState } from '../setupPanel.types';
-import { useNodeExecution } from '@/app/composables/useNodeExecution';
 import { useTelemetry } from '@/app/composables/useTelemetry';
 
 const props = defineProps<{
@@ -22,24 +22,9 @@ const telemetry = useTelemetry();
 const nodeTypesStore = useNodeTypesStore();
 const workflowsStore = useWorkflowsStore();
 
-const nodeRef = computed(() => props.state.node);
-const { isExecuting, buttonLabel, buttonIcon, disabledReason, hasIssues, execute } =
-	useNodeExecution(nodeRef);
-
 const nodeType = computed(() =>
 	nodeTypesStore.getNodeType(props.state.node.type, props.state.node.typeVersion),
 );
-
-const isButtonDisabled = computed(
-	() => isExecuting.value || hasIssues.value || !!disabledReason.value,
-);
-
-const tooltipText = computed(() => {
-	if (hasIssues.value) {
-		return i18n.baseText('ndv.execute.requiredFieldsMissing');
-	}
-	return disabledReason.value;
-});
 
 const onHeaderClick = () => {
 	expanded.value = !expanded.value;
@@ -47,9 +32,8 @@ const onHeaderClick = () => {
 
 const hadManualInteraction = ref(false);
 
-const onTestClick = async () => {
+const onExecuted = () => {
 	hadManualInteraction.value = true;
-	await execute();
 };
 
 watch(
@@ -128,18 +112,7 @@ onMounted(() => {
 						{{ i18n.baseText('generic.complete') }}
 					</N8nText>
 				</div>
-				<N8nTooltip :disabled="!tooltipText" placement="top">
-					<template #content>{{ tooltipText }}</template>
-					<N8nButton
-						data-test-id="trigger-setup-card-test-button"
-						:label="buttonLabel"
-						:disabled="isButtonDisabled"
-						:loading="isExecuting"
-						:icon="buttonIcon"
-						size="small"
-						@click="onTestClick"
-					/>
-				</N8nTooltip>
+				<TriggerExecuteButton :node="state.node" @executed="onExecuted" />
 			</footer>
 		</template>
 	</div>

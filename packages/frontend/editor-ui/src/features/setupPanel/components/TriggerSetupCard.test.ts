@@ -13,6 +13,8 @@ const { mockExecute, mockComposableState } = vi.hoisted(() => ({
 	mockExecute: vi.fn(),
 	mockComposableState: {
 		isExecuting: false,
+		isListening: false,
+		isListeningForWorkflowEvents: false,
 		hasIssues: false,
 		disabledReason: '',
 	},
@@ -23,8 +25,10 @@ vi.mock('@/app/composables/useNodeExecution', async () => {
 	return {
 		useNodeExecution: vi.fn(() => ({
 			isExecuting: computed(() => mockComposableState.isExecuting),
-			isListening: ref(false),
-			isListeningForWorkflowEvents: ref(false),
+			isListening: computed(() => mockComposableState.isListening),
+			isListeningForWorkflowEvents: computed(
+				() => mockComposableState.isListeningForWorkflowEvents,
+			),
 			buttonLabel: ref('Test node'),
 			buttonIcon: ref('flask-conical'),
 			disabledReason: computed(() => mockComposableState.disabledReason),
@@ -59,6 +63,8 @@ describe('TriggerSetupCard', () => {
 	beforeEach(() => {
 		mockExecute.mockClear();
 		mockComposableState.isExecuting = false;
+		mockComposableState.isListening = false;
+		mockComposableState.isListeningForWorkflowEvents = false;
 		mockComposableState.hasIssues = false;
 		mockComposableState.disabledReason = '';
 		createTestingPinia();
@@ -85,7 +91,7 @@ describe('TriggerSetupCard', () => {
 				props: { state: createState(), expanded: true },
 			});
 
-			expect(getByTestId('trigger-setup-card-test-button')).toBeInTheDocument();
+			expect(getByTestId('trigger-execute-button')).toBeInTheDocument();
 		});
 
 		it('should not render content when collapsed', () => {
@@ -93,7 +99,7 @@ describe('TriggerSetupCard', () => {
 				props: { state: createState(), expanded: false },
 			});
 
-			expect(queryByTestId('trigger-setup-card-test-button')).not.toBeInTheDocument();
+			expect(queryByTestId('trigger-execute-button')).not.toBeInTheDocument();
 		});
 	});
 
@@ -172,7 +178,7 @@ describe('TriggerSetupCard', () => {
 				props: { state: createState(), expanded: true },
 			});
 
-			expect(getByTestId('trigger-setup-card-test-button')).toBeInTheDocument();
+			expect(getByTestId('trigger-execute-button')).toBeInTheDocument();
 		});
 
 		it('should disable test button when node has issues', () => {
@@ -182,7 +188,7 @@ describe('TriggerSetupCard', () => {
 				props: { state: createState(), expanded: true },
 			});
 
-			expect(getByTestId('trigger-setup-card-test-button')).toBeDisabled();
+			expect(getByTestId('trigger-execute-button')).toBeDisabled();
 		});
 
 		it('should disable test button when node is executing', () => {
@@ -192,7 +198,7 @@ describe('TriggerSetupCard', () => {
 				props: { state: createState(), expanded: true },
 			});
 
-			expect(getByTestId('trigger-setup-card-test-button')).toBeDisabled();
+			expect(getByTestId('trigger-execute-button')).toBeDisabled();
 		});
 
 		it('should enable test button when node has no issues and is not executing', () => {
@@ -200,7 +206,7 @@ describe('TriggerSetupCard', () => {
 				props: { state: createState(), expanded: true },
 			});
 
-			expect(getByTestId('trigger-setup-card-test-button')).not.toBeDisabled();
+			expect(getByTestId('trigger-execute-button')).not.toBeDisabled();
 		});
 	});
 
@@ -210,7 +216,7 @@ describe('TriggerSetupCard', () => {
 				props: { state: createState(), expanded: true },
 			});
 
-			await userEvent.click(getByTestId('trigger-setup-card-test-button'));
+			await userEvent.click(getByTestId('trigger-execute-button'));
 
 			expect(mockExecute).toHaveBeenCalledTimes(1);
 		});
