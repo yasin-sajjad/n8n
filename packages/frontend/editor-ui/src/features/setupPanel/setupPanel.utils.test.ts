@@ -5,7 +5,6 @@ import {
 	getNodeCredentialTypes,
 	buildCredentialRequirement,
 	isNodeSetupComplete,
-	buildNodeSetupState,
 	groupCredentialsByType,
 	isCredentialCardComplete,
 	buildTriggerSetupState,
@@ -252,49 +251,6 @@ describe('setupPanel.utils', () => {
 			];
 
 			expect(isNodeSetupComplete(requirements)).toBe(false);
-		});
-	});
-
-	describe('buildNodeSetupState', () => {
-		const displayNameLookup = (type: string) => `Display: ${type}`;
-
-		it('should build complete state for a fully configured node', () => {
-			const node = createNode({
-				credentials: {
-					testApi: { id: 'cred-1', name: 'Test' },
-				},
-			});
-			const nodeNames = new Map([['testApi', ['TestNode']]]);
-
-			const result = buildNodeSetupState(node, ['testApi'], displayNameLookup, nodeNames);
-
-			expect(result.node).toBe(node);
-			expect(result.credentialRequirements).toHaveLength(1);
-			expect(result.isComplete).toBe(true);
-		});
-
-		it('should build incomplete state for a node missing credentials', () => {
-			const node = createNode();
-			const nodeNames = new Map<string, string[]>();
-
-			const result = buildNodeSetupState(node, ['testApi'], displayNameLookup, nodeNames);
-
-			expect(result.isComplete).toBe(false);
-			expect(result.credentialRequirements[0].selectedCredentialId).toBeUndefined();
-		});
-
-		it('should build state with multiple credential requirements', () => {
-			const node = createNode({
-				credentials: {
-					apiA: { id: 'cred-1', name: 'A' },
-				},
-			});
-			const nodeNames = new Map<string, string[]>();
-
-			const result = buildNodeSetupState(node, ['apiA', 'apiB'], displayNameLookup, nodeNames);
-
-			expect(result.credentialRequirements).toHaveLength(2);
-			expect(result.isComplete).toBe(false);
 		});
 	});
 

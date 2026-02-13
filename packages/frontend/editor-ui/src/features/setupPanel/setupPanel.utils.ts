@@ -5,7 +5,6 @@ import { getNodeTypeDisplayableCredentials } from '@/app/utils/nodes/nodeTransfo
 import type {
 	CredentialTypeSetupState,
 	NodeCredentialRequirement,
-	NodeSetupState,
 	TriggerSetupState,
 } from './setupPanel.types';
 
@@ -72,38 +71,6 @@ export function buildCredentialRequirement(
  */
 export function isNodeSetupComplete(requirements: NodeCredentialRequirement[]): boolean {
 	return requirements.every((req) => req.selectedCredentialId && req.issues.length === 0);
-}
-
-/**
- * Builds the full setup state for a single node: its credential requirements
- * and whether the node is fully configured.
- */
-export function buildNodeSetupState(
-	node: INodeUi,
-	credentialTypes: string[],
-	getCredentialDisplayName: (type: string) => string,
-	credentialTypeToNodeNames: Map<string, string[]>,
-	isTrigger = false,
-	hasTriggerExecuted = false,
-): NodeSetupState {
-	const credentialRequirements = credentialTypes.map((credType) =>
-		buildCredentialRequirement(node, credType, getCredentialDisplayName, credentialTypeToNodeNames),
-	);
-
-	const credentialsConfigured = isNodeSetupComplete(credentialRequirements);
-
-	// For triggers: complete only after successful execution
-	// For regular nodes: complete when credentials are configured
-	const isComplete = isTrigger
-		? credentialsConfigured && hasTriggerExecuted
-		: credentialsConfigured;
-
-	return {
-		node,
-		credentialRequirements,
-		isComplete,
-		isTrigger,
-	};
 }
 
 /**

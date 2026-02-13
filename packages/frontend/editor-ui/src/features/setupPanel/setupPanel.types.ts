@@ -9,13 +9,6 @@ export interface NodeCredentialRequirement {
 	nodesWithSameCredential: string[];
 }
 
-export interface NodeSetupState {
-	node: INodeUi;
-	credentialRequirements: NodeCredentialRequirement[];
-	isComplete: boolean;
-	isTrigger: boolean;
-}
-
 /** One card per unique credential type — groups all nodes that need it */
 export interface CredentialTypeSetupState {
 	credentialType: string;
