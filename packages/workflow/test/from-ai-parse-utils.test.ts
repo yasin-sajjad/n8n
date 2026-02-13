@@ -1,3 +1,4 @@
+/* eslint-disable n8n-local-rules/no-interpolation-in-regular-string */
 import { FROM_AI_AUTO_GENERATED_MARKER } from '../src/constants';
 import {
 	extractFromAICalls,
@@ -186,6 +187,10 @@ describe('isFromAIOnlyExpression', () => {
 		'={{ $fromAI(`${evil()}`) }}',
 		'={{ $fromAI(`prefix${evil()}suffix`) }}',
 		'={{ $fromAI("key", `${$env.SECRET}`) }}',
+		'={{ $fromAI($env.SECRET) }}',
+		'={{ $fromAI("key", "desc" + $env.SECRET) }}',
+		'={{ $fromAI("key", true ? $env.SECRET : "x") }}',
+		'={{ $fromAI(eval`code`) }}',
 	])('should reject expression with extra content: %s', (expr) => {
 		expect(isFromAIOnlyExpression(expr)).toBe(false);
 	});

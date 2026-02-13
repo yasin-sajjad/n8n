@@ -393,6 +393,8 @@ export function isFromAIOnlyExpression(expr: string): boolean {
 	let quoteChar = '';
 	let depth = 1;
 
+	let lastOutsideChar = '';
+
 	while (current < str.length && depth > 0) {
 		const char = str[current];
 
@@ -417,13 +419,24 @@ export function isFromAIOnlyExpression(expr: string): boolean {
 			}
 		} else {
 			if (['"', "'", '`'].includes(char)) {
+				// Reject tagged template literals: identifier immediately before backtick
+				if (char === '`' && /[a-zA-Z0-9_]/.test(lastOutsideChar)) {
+					return false;
+				}
 				inQuotes = true;
 				quoteChar = char;
-			} else if (char === '(') {
-				// Nested parentheses outside quotes — not a simple literal argument
-				return false;
 			} else if (char === ')') {
 				depth--;
+			} else if (!/[a-zA-Z0-9.,\s-]/.test(char)) {
+				// Outside quotes, only allow literal-value characters:
+				// alphanumeric (true/false, numbers), decimal point, minus (negative numbers),
+				// comma (argument separator), and whitespace.
+				// This rejects operators (+, *, etc.), $ (variable references like $env),
+				// brackets, and other expression syntax.
+				return false;
+			}
+			if (!/\s/.test(char)) {
+				lastOutsideChar = char;
 			}
 		}
 
