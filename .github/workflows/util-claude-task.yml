@@ -100,6 +100,11 @@ jobs:
           claude_args: |
             --allowedTools Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch,TodoWrite
 
+      - name: Debug Claude outputs
+        run: |
+          echo "=== Claude Action Outputs ==="
+          echo '${{ toJSON(steps.claude.outputs) }}'
+
       - name: Extract PR title
         run: |
           # Use the last commit message as PR title
