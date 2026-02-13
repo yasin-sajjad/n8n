@@ -281,24 +281,22 @@ export class TriageAgent {
 	): Promise<ToolResult> {
 		switch (toolCall.name) {
 			case 'ask_assistant': {
-				// Only forward tool-progress chunks during SDK streaming.
-				// Text messages are buffered and emitted after "completed" so that
-				// all tool messages stay consecutive (single thinking group) and the
-				// UI keeps showing the spinner until the actual text appears.
-				const writer: StreamWriter = (chunk: StreamChunk) => {
-					if (chunk.type === 'tool') {
-						enqueue({ messages: [chunk] });
-					}
-				};
+				// Stable ID so the frontend can match running → completed on the same tool entry.
+				const assistantToolCallId = `triage-ask-assistant-${Date.now()}`;
 
+				// Show tool progress immediately.
 				enqueue(
 					this.wrapChunk({
 						type: 'tool',
 						toolName: 'assistant',
-						customDisplayTitle: 'Asking assistant',
+						toolCallId: assistantToolCallId,
 						status: 'running',
 					}),
 				);
+
+				// Noop writer — suppress all intermediate SDK chunks so the
+				// "running" tool message stays visible until we have the answer.
+				const noopWriter: StreamWriter = () => {};
 
 				const currentWorkflow = ctx.payload.workflowContext?.currentWorkflow;
 				const workflowJSON = currentWorkflow
@@ -316,24 +314,26 @@ export class TriageAgent {
 						workflowJSON,
 					},
 					ctx.userId,
-					writer,
+					noopWriter,
 					ctx.abortSignal,
 				);
 
-				const completedChunk: StreamChunk = {
-					type: 'tool',
-					toolName: 'assistant',
-					status: 'completed',
-				};
-				const messages: StreamChunk[] = [completedChunk];
+				const chunks: StreamChunk[] = [
+					{
+						type: 'tool',
+						toolName: 'assistant',
+						toolCallId: assistantToolCallId,
+						status: 'completed',
+					},
+				];
 				if (result.responseText) {
-					messages.push({
+					chunks.push({
 						role: 'assistant',
 						type: 'message',
 						text: result.responseText,
 					});
 				}
-				enqueue({ messages });
+				enqueue({ messages: chunks });
 
 				state.sdkSessionId = result.sdkSessionId;
 				state.assistantSummary = result.summary;

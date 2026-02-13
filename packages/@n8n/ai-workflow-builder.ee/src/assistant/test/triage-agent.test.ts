@@ -125,27 +125,41 @@ describe('TriageAgent', () => {
 		expect(result.buildExecuted).toBeFalsy();
 		expect(handler.execute).toHaveBeenCalledTimes(1);
 
-		const toolRunning = chunks.find(
+		// ask_assistant emits a "running" chunk then a bundled "completed + text" chunk
+		// Both share the same toolCallId so the frontend updates the same entry.
+		const runningChunk = chunks.find(
 			(c) =>
+				c.messages.length === 1 &&
 				c.messages[0].type === 'tool' &&
 				'status' in c.messages[0] &&
 				c.messages[0].status === 'running',
 		);
-		const toolCompleted = chunks.find(
+		expect(runningChunk).toBeDefined();
+
+		const bundledChunk = chunks.find(
 			(c) =>
+				c.messages.length === 2 &&
 				c.messages[0].type === 'tool' &&
 				'status' in c.messages[0] &&
-				c.messages[0].status === 'completed',
+				c.messages[0].status === 'completed' &&
+				c.messages[1].type === 'message' &&
+				'text' in c.messages[1] &&
+				c.messages[1].text === 'Assistant says hi',
 		);
+		expect(bundledChunk).toBeDefined();
+
+		// Same toolCallId on running and completed
+		const runningMsg = runningChunk!.messages[0] as Record<string, unknown>;
+		const completedMsg = bundledChunk!.messages[0] as Record<string, unknown>;
+		expect(runningMsg.toolCallId).toBeDefined();
+		expect(runningMsg.toolCallId).toBe(completedMsg.toolCallId);
+
 		const textChunk = chunks.find(
 			(c) =>
 				c.messages[0].type === 'message' &&
 				'text' in c.messages[0] &&
 				c.messages[0].text === 'Based on the assistant response, here is more info.',
 		);
-
-		expect(toolRunning).toBeDefined();
-		expect(toolCompleted).toBeDefined();
 		expect(textChunk).toBeDefined();
 
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
@@ -522,7 +536,7 @@ describe('TriageAgent', () => {
 		expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('Max iterations reached'));
 	});
 
-	it('should yield running and completed tool progress chunks for ask_assistant', async () => {
+	it('should yield running tool chunk and bundled completed+text with matching toolCallId', async () => {
 		const firstResponse = new AIMessage({
 			content: '',
 			tool_calls: [
@@ -547,15 +561,35 @@ describe('TriageAgent', () => {
 			agent.run({ payload: createMockPayload(), userId: 'user-1' }),
 		);
 
-		const toolChunks = chunks.filter((c) => c.messages[0].type === 'tool');
-		expect(toolChunks.length).toBeGreaterThanOrEqual(2);
+		// "running" tool chunk emitted immediately
+		const runningChunks = chunks.filter(
+			(c) =>
+				c.messages.length === 1 &&
+				c.messages[0].type === 'tool' &&
+				'status' in c.messages[0] &&
+				c.messages[0].status === 'running',
+		);
+		expect(runningChunks).toHaveLength(1);
 
-		const statuses = toolChunks.map((c) => {
-			const msg = c.messages[0];
-			return 'status' in msg ? msg.status : undefined;
-		});
-		expect(statuses).toContain('running');
-		expect(statuses).toContain('completed');
+		// "completed" bundled with text in a single StreamOutput
+		const bundledChunk = chunks.find(
+			(c) =>
+				c.messages.length === 2 &&
+				c.messages[0].type === 'tool' &&
+				'status' in c.messages[0] &&
+				c.messages[0].status === 'completed',
+		);
+		expect(bundledChunk).toBeDefined();
+		expect(bundledChunk!.messages[1].type).toBe('message');
+		expect('text' in bundledChunk!.messages[1] && bundledChunk!.messages[1].text).toBe(
+			'Assistant says hi',
+		);
+
+		// Same toolCallId so frontend updates the running entry instead of creating a new one
+		const runningMsg = runningChunks[0].messages[0] as Record<string, unknown>;
+		const completedMsg = bundledChunk!.messages[0] as Record<string, unknown>;
+		expect(runningMsg.toolCallId).toBeDefined();
+		expect(runningMsg.toolCallId).toBe(completedMsg.toolCallId);
 	});
 
 	it('should bind schema-only tools to the LLM', async () => {
