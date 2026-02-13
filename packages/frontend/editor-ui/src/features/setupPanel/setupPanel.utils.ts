@@ -80,6 +80,7 @@ export function isNodeSetupComplete(requirements: NodeCredentialRequirement[]): 
 export function groupCredentialsByType(
 	nodesWithCredentials: Array<{ node: INodeUi; credentialTypes: string[]; isTrigger: boolean }>,
 	getCredentialDisplayName: (type: string) => string,
+	isGenericAuthType: (type: string) => boolean,
 ): CredentialTypeSetupState[] {
 	const map = new Map<string, CredentialTypeSetupState>();
 
@@ -126,6 +127,7 @@ export function groupCredentialsByType(
 					nodeNames: [node.name],
 					triggerNodes: isTrigger ? [node] : [],
 					isComplete: false,
+					isGenericAuth: isGenericAuthType(credType),
 				});
 			}
 		}

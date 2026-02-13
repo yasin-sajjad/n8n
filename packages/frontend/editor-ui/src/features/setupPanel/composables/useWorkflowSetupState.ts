@@ -37,6 +37,11 @@ export const useWorkflowSetupState = (nodes?: Ref<INodeUi[]>) => {
 		return credentialTypeInfo?.displayName ?? credentialType;
 	};
 
+	const isGenericAuthType = (credentialType: string): boolean => {
+		const credentialTypeInfo = credentialsStore.getCredentialTypeByName(credentialType);
+		return credentialTypeInfo?.genericAuth === true;
+	};
+
 	const isTriggerNode = (node: INodeUi): boolean => {
 		return nodeTypesStore.isTriggerNode(node.type);
 	};
@@ -87,6 +92,7 @@ export const useWorkflowSetupState = (nodes?: Ref<INodeUi[]>) => {
 				isTrigger,
 			})),
 			getCredentialDisplayName,
+			isGenericAuthType,
 		);
 		const sorted = sortCredentialTypeStates(grouped, (name) => workflowsStore.getNodeByName(name));
 		// Only embed the first trigger; extras become standalone trigger cards.

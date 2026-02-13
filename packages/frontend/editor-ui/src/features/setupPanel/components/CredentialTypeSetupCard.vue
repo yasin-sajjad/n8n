@@ -8,6 +8,7 @@ import CredentialPicker from '@/features/credentials/components/CredentialPicker
 import TriggerExecuteButton from './TriggerExecuteButton.vue';
 import { useWorkflowsStore } from '@/app/stores/workflows.store';
 import { useTelemetry } from '@/app/composables/useTelemetry';
+import { getAppNameFromCredType } from '@/app/utils/nodeTypesUtils';
 
 import type { CredentialTypeSetupState } from '../setupPanel.types';
 
@@ -46,6 +47,17 @@ const onCredentialDeselected = () => {
 };
 
 const nodeNamesTooltip = computed(() => props.state.nodeNames.join(', '));
+
+const cardTitle = computed(() => {
+	if (props.state.isGenericAuth) {
+		return i18n.baseText('setupPanel.cardTitle.generic', {
+			interpolate: { credentialName: props.state.credentialDisplayName },
+		});
+	}
+	return i18n.baseText('setupPanel.cardTitle.service', {
+		interpolate: { serviceName: getAppNameFromCredType(props.state.credentialDisplayName) },
+	});
+});
 
 watch(
 	() => props.state.isComplete,
@@ -100,7 +112,7 @@ onMounted(() => {
 			/>
 			<CredentialIcon v-else :credential-type-name="state.credentialType" :size="16" />
 			<N8nText :class="$style['credential-name']" size="medium" color="text-dark">
-				{{ state.credentialDisplayName }}
+				{{ cardTitle }}
 			</N8nText>
 			<N8nIcon
 				:class="$style['header-icon']"

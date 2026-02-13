@@ -256,6 +256,7 @@ describe('setupPanel.utils', () => {
 
 	describe('groupCredentialsByType', () => {
 		const displayNameLookup = (type: string) => `Display: ${type}`;
+		const isGenericAuthLookup = (_type: string) => false;
 
 		it('should group multiple nodes sharing the same credential type', () => {
 			const nodeA = createNode({
@@ -273,6 +274,7 @@ describe('setupPanel.utils', () => {
 					{ node: nodeB, credentialTypes: ['slackApi'], isTrigger: false },
 				],
 				displayNameLookup,
+				isGenericAuthLookup,
 			);
 
 			expect(result).toHaveLength(1);
@@ -294,6 +296,7 @@ describe('setupPanel.utils', () => {
 					{ node: nodeB, credentialTypes: ['slackApi'], isTrigger: false },
 				],
 				displayNameLookup,
+				isGenericAuthLookup,
 			);
 
 			expect(result[0].selectedCredentialId).toBe('cred-2');
@@ -315,6 +318,7 @@ describe('setupPanel.utils', () => {
 					{ node: nodeB, credentialTypes: ['slackApi'], isTrigger: false },
 				],
 				displayNameLookup,
+				isGenericAuthLookup,
 			);
 
 			expect(result[0].issues).toEqual(['Token expired', 'Rate limited']);
@@ -328,6 +332,7 @@ describe('setupPanel.utils', () => {
 			const result = groupCredentialsByType(
 				nodes.map((node) => ({ node, credentialTypes: ['api'], isTrigger: false })),
 				displayNameLookup,
+				isGenericAuthLookup,
 			);
 
 			expect(result[0].nodeNames).toEqual(['A', 'B', 'C']);
@@ -342,6 +347,7 @@ describe('setupPanel.utils', () => {
 			const result = groupCredentialsByType(
 				[{ node, credentialTypes: ['slackApi'], isTrigger: false }],
 				displayNameLookup,
+				isGenericAuthLookup,
 			);
 
 			expect(result[0].isComplete).toBe(true);
@@ -353,6 +359,7 @@ describe('setupPanel.utils', () => {
 			const result = groupCredentialsByType(
 				[{ node, credentialTypes: ['slackApi'], isTrigger: false }],
 				displayNameLookup,
+				isGenericAuthLookup,
 			);
 
 			expect(result[0].isComplete).toBe(false);
@@ -368,13 +375,14 @@ describe('setupPanel.utils', () => {
 			const result = groupCredentialsByType(
 				[{ node, credentialTypes: ['slackApi'], isTrigger: false }],
 				displayNameLookup,
+				isGenericAuthLookup,
 			);
 
 			expect(result[0].isComplete).toBe(false);
 		});
 
 		it('should return empty array for empty input', () => {
-			const result = groupCredentialsByType([], displayNameLookup);
+			const result = groupCredentialsByType([], displayNameLookup, isGenericAuthLookup);
 
 			expect(result).toEqual([]);
 		});
@@ -391,6 +399,7 @@ describe('setupPanel.utils', () => {
 			const result = groupCredentialsByType(
 				[{ node, credentialTypes: ['slackApi', 'githubApi'], isTrigger: false }],
 				displayNameLookup,
+				isGenericAuthLookup,
 			);
 
 			expect(result).toHaveLength(2);
@@ -406,6 +415,7 @@ describe('setupPanel.utils', () => {
 			const result = groupCredentialsByType(
 				[{ node, credentialTypes: ['slackApi'], isTrigger: false }],
 				displayNameLookup,
+				isGenericAuthLookup,
 			);
 
 			expect(result[0].triggerNodes).toEqual([]);
@@ -421,6 +431,7 @@ describe('setupPanel.utils', () => {
 			const result = groupCredentialsByType(
 				[{ node: triggerNode, credentialTypes: ['slackApi'], isTrigger: true }],
 				displayNameLookup,
+				isGenericAuthLookup,
 			);
 
 			expect(result[0].triggerNodes).toHaveLength(1);
@@ -444,6 +455,7 @@ describe('setupPanel.utils', () => {
 					{ node: triggerNode, credentialTypes: ['slackApi'], isTrigger: true },
 				],
 				displayNameLookup,
+				isGenericAuthLookup,
 			);
 
 			expect(result).toHaveLength(1);
@@ -463,6 +475,7 @@ describe('setupPanel.utils', () => {
 				nodeNames: ['SlackNode'],
 				triggerNodes: [],
 				isComplete: false,
+				isGenericAuth: false,
 			};
 
 			expect(isCredentialCardComplete(state, () => false)).toBe(true);
@@ -477,6 +490,7 @@ describe('setupPanel.utils', () => {
 				nodeNames: ['SlackNode'],
 				triggerNodes: [],
 				isComplete: false,
+				isGenericAuth: false,
 			};
 
 			expect(isCredentialCardComplete(state, () => true)).toBe(false);
@@ -491,6 +505,7 @@ describe('setupPanel.utils', () => {
 				nodeNames: ['SlackNode'],
 				triggerNodes: [],
 				isComplete: false,
+				isGenericAuth: false,
 			};
 
 			expect(isCredentialCardComplete(state, () => true)).toBe(false);
@@ -506,6 +521,7 @@ describe('setupPanel.utils', () => {
 				nodeNames: ['SlackTrigger'],
 				triggerNodes: [triggerNode],
 				isComplete: false,
+				isGenericAuth: false,
 			};
 
 			expect(isCredentialCardComplete(state, () => false)).toBe(false);
@@ -521,6 +537,7 @@ describe('setupPanel.utils', () => {
 				nodeNames: ['SlackTrigger'],
 				triggerNodes: [triggerNode],
 				isComplete: false,
+				isGenericAuth: false,
 			};
 
 			expect(isCredentialCardComplete(state, () => true)).toBe(true);
@@ -536,6 +553,7 @@ describe('setupPanel.utils', () => {
 				nodeNames: ['Trigger1'],
 				triggerNodes: [trigger],
 				isComplete: false,
+				isGenericAuth: false,
 			};
 
 			expect(isCredentialCardComplete(state, () => true)).toBe(true);
@@ -571,6 +589,7 @@ describe('setupPanel.utils', () => {
 					nodeNames: ['Trigger'],
 					triggerNodes: [],
 					isComplete: true,
+					isGenericAuth: false,
 				},
 			];
 
@@ -590,6 +609,7 @@ describe('setupPanel.utils', () => {
 					nodeNames: ['Trigger'],
 					triggerNodes: [],
 					isComplete: false,
+					isGenericAuth: false,
 				},
 			];
 
@@ -609,6 +629,7 @@ describe('setupPanel.utils', () => {
 					nodeNames: ['Trigger'],
 					triggerNodes: [],
 					isComplete: true,
+					isGenericAuth: false,
 				},
 				{
 					credentialType: 'githubApi',
@@ -618,6 +639,7 @@ describe('setupPanel.utils', () => {
 					nodeNames: ['Trigger'],
 					triggerNodes: [],
 					isComplete: true,
+					isGenericAuth: false,
 				},
 			];
 
@@ -661,6 +683,7 @@ describe('setupPanel.utils', () => {
 					nodeNames: ['NodeA'],
 					triggerNodes: [],
 					isComplete: true,
+					isGenericAuth: false,
 				},
 				{
 					credentialType: 'apiB',
@@ -669,6 +692,7 @@ describe('setupPanel.utils', () => {
 					nodeNames: ['NodeB'],
 					triggerNodes: [],
 					isComplete: true,
+					isGenericAuth: false,
 				},
 				{
 					credentialType: 'apiC',
@@ -677,6 +701,7 @@ describe('setupPanel.utils', () => {
 					nodeNames: ['NodeC'],
 					triggerNodes: [],
 					isComplete: true,
+					isGenericAuth: false,
 				},
 			];
 
@@ -705,6 +730,7 @@ describe('setupPanel.utils', () => {
 					nodeNames: ['NodeA', 'NodeB'],
 					triggerNodes: [],
 					isComplete: true,
+					isGenericAuth: false,
 				},
 				{
 					credentialType: 'apiY',
@@ -713,6 +739,7 @@ describe('setupPanel.utils', () => {
 					nodeNames: ['NodeC'],
 					triggerNodes: [],
 					isComplete: true,
+					isGenericAuth: false,
 				},
 			];
 
@@ -736,6 +763,7 @@ describe('setupPanel.utils', () => {
 					nodeNames: ['MissingNode'],
 					triggerNodes: [],
 					isComplete: true,
+					isGenericAuth: false,
 				},
 				{
 					credentialType: 'apiKnown',
@@ -744,6 +772,7 @@ describe('setupPanel.utils', () => {
 					nodeNames: ['NodeA'],
 					triggerNodes: [],
 					isComplete: true,
+					isGenericAuth: false,
 				},
 			];
 
@@ -761,6 +790,7 @@ describe('setupPanel.utils', () => {
 					nodeNames: ['NodeB'],
 					triggerNodes: [],
 					isComplete: true,
+					isGenericAuth: false,
 				},
 				{
 					credentialType: 'apiA',
@@ -769,6 +799,7 @@ describe('setupPanel.utils', () => {
 					nodeNames: ['NodeA'],
 					triggerNodes: [],
 					isComplete: true,
+					isGenericAuth: false,
 				},
 			];
 

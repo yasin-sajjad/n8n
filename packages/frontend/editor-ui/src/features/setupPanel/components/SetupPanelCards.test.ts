@@ -76,6 +76,7 @@ const createCredentialCard = (
 		nodeNames: ['OpenAI'],
 		triggerNodes: [],
 		isComplete: false,
+		isGenericAuth: false,
 		...overrides,
 	},
 });
