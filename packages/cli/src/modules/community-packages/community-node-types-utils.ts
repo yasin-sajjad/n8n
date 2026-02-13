@@ -1,4 +1,3 @@
-import { AI_NODE_SDK_VERSION } from '@n8n/ai-utilities';
 import type { INodeTypeDescription } from 'n8n-workflow';
 
 import { paginatedRequest, type StrapiFilters } from './strapi-utils';
@@ -42,11 +41,12 @@ function getUrl(environment: 'staging' | 'production'): string {
 export async function getCommunityNodeTypes(
 	environment: 'staging' | 'production',
 	qs: { filters?: StrapiFilters; fields?: string[] } = {},
+	aiNodeSdkVersion?: number,
 ): Promise<StrapiCommunityNodeType[]> {
 	const url = getUrl(environment);
 	const params = {
 		...qs,
-		includeAiNodesSdkVersion: AI_NODE_SDK_VERSION,
+		...(aiNodeSdkVersion !== undefined ? { includeAiNodesSdkVersion: aiNodeSdkVersion } : {}),
 		pagination: {
 			page: 1,
 			pageSize: 25,
@@ -57,11 +57,12 @@ export async function getCommunityNodeTypes(
 
 export async function getCommunityNodesMetadata(
 	environment: 'staging' | 'production',
+	aiNodeSdkVersion?: number,
 ): Promise<CommunityNodesMetadata[]> {
 	const url = getUrl(environment);
 	const params = {
 		fields: ['npmVersion', 'name', 'updatedAt'],
-		includeAiNodesSdkVersion: AI_NODE_SDK_VERSION,
+		...(aiNodeSdkVersion !== undefined ? { includeAiNodesSdkVersion: aiNodeSdkVersion } : {}),
 		pagination: {
 			page: 1,
 			pageSize: 500,

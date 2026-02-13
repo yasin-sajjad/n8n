@@ -1,3 +1,4 @@
+import { AI_NODE_SDK_VERSION } from '@n8n/ai-utilities';
 import { Config, Env } from '@n8n/config';
 
 @Config
@@ -25,4 +26,12 @@ export class CommunityPackagesConfig {
 	/** Whether to load community packages */
 	@Env('N8N_COMMUNITY_PACKAGES_PREVENT_LOADING')
 	preventLoading: boolean = false;
+
+	/**
+	 * Current AI Node SDK version, read from @n8n/ai-utilities package.json.
+	 * Sent to the Strapi API as `includeAiNodesSdkVersion` so only compatible
+	 * AI community nodes are returned. Bumped only on significant breaking
+	 * changes to the AI Node SDK (expected to be very rare).
+	 */
+	readonly aiNodeSdkVersion: number = AI_NODE_SDK_VERSION;
 }
