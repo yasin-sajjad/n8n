@@ -210,7 +210,7 @@ describe('ExpandProviderIdColumnLength Migration', () => {
 		const providerTypeColumn = context.escape.columnName('providerType');
 
 		const result = await context.runQuery<AuthIdentity[]>(
-			`SELECT ${userIdColumn} as userId, ${providerIdColumn} as providerId, ${providerTypeColumn} as providerType
+			`SELECT ${userIdColumn}, ${providerIdColumn}, ${providerTypeColumn}
 			 FROM ${tableName}
 			 WHERE ${providerIdColumn} = :providerId
 			   AND ${providerTypeColumn} = :providerType`,
