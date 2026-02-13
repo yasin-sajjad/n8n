@@ -107,7 +107,7 @@ describe('EnterpriseCredentialsService', () => {
 					url: 'https://api.example.com',
 				};
 				credentialsService.decrypt.mockReturnValue(decryptedData);
-				externalSecretsProviderAccessCheckService.canAccessProviderFromProject.mockResolvedValue(
+				externalSecretsProviderAccessCheckService.isProviderAvailableInProject.mockResolvedValue(
 					false,
 				);
 
@@ -117,7 +117,7 @@ describe('EnterpriseCredentialsService', () => {
 
 				expect(credentialsService.decrypt).toHaveBeenCalledWith(credential, true);
 				expect(
-					externalSecretsProviderAccessCheckService.canAccessProviderFromProject,
+					externalSecretsProviderAccessCheckService.isProviderAvailableInProject,
 				).toHaveBeenCalledWith(providerKey, destinationProjectId);
 			});
 
@@ -128,7 +128,7 @@ describe('EnterpriseCredentialsService', () => {
 					url: 'https://api.example.com',
 				};
 				credentialsService.decrypt.mockReturnValue(decryptedData);
-				externalSecretsProviderAccessCheckService.canAccessProviderFromProject.mockResolvedValue(
+				externalSecretsProviderAccessCheckService.isProviderAvailableInProject.mockResolvedValue(
 					true,
 				);
 				mockTransactionManager();
@@ -138,7 +138,7 @@ describe('EnterpriseCredentialsService', () => {
 				).resolves.toBeUndefined();
 
 				expect(
-					externalSecretsProviderAccessCheckService.canAccessProviderFromProject,
+					externalSecretsProviderAccessCheckService.isProviderAvailableInProject,
 				).toHaveBeenCalledWith(providerKey, destinationProjectId);
 			});
 
@@ -155,7 +155,7 @@ describe('EnterpriseCredentialsService', () => {
 				).resolves.toBeUndefined();
 
 				expect(
-					externalSecretsProviderAccessCheckService.canAccessProviderFromProject,
+					externalSecretsProviderAccessCheckService.isProviderAvailableInProject,
 				).not.toHaveBeenCalled();
 			});
 
@@ -169,7 +169,7 @@ describe('EnterpriseCredentialsService', () => {
 
 				expect(credentialsService.decrypt).not.toHaveBeenCalled();
 				expect(
-					externalSecretsProviderAccessCheckService.canAccessProviderFromProject,
+					externalSecretsProviderAccessCheckService.isProviderAvailableInProject,
 				).not.toHaveBeenCalled();
 			});
 
@@ -183,7 +183,7 @@ describe('EnterpriseCredentialsService', () => {
 
 				expect(credentialsService.decrypt).not.toHaveBeenCalled();
 				expect(
-					externalSecretsProviderAccessCheckService.canAccessProviderFromProject,
+					externalSecretsProviderAccessCheckService.isProviderAvailableInProject,
 				).not.toHaveBeenCalled();
 			});
 		});
