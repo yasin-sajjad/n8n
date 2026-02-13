@@ -76,8 +76,14 @@ describe('AssistantHandler', () => {
 
 		const result = await handler.execute({ query: 'Help me' }, 'user-1', writer);
 
-		expect(writtenChunks).toHaveLength(1);
-		const chunk = writtenChunks[0] as AgentMessageChunk;
+		// First chunk is the "Connecting to assistant..." progress
+		expect(writtenChunks).toHaveLength(2);
+		const progressChunk = writtenChunks[0] as ToolProgressChunk;
+		expect(progressChunk.type).toBe('tool');
+		expect(progressChunk.status).toBe('running');
+		expect(progressChunk.customDisplayTitle).toBe('Connecting to assistant...');
+
+		const chunk = writtenChunks[1] as AgentMessageChunk;
 		expect(chunk.role).toBe('assistant');
 		expect(chunk.type).toBe('message');
 		expect(chunk.text).toBe('Hello, how can I help?');
@@ -119,9 +125,9 @@ describe('AssistantHandler', () => {
 
 		await handler.execute({ query: 'test' }, 'user-1', writer);
 
-		expect(writtenChunks).toHaveLength(2);
-		expect((writtenChunks[0] as AgentMessageChunk).text).toBe('First');
-		expect((writtenChunks[1] as AgentMessageChunk).text).toBe('Second');
+		expect(writtenChunks).toHaveLength(3);
+		expect((writtenChunks[1] as AgentMessageChunk).text).toBe('First');
+		expect((writtenChunks[2] as AgentMessageChunk).text).toBe('Second');
 	});
 
 	it('should degrade code-diff to AgentMessageChunk with fenced code block', async () => {
@@ -144,8 +150,8 @@ describe('AssistantHandler', () => {
 
 		const result = await handler.execute({ query: 'fix it' }, 'user-1', writer);
 
-		expect(writtenChunks).toHaveLength(1);
-		const chunk = writtenChunks[0] as AgentMessageChunk;
+		expect(writtenChunks).toHaveLength(2);
+		const chunk = writtenChunks[1] as AgentMessageChunk;
 		expect(chunk.type).toBe('message');
 		expect(chunk.text).toContain('Here is the fix');
 		expect(chunk.text).toContain('```diff');
@@ -173,8 +179,8 @@ describe('AssistantHandler', () => {
 
 		await handler.execute({ query: 'test' }, 'user-1', writer);
 
-		expect(writtenChunks).toHaveLength(1);
-		const chunk = writtenChunks[0] as AgentMessageChunk;
+		expect(writtenChunks).toHaveLength(2);
+		const chunk = writtenChunks[1] as AgentMessageChunk;
 		expect(chunk.text).toBe('**Summary Title**\n\nSummary content here');
 	});
 
@@ -198,8 +204,8 @@ describe('AssistantHandler', () => {
 
 		const result = await handler.execute({ query: 'test' }, 'user-1', writer);
 
-		expect(writtenChunks).toHaveLength(1);
-		const chunk = writtenChunks[0] as AgentMessageChunk;
+		expect(writtenChunks).toHaveLength(2);
+		const chunk = writtenChunks[1] as AgentMessageChunk;
 		expect(chunk.text).toBe('**Try this**\n\nUse the HTTP node instead');
 		expect(result.suggestionIds).toContain('sug-2');
 	});
@@ -223,11 +229,12 @@ describe('AssistantHandler', () => {
 
 		await handler.execute({ query: 'test' }, 'user-1', writer);
 
-		expect(writtenChunks).toHaveLength(1);
-		const chunk = writtenChunks[0] as ToolProgressChunk;
+		expect(writtenChunks).toHaveLength(2);
+		const chunk = writtenChunks[1] as ToolProgressChunk;
 		expect(chunk.type).toBe('tool');
 		expect(chunk.toolName).toBe('assistant');
-		expect(chunk.status).toBe('Searching documentation...');
+		expect(chunk.status).toBe('running');
+		expect(chunk.customDisplayTitle).toBe('Searching documentation...');
 	});
 
 	it('should silently consume event messages without writing', async () => {
@@ -242,7 +249,11 @@ describe('AssistantHandler', () => {
 
 		await handler.execute({ query: 'test' }, 'user-1', writer);
 
-		expect(writtenChunks).toHaveLength(0);
+		// Only the "Connecting..." progress chunk, event message is consumed silently
+		expect(writtenChunks).toHaveLength(1);
+		expect((writtenChunks[0] as ToolProgressChunk).customDisplayTitle).toBe(
+			'Connecting to assistant...',
+		);
 	});
 
 	it('should map error message to AgentMessageChunk', async () => {
@@ -263,8 +274,8 @@ describe('AssistantHandler', () => {
 
 		await handler.execute({ query: 'test' }, 'user-1', writer);
 
-		expect(writtenChunks).toHaveLength(1);
-		const chunk = writtenChunks[0] as AgentMessageChunk;
+		expect(writtenChunks).toHaveLength(2);
+		const chunk = writtenChunks[1] as AgentMessageChunk;
 		expect(chunk.type).toBe('message');
 		expect(chunk.text).toBe('Something went wrong');
 	});
@@ -281,7 +292,8 @@ describe('AssistantHandler', () => {
 
 		await handler.execute({ query: 'test' }, 'user-1', writer);
 
-		expect(writtenChunks).toHaveLength(0);
+		// Only the "Connecting..." progress chunk, empty text message is skipped
+		expect(writtenChunks).toHaveLength(1);
 	});
 
 	it('should collect all text and truncate summary to 200 chars', async () => {
@@ -342,7 +354,8 @@ describe('AssistantHandler', () => {
 
 		expect(result.responseText).toBe('');
 		expect(result.hasCodeDiff).toBe(false);
-		expect(writtenChunks).toHaveLength(0);
+		// Only the "Connecting..." progress chunk, stream is aborted before any SDK chunks
+		expect(writtenChunks).toHaveLength(1);
 	});
 
 	it('should correctly parse JSON split across two reader.read() calls', async () => {
@@ -359,8 +372,8 @@ describe('AssistantHandler', () => {
 
 		const result = await handler.execute({ query: 'test' }, 'user-1', writer);
 
-		expect(writtenChunks).toHaveLength(1);
-		expect((writtenChunks[0] as AgentMessageChunk).text).toBe('Buffered correctly');
+		expect(writtenChunks).toHaveLength(2);
+		expect((writtenChunks[1] as AgentMessageChunk).text).toBe('Buffered correctly');
 		expect(result.responseText).toBe('Buffered correctly');
 	});
 

@@ -35,6 +35,8 @@ export class AssistantHandler {
 
 	/**
 	 * Execute an assistant SDK request: build payload, call SDK, consume stream.
+	 * Emits a "Connecting to assistant..." progress chunk before the HTTP call
+	 * to fill the gap while waiting for the SDK to respond.
 	 */
 	async execute(
 		context: AssistantContext,
@@ -43,6 +45,14 @@ export class AssistantHandler {
 		abortSignal?: AbortSignal,
 	): Promise<AssistantResult> {
 		const payload = this.buildSdkPayload(context);
+
+		writer({
+			type: 'tool',
+			toolName: 'assistant',
+			customDisplayTitle: 'Connecting to assistant...',
+			status: 'running',
+		});
+
 		const response = await this.callSdk(payload, userId);
 		return await this.consumeSdkStream(response, writer, abortSignal);
 	}
@@ -281,7 +291,8 @@ export class AssistantHandler {
 			return {
 				type: 'tool',
 				toolName: 'assistant',
-				status: msg.text,
+				customDisplayTitle: msg.text,
+				status: 'running',
 			} satisfies ToolProgressChunk;
 		}
 

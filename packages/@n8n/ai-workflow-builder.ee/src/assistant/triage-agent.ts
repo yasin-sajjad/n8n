@@ -281,8 +281,14 @@ export class TriageAgent {
 	): Promise<ToolResult> {
 		switch (toolCall.name) {
 			case 'ask_assistant': {
+				// Only forward tool-progress chunks during SDK streaming.
+				// Text messages are buffered and emitted after "completed" so that
+				// all tool messages stay consecutive (single thinking group) and the
+				// UI keeps showing the spinner until the actual text appears.
 				const writer: StreamWriter = (chunk: StreamChunk) => {
-					enqueue({ messages: [chunk] });
+					if (chunk.type === 'tool') {
+						enqueue({ messages: [chunk] });
+					}
 				};
 
 				enqueue(
@@ -314,13 +320,20 @@ export class TriageAgent {
 					ctx.abortSignal,
 				);
 
-				enqueue(
-					this.wrapChunk({
-						type: 'tool',
-						toolName: 'assistant',
-						status: 'completed',
-					}),
-				);
+				const completedChunk: StreamChunk = {
+					type: 'tool',
+					toolName: 'assistant',
+					status: 'completed',
+				};
+				const messages: StreamChunk[] = [completedChunk];
+				if (result.responseText) {
+					messages.push({
+						role: 'assistant',
+						type: 'message',
+						text: result.responseText,
+					});
+				}
+				enqueue({ messages });
 
 				state.sdkSessionId = result.sdkSessionId;
 				state.assistantSummary = result.summary;
