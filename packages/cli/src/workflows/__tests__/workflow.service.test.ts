@@ -7,9 +7,6 @@ import type { RoleService } from '@/services/role.service';
 import type { WebhookService } from '@/webhooks/webhook.service';
 import { WorkflowService } from '@/workflows/workflow.service';
 
-const memberRole = mock({ scopes: [] as Array<{ slug: Scope }> });
-const adminRole = mock({ scopes: [mock({ slug: 'project:read' as Scope })] });
-
 describe('WorkflowService', () => {
 	describe('getMany()', () => {
 		let workflowService: WorkflowService;
@@ -55,7 +52,6 @@ describe('WorkflowService', () => {
 				webhookServiceMock, // webhookService
 				mock(), // licenseState
 				mock(), // projectRepository
-				mock(), // projectRelationRepository
 			);
 		});
 

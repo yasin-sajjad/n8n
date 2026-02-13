@@ -17,7 +17,6 @@ import {
 	WorkflowRepository,
 	WorkflowPublishHistoryRepository,
 	ProjectRepository,
-	ProjectRelationRepository,
 } from '@n8n/db';
 import { Container, Service } from '@n8n/di';
 import type { Scope } from '@n8n/permissions';
@@ -93,7 +92,6 @@ export class WorkflowService {
 		private readonly webhookService: WebhookService,
 		private readonly licenseState: LicenseState,
 		private readonly projectRepository: ProjectRepository,
-		private readonly projectRelationRepository: ProjectRelationRepository,
 	) {}
 
 	async getMany(
