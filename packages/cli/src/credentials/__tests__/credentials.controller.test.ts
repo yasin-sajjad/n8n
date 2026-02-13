@@ -150,6 +150,13 @@ describe('CredentialsController', () => {
 			isGlobal: false,
 			isManaged: false,
 			isResolvable: false,
+			shared: [
+				{
+					role: 'credential:owner',
+					projectId: 'WHwt9vP3keCUvmB5',
+					credentialsId: credentialId,
+				} as any,
+			],
 		});
 
 		beforeEach(() => {

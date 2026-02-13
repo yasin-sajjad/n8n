@@ -26,6 +26,8 @@ import type { OwnershipService } from '@/services/ownership.service';
 import type { ProjectService } from '@/services/project.service.ee';
 import type { RoleService } from '@/services/role.service';
 
+import { mockExistingCredential } from './credentials.test-data';
+
 describe('CredentialsService', () => {
 	const credType = mock<ICredentialType>({
 		extends: [],
@@ -1779,6 +1781,10 @@ describe('CredentialsService', () => {
 	describe('prepareUpdateData', () => {
 		const ownerUser = mock<User>({ id: 'owner-id', role: GLOBAL_OWNER_ROLE });
 		describe('external secrets', () => {
+			beforeEach(() => {
+				jest.spyOn(service, 'decrypt').mockReturnValue({});
+			});
+
 			it('should list all unavailable external secret providers in error message', async () => {
 				credentialsHelper.getCredentialsProperties.mockReturnValue([]);
 				const payload = {
@@ -1790,17 +1796,19 @@ describe('CredentialsService', () => {
 					},
 					projectId: 'WHwt9vP3keCUvmB5',
 				};
-				const currentData = {
+				const existingCredential = mockExistingCredential({
 					name: 'Test Credential',
 					type: 'apiKey',
 					data: {},
 					projectId: 'WHwt9vP3keCUvmB5',
-				};
+				});
 				externalSecretsProviderAccessCheckService.isProviderAvailableInProject.mockResolvedValue(
 					false,
 				);
 
-				await expect(service.prepareUpdateData(ownerUser, payload, currentData)).rejects.toThrow(
+				await expect(
+					service.prepareUpdateData(ownerUser, payload, existingCredential),
+				).rejects.toThrow(
 					'The secret providers "outsideProvider" (used in "apiKey"), "anotherOutsideProvider" (used in "anotherApiKey") do not exist in this project',
 				);
 			});
@@ -1816,17 +1824,19 @@ describe('CredentialsService', () => {
 					},
 					projectId: 'WHwt9vP3keCUvmB5',
 				};
-				const currentData = {
+				const existingCredential = mockExistingCredential({
 					name: 'Test Credential',
 					type: 'apiKey',
 					data: {},
 					projectId: 'WHwt9vP3keCUvmB5',
-				};
+				});
 				externalSecretsProviderAccessCheckService.isProviderAvailableInProject.mockResolvedValue(
 					false,
 				);
 
-				await expect(service.prepareUpdateData(ownerUser, payload, currentData)).rejects.toThrow(
+				await expect(
+					service.prepareUpdateData(ownerUser, payload, existingCredential),
+				).rejects.toThrow(
 					'The secret provider "outsideProvider" used in "apiKey" does not exist in this project',
 				);
 			});
@@ -1842,12 +1852,12 @@ describe('CredentialsService', () => {
 					},
 					projectId: 'WHwt9vP3keCUvmB5',
 				};
-				const currentData = {
+				const existingCredential = mockExistingCredential({
 					name: 'Test Credential',
 					type: 'apiKey',
 					data: {},
 					projectId: 'WHwt9vP3keCUvmB5',
-				};
+				});
 
 				externalSecretsProviderAccessCheckService.isProviderAvailableInProject.mockResolvedValue(
 					true,
@@ -1856,7 +1866,7 @@ describe('CredentialsService', () => {
 				credentialsRepository.create.mockImplementation((data) => ({ ...data }) as any);
 				mockTransactionManager();
 
-				await service.prepareUpdateData(ownerUser, payload, currentData);
+				await service.prepareUpdateData(ownerUser, payload, existingCredential);
 			});
 		});
 	});

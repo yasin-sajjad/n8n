@@ -500,12 +500,18 @@ export class CredentialsService {
 	async prepareUpdateData(
 		user: User,
 		data: CredentialRequest.CredentialProperties,
-		decryptedData: ICredentialDataDecryptedObject,
+		existingCredential: CredentialsEntity,
 	): Promise<CredentialsEntity> {
+		const decryptedData = this.decrypt(existingCredential, true);
 		validateExternalSecretsPermissions(user, data.data, decryptedData);
-		if (this.externalSecretsConfig.externalSecretsForProjects && data.projectId && data.data) {
+
+		const projectOwningCredential = existingCredential.shared?.find(
+			(shared) => shared.role === 'credential:owner',
+		)!;
+
+		if (this.externalSecretsConfig.externalSecretsForProjects && data.data) {
 			await validateAccessToReferencedSecretProviders(
-				data.projectId,
+				projectOwningCredential.projectId,
 				data.data,
 				this.externalSecretsProviderAccessCheckService,
 			);
