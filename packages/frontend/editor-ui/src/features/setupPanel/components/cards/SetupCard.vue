@@ -92,7 +92,7 @@ defineExpose({ markInteracted });
 			<N8nIcon
 				:class="$style.chevron"
 				:icon="expanded ? 'chevrons-down-up' : 'chevrons-up-down'"
-				size="medium"
+				size="large"
 				color="text-light"
 			/>
 		</header>
@@ -126,10 +126,11 @@ defineExpose({ markInteracted });
 
 .header {
 	display: flex;
-	gap: var(--spacing--xs);
+	align-items: center;
+	gap: var(--spacing--2xs);
 	cursor: pointer;
 	user-select: none;
-	padding: var(--spacing--sm) var(--spacing--sm) 0;
+	padding: var(--spacing--xs) var(--spacing--xs) 0;
 
 	.header-extra {
 		display: flex;
@@ -167,7 +168,7 @@ defineExpose({ markInteracted });
 	display: flex;
 	justify-content: flex-end;
 	align-items: center;
-	padding: 0 var(--spacing--sm) var(--spacing--sm);
+	padding: 0 var(--spacing--xs) var(--spacing--xs);
 }
 
 .footer-complete-check {
@@ -178,7 +179,7 @@ defineExpose({ markInteracted });
 
 .card.collapsed {
 	.header {
-		padding: var(--spacing--sm);
+		padding: var(--spacing--xs);
 	}
 
 	.card-title {

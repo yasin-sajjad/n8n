@@ -131,7 +131,7 @@ const onCredentialDeselected = () => {
 	display: flex;
 	flex-direction: column;
 	gap: var(--spacing--xs);
-	padding: 0 var(--spacing--sm);
+	padding: 0 var(--spacing--xs);
 }
 
 .credential-container {
@@ -155,6 +155,11 @@ const onCredentialDeselected = () => {
 	font-size: var(--font-size--sm);
 	color: var(--color--text--tint-1);
 	cursor: default;
+	display: none;
+
+	.credential-container:hover & {
+		display: flex;
+	}
 }
 
 .credential-picker {
