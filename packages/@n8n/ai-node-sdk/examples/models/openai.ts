@@ -1,9 +1,7 @@
-import type { JSONSchema7 } from 'json-schema';
-import type { IHttpRequestMethods } from 'n8n-workflow';
-
 import {
 	BaseChatModel,
 	getParametersJsonSchema,
+	parseSSEStream,
 	type ChatModelConfig,
 	type GenerateResult,
 	type Message,
@@ -13,8 +11,9 @@ import {
 	type TokenUsage,
 	type ProviderTool,
 	type MessageContent,
-} from 'src';
-import { parseSSEStream } from 'src';
+} from '@n8n/ai-utilities';
+import type { JSONSchema7 } from 'json-schema';
+import type { IHttpRequestMethods } from 'n8n-workflow';
 
 export type OpenAITool =
 	| {

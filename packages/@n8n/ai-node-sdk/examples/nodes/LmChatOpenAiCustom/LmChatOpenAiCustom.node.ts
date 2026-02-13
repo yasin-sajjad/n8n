@@ -1,10 +1,8 @@
+import { createChatModelNode } from '@n8n/ai-utilities';
+import type { ProviderTool } from '@n8n/ai-utilities';
 import { type IDataObject, type ISupplyDataFunctions } from 'n8n-workflow';
 import type Stream from 'node:stream';
 import { Readable } from 'node:stream';
-
-import { createChatModelNode } from 'src/creators/create-chat-model-node';
-import type { ChatModelNodeConfig } from 'src/types/creators';
-import type { ProviderTool } from 'src/types/tool';
 
 import { OpenAIChatModel } from '../../models/openai';
 import { formatBuiltInTools } from '../common';
@@ -14,13 +12,13 @@ export type ModelOptions = {
 	temperature?: number;
 };
 
-class LmChatOpenAiNodeConfig implements ChatModelNodeConfig {
-	description = {
+export class LmChatOpenAiCustom extends createChatModelNode({
+	description: {
 		...description,
-		displayName: 'OpenAI Custom Class',
-		name: 'lmChatOpenAiCustomClass',
-	};
-	async getModel(context: ISupplyDataFunctions, itemIndex: number) {
+		displayName: 'OpenAI Custom',
+		name: 'lmChatOpenAiCustom',
+	},
+	getModel: async (context: ISupplyDataFunctions, itemIndex: number) => {
 		const credentials = await context.getCredentials('openAiApi');
 		const modelName = context.getNodeParameter('model', itemIndex) as string;
 		const options = context.getNodeParameter('options', itemIndex, {}) as ModelOptions;
@@ -75,7 +73,5 @@ class LmChatOpenAiNodeConfig implements ChatModelNodeConfig {
 			},
 		);
 		return model;
-	}
-}
-
-export class LmChatOpenAiCustomClass extends createChatModelNode(new LmChatOpenAiNodeConfig()) {}
+	},
+}) {}
