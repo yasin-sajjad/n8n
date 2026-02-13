@@ -198,13 +198,10 @@ export async function updateCredential(
 		validateExternalSecretsPermissions(user, updateData.data, decryptedData);
 
 		if (isProjectScopedExternalSecretsEnabled() && decryptedData) {
+			// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain -- credential will always have an owner
 			const projectOwningCredential = existingCredential.shared?.find(
 				(shared) => shared.role === 'credential:owner',
-			);
-
-			if (!projectOwningCredential?.project) {
-				throw new UnexpectedError('Credential has no owning project');
-			}
+			)!;
 
 			await validateAccessToReferencedSecretProviders(
 				projectOwningCredential.project.id,

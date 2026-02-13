@@ -505,9 +505,10 @@ export class CredentialsService {
 		const decryptedData = this.decrypt(existingCredential, true);
 		validateExternalSecretsPermissions(user, data.data, decryptedData);
 
+		// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain -- credential will always have an owner
 		const projectOwningCredential = existingCredential.shared?.find(
 			(shared) => shared.role === 'credential:owner',
-		)!; // eslint-disable-line @typescript-eslint/no-non-null-asserted-optional-chain -- credential will always have an owner
+		)!;
 
 		if (this.externalSecretsConfig.externalSecretsForProjects && data.data) {
 			await validateAccessToReferencedSecretProviders(
