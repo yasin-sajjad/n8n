@@ -469,9 +469,6 @@ watch(
 		) {
 			defaultModel.value = { ...defaultModel.value, cachedIcon: agent.icon };
 		}
-
-		// Note: when an agent doesn't support function calling,
-		// tools are simply not sent with messages (canSelectTools check handles this)
 	},
 	{ immediate: true },
 );
