@@ -36,6 +36,7 @@
 		"zod": "catalog:",
 		"langchain": "catalog:",
 		"@langchain/core": "catalog:",
-		"dotenv": "16.4.7"
+		"dotenv": "16.4.7",
+		"axios": "catalog:"
 	}
 }
