@@ -507,7 +507,7 @@ export class CredentialsService {
 
 		const projectOwningCredential = existingCredential.shared?.find(
 			(shared) => shared.role === 'credential:owner',
-		)!;
+		)!; // eslint-disable-line @typescript-eslint/no-non-null-asserted-optional-chain -- credential will always have an owner
 
 		if (this.externalSecretsConfig.externalSecretsForProjects && data.data) {
 			await validateAccessToReferencedSecretProviders(
