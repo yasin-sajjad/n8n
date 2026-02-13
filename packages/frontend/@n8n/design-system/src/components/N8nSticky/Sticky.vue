@@ -231,9 +231,6 @@ const onInputScroll = (event: WheelEvent) => {
 	padding: var(--spacing--2xs) var(--spacing--2xs) 0 var(--spacing--2xs);
 	cursor: default;
 
-	--input--border-width: 0;
-	--input--color--background: transparent;
-
 	.n8n-input {
 		height: 100%;
 		align-items: stretch;
