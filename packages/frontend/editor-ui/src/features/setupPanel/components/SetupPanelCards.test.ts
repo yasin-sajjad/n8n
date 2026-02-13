@@ -27,7 +27,7 @@ vi.mock('../composables/useWorkflowSetupState', () => ({
 	}),
 }));
 
-vi.mock('./TriggerSetupCard.vue', () => ({
+vi.mock('./cards/TriggerSetupCard.vue', () => ({
 	default: {
 		template:
 			'<div data-test-id="trigger-setup-card">' +
@@ -37,7 +37,7 @@ vi.mock('./TriggerSetupCard.vue', () => ({
 	},
 }));
 
-vi.mock('./CredentialTypeSetupCard.vue', () => ({
+vi.mock('./cards/CredentialTypeSetupCard.vue', () => ({
 	default: {
 		template:
 			'<div data-test-id="credential-type-setup-card">' +

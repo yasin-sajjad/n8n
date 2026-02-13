@@ -1,43 +1,43 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { useI18n } from '@n8n/i18n';
-import { N8nIcon, N8nText, N8nTooltip } from '@n8n/design-system';
+import { N8nIcon, N8nText } from '@n8n/design-system';
 
-import NodeIcon from '@/app/components/NodeIcon.vue';
-import TriggerExecuteButton from './TriggerExecuteButton.vue';
-import { useNodeTypesStore } from '@/app/stores/nodeTypes.store';
 import { useWorkflowsStore } from '@/app/stores/workflows.store';
-
-import type { TriggerSetupState } from '../setupPanel.types';
 import { useTelemetry } from '@/app/composables/useTelemetry';
 
-const props = defineProps<{
-	state: TriggerSetupState;
-}>();
+const props = withDefaults(
+	defineProps<{
+		isComplete: boolean;
+		cardTestId: string;
+		title: string;
+		showFooter?: boolean;
+		telemetryPayload?: Record<string, unknown>;
+	}>(),
+	{
+		showFooter: true,
+		telemetryPayload: () => ({}),
+	},
+);
 
 const expanded = defineModel<boolean>('expanded', { default: false });
 
 const i18n = useI18n();
 const telemetry = useTelemetry();
-const nodeTypesStore = useNodeTypesStore();
 const workflowsStore = useWorkflowsStore();
 
-const nodeType = computed(() =>
-	nodeTypesStore.getNodeType(props.state.node.type, props.state.node.typeVersion),
-);
+const hadManualInteraction = ref(false);
+
+const markInteracted = () => {
+	hadManualInteraction.value = true;
+};
 
 const onHeaderClick = () => {
 	expanded.value = !expanded.value;
 };
 
-const hadManualInteraction = ref(false);
-
-const onExecuted = () => {
-	hadManualInteraction.value = true;
-};
-
 watch(
-	() => props.state.isComplete,
+	() => props.isComplete,
 	(isComplete) => {
 		if (isComplete) {
 			expanded.value = false;
@@ -46,8 +46,7 @@ watch(
 				telemetry.track('User completed setup step', {
 					template_id: workflowsStore.workflow.meta?.templateId,
 					workflow_id: workflowsStore.workflowId,
-					type: 'trigger',
-					node_type: props.state.node.type,
+					...props.telemetryPayload,
 				});
 				hadManualInteraction.value = false;
 			}
@@ -56,48 +55,42 @@ watch(
 );
 
 onMounted(() => {
-	if (props.state.isComplete) {
+	if (props.isComplete) {
 		expanded.value = false;
 	}
 });
+
+defineExpose({ markInteracted });
 </script>
 
 <template>
 	<div
-		data-test-id="trigger-setup-card"
+		:data-test-id="cardTestId"
 		:class="[
 			$style.card,
 			{
 				[$style.collapsed]: !expanded,
-				[$style.completed]: state.isComplete,
+				[$style.completed]: isComplete,
 			},
 		]"
 	>
-		<header data-test-id="trigger-setup-card-header" :class="$style.header" @click="onHeaderClick">
+		<header :data-test-id="`${cardTestId}-header`" :class="$style.header" @click="onHeaderClick">
 			<N8nIcon
-				v-if="!expanded && state.isComplete"
-				data-test-id="trigger-setup-card-complete-icon"
+				v-if="!expanded && isComplete"
+				:data-test-id="`${cardTestId}-complete-icon`"
 				icon="check"
 				:class="$style['complete-icon']"
 				size="medium"
 			/>
-			<NodeIcon v-else :node-type="nodeType" :size="16" />
-			<N8nText :class="$style['node-name']" size="medium" color="text-dark">
-				{{ state.node.name }}
+			<slot v-else name="icon" />
+			<N8nText :class="$style['card-title']" size="medium" color="text-dark">
+				{{ title }}
 			</N8nText>
-			<N8nTooltip>
-				<template #content>
-					{{ i18n.baseText('nodeCreator.nodeItem.triggerIconTitle') }}
-				</template>
-				<N8nIcon
-					:class="[$style['header-icon'], $style['trigger']]"
-					icon="zap"
-					size="small"
-					color="text-light"
-				/>
-			</N8nTooltip>
+			<div :class="$style['header-extra']">
+				<slot name="header-extra" />
+			</div>
 			<N8nIcon
-				:class="[$style['header-icon'], $style['chevron']]"
+				:class="$style.chevron"
 				:icon="expanded ? 'chevrons-down-up' : 'chevrons-up-down'"
 				size="medium"
 				color="text-light"
@@ -105,14 +98,16 @@ onMounted(() => {
 		</header>
 
 		<template v-if="expanded">
-			<footer :class="$style.footer">
-				<div v-if="state.isComplete" :class="$style['footer-complete-check']">
+			<slot />
+
+			<footer v-if="showFooter" :class="$style.footer">
+				<div v-if="isComplete" :class="$style['footer-complete-check']">
 					<N8nIcon icon="check" :class="$style['complete-icon']" size="large" />
 					<N8nText size="medium" color="success">
 						{{ i18n.baseText('generic.complete') }}
 					</N8nText>
 				</div>
-				<TriggerExecuteButton :node="state.node" @executed="onExecuted" />
+				<slot name="footer-actions" />
 			</footer>
 		</template>
 	</div>
@@ -136,20 +131,21 @@ onMounted(() => {
 	user-select: none;
 	padding: var(--spacing--sm) var(--spacing--sm) 0;
 
-	.header-icon {
-		&.chevron {
-			display: none;
-		}
+	.header-extra {
+		display: flex;
+	}
+
+	.chevron {
+		display: none;
 	}
 
 	&:hover {
-		.header-icon {
-			&.chevron {
-				display: block;
-			}
-			&.trigger {
-				display: none;
-			}
+		.chevron {
+			display: block;
+		}
+
+		.header-extra {
+			display: none;
 		}
 	}
 
@@ -158,7 +154,7 @@ onMounted(() => {
 	}
 }
 
-.node-name {
+.card-title {
 	flex: 1;
 	font-weight: var(--font-weight--medium);
 }
@@ -170,6 +166,7 @@ onMounted(() => {
 .footer {
 	display: flex;
 	justify-content: flex-end;
+	align-items: center;
 	padding: 0 var(--spacing--sm) var(--spacing--sm);
 }
 
@@ -184,7 +181,7 @@ onMounted(() => {
 		padding: var(--spacing--sm);
 	}
 
-	.node-name {
+	.card-title {
 		color: var(--color--text--tint-1);
 		overflow: hidden;
 		white-space: nowrap;

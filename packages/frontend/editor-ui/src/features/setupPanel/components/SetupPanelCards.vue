@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { watch } from 'vue';
 import { useWorkflowSetupState } from '@/features/setupPanel/composables/useWorkflowSetupState';
-import TriggerSetupCard from './TriggerSetupCard.vue';
-import CredentialTypeSetupCard from './CredentialTypeSetupCard.vue';
+import TriggerSetupCard from './cards/TriggerSetupCard.vue';
+import CredentialTypeSetupCard from './cards/CredentialTypeSetupCard.vue';
 import { N8nIcon, N8nText } from '@n8n/design-system';
 import { useI18n } from '@n8n/i18n';
 import { useWorkflowsStore } from '@/app/stores/workflows.store';

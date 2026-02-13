@@ -4,7 +4,7 @@ import { createTestingPinia } from '@pinia/testing';
 import { waitFor } from '@testing-library/vue';
 import userEvent from '@testing-library/user-event';
 import CredentialTypeSetupCard from './CredentialTypeSetupCard.vue';
-import type { CredentialTypeSetupState } from '../setupPanel.types';
+import type { CredentialTypeSetupState } from '../../setupPanel.types';
 import type { INodeUi } from '@/Interface';
 
 vi.mock('@/features/credentials/components/CredentialPicker/CredentialPicker.vue', () => ({
@@ -26,7 +26,7 @@ vi.mock('@/features/credentials/components/CredentialIcon.vue', () => ({
 	},
 }));
 
-vi.mock('./TriggerExecuteButton.vue', () => ({
+vi.mock('../TriggerExecuteButton.vue', () => ({
 	default: {
 		template:
 			'<button data-test-id="trigger-execute-button" @click="$emit(\'executed\')">Test</button>',
