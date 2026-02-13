@@ -1,3 +1,5 @@
+import type { IConnections } from 'n8n-workflow';
+
 import type { INodeUi } from '@/Interface';
 import type { NodeTypeProvider } from '@/app/utils/nodeTypes/nodeTypeTransforms';
 import { getNodeTypeDisplayableCredentials } from '@/app/utils/nodes/nodeTransforms';
@@ -99,4 +101,66 @@ export function buildNodeSetupState(
 		isComplete,
 		isTrigger,
 	};
+}
+
+interface SetupNode {
+	node: INodeUi;
+	isTrigger: boolean;
+	credentialTypes: string[];
+}
+
+/**
+ * Orders setup panel nodes by execution order, grouped by trigger.
+ * Iterates triggers (sorted by X position), BFS-ing each trigger's subgraph
+ * to collect downstream nodes in execution order. Nodes reachable from multiple
+ * triggers appear only under the first trigger visited.
+ * Orphaned nodes (not reachable from any trigger) are dropped.
+ * When there are no triggers, returns an empty array.
+ */
+export function sortNodesByExecutionOrder(
+	nodes: SetupNode[],
+	connectionsBySourceNode: IConnections,
+): SetupNode[] {
+	const triggers = nodes
+		.filter((item) => item.isTrigger)
+		.sort((a, b) => a.node.position[0] - b.node.position[0]);
+
+	if (triggers.length === 0) return [];
+
+	const setupNodesByName = new Map<string, SetupNode>();
+	for (const item of nodes) {
+		setupNodesByName.set(item.node.name, item);
+	}
+
+	const result: SetupNode[] = [];
+	const visited = new Set<string>();
+
+	for (const trigger of triggers) {
+		if (visited.has(trigger.node.name)) continue;
+		visited.add(trigger.node.name);
+		result.push(trigger);
+
+		// BFS through all workflow connections from this trigger
+		const queue = [trigger.node.name];
+		while (queue.length > 0) {
+			const name = queue.shift()!;
+			const nodeConns = connectionsBySourceNode[name];
+			if (!nodeConns) continue;
+			for (const type of Object.keys(nodeConns)) {
+				for (const outputs of nodeConns[type]) {
+					for (const conn of outputs ?? []) {
+						if (visited.has(conn.node)) continue;
+						visited.add(conn.node);
+						const setupNode = setupNodesByName.get(conn.node);
+						if (setupNode) {
+							result.push(setupNode);
+						}
+						queue.push(conn.node);
+					}
+				}
+			}
+		}
+	}
+
+	return result;
 }
