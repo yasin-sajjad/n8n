@@ -20,7 +20,7 @@ import {
 import { MAX_AI_BUILDER_PROMPT_LENGTH, MAX_MULTI_AGENT_STREAM_ITERATIONS } from '@/constants';
 
 import { parsePlanDecision } from './agents/planner.agent';
-import type { AssistantHandler } from './assistant';
+import type { AssistantHandler, TriageAgentOutcome } from './assistant';
 import { TriageAgent } from './assistant';
 import { CodeWorkflowBuilder } from './code-builder';
 import {
@@ -339,9 +339,17 @@ export class WorkflowBuilderAgent {
 			conversationHistory: session?.conversationEntries,
 		});
 
-		// collectedText is only used for the direct-reply session entry (the else
-		// branch below). It collects all text chunks for simplicity, but the value
-		// is only consumed when neither buildExecuted nor assistantSummary is set.
+		const { outcome, collectedText } = yield* this.drainTriageGenerator(gen);
+
+		if (session && threadId) {
+			await this.saveTriageOutcome(session, threadId, payload.message, outcome, collectedText);
+		}
+	}
+
+	/**
+	 * Drain the triage generator, yielding each chunk and collecting text along the way.
+	 */
+	private async *drainTriageGenerator(gen: ReturnType<TriageAgent['run']>) {
 		const collectedText: string[] = [];
 		let iterResult = await gen.next();
 		while (!iterResult.done) {
@@ -353,28 +361,38 @@ export class WorkflowBuilderAgent {
 			}
 			iterResult = await gen.next();
 		}
-		const outcome = iterResult.value;
+		return { outcome: iterResult.value, collectedText };
+	}
 
-		if (session && threadId) {
-			if (outcome.buildExecuted) {
-				// SessionChatHandler saves — no action needed
-			} else if (outcome.assistantSummary) {
-				session.conversationEntries.push({
-					type: 'assistant-exchange',
-					userQuery: payload.message,
-					assistantSummary: outcome.assistantSummary,
-				});
-				session.sdkSessionId = outcome.sdkSessionId;
-				await saveCodeBuilderSession(this.checkpointer, threadId, session);
-			} else {
-				session.conversationEntries.push({
-					type: 'plan',
-					userQuery: payload.message,
-					plan: collectedText.join('\n'),
-				});
-				await saveCodeBuilderSession(this.checkpointer, threadId, session);
-			}
+	/**
+	 * Persist triage outcome to the code builder session.
+	 */
+	private async saveTriageOutcome(
+		session: CodeBuilderSession,
+		threadId: string,
+		userMessage: string,
+		outcome: TriageAgentOutcome,
+		collectedText: string[],
+	) {
+		if (outcome.buildExecuted) {
+			// SessionChatHandler saves — no action needed
+			return;
 		}
+		if (outcome.assistantSummary) {
+			session.conversationEntries.push({
+				type: 'assistant-exchange',
+				userQuery: userMessage,
+				assistantSummary: outcome.assistantSummary,
+			});
+			session.sdkSessionId = outcome.sdkSessionId;
+		} else {
+			session.conversationEntries.push({
+				type: 'plan',
+				userQuery: userMessage,
+				plan: collectedText.join('\n'),
+			});
+		}
+		await saveCodeBuilderSession(this.checkpointer, threadId, session);
 	}
 
 	private async *runMultiAgentSystem(

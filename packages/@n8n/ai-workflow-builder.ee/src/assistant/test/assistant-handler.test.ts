@@ -1,9 +1,7 @@
+import { STREAM_SEPARATOR } from '../../constants';
 import type { AgentMessageChunk, StreamChunk, ToolProgressChunk } from '../../types/streaming';
 import { AssistantHandler } from '../assistant-handler';
 import type { AssistantContext, AssistantSdkClient, SdkStreamChunk, StreamWriter } from '../types';
-
-/** Same separator used by the backend stream protocol */
-const STREAM_SEPARATOR = '⧉⇋⇋➽⌑⧉§§\n';
 
 /**
  * Create a mock Response with a ReadableStream body encoding the given chunks

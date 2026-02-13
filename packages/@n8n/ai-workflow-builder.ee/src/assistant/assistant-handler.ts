@@ -15,10 +15,8 @@ import type {
 	SdkTextMessage,
 	StreamWriter,
 } from './types';
+import { STREAM_SEPARATOR } from '../constants';
 import type { AgentMessageChunk, StreamChunk, ToolProgressChunk } from '../types/streaming';
-
-/** Same separator used by the backend stream protocol (packages/cli/src/constants.ts:145) */
-const STREAM_SEPARATOR = '⧉⇋⇋➽⌑⧉§§\n';
 
 const SUMMARY_MAX_LENGTH = 200;
 

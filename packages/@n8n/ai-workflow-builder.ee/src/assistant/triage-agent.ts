@@ -4,6 +4,7 @@ import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/
 import type { Logger } from '@n8n/backend-common';
 
 import { extractTextContent } from '@/code-builder/utils/content-extractors';
+import { MAX_TRIAGE_ITERATIONS } from '@/constants';
 import { prompt } from '@/prompts/builder';
 import type { StreamChunk, StreamOutput } from '@/types/streaming';
 
@@ -62,9 +63,6 @@ interface TriageAgentState {
 	assistantSummary?: string;
 	buildExecuted?: boolean;
 }
-
-/** Maximum agent loop iterations to prevent runaway loops */
-const MAX_ITERATIONS = 10;
 
 function conversationEntryToString(entry: TriageConversationEntry): string {
 	switch (entry.type) {
@@ -166,7 +164,7 @@ export class TriageAgent {
 
 		let reachedMaxIterations = true;
 
-		for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
+		for (let iteration = 0; iteration < MAX_TRIAGE_ITERATIONS; iteration++) {
 			const response: AIMessageChunk = await llmWithTools.invoke(messages, {
 				signal: abortSignal,
 			});
@@ -295,9 +293,11 @@ export class TriageAgent {
 					}),
 				);
 
-				// Noop writer — suppress all intermediate SDK chunks so the
-				// "running" tool message stays visible until we have the answer.
-				const noopWriter: StreamWriter = () => {};
+				const progressWriter: StreamWriter = (chunk) => {
+					if (chunk.type === 'tool') {
+						enqueue(this.wrapChunk(chunk));
+					}
+				};
 
 				const currentWorkflow = ctx.payload.workflowContext?.currentWorkflow;
 				const workflowJSON = currentWorkflow
@@ -315,7 +315,7 @@ export class TriageAgent {
 						workflowJSON,
 					},
 					ctx.userId,
-					noopWriter,
+					progressWriter,
 					ctx.abortSignal,
 				);
 

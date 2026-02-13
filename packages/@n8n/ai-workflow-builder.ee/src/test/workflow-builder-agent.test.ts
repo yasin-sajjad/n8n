@@ -607,7 +607,14 @@ describe('WorkflowBuilderAgent', () => {
 
 		it('should load session and pass sdkSessionId + conversationHistory to triage agent', async () => {
 			mockLoadCodeBuilderSession.mockResolvedValue({
-				conversationEntries: [{ type: 'build-request', message: 'previous build' }],
+				conversationEntries: [
+					{ type: 'build-request', message: 'previous build' },
+					{
+						type: 'assistant-exchange',
+						userQuery: 'How does this work?',
+						assistantSummary: 'It works like this',
+					},
+				],
 				previousSummary: undefined,
 				sdkSessionId: 'sdk-prev',
 			});
