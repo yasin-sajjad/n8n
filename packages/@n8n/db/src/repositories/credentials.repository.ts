@@ -245,7 +245,19 @@ export class CredentialsRepository extends Repository<CredentialsEntity> {
 	) {
 		const query = this.getManyQueryWithSharingSubquery(user, sharingOptions, options);
 
-		const [credentials, count] = await query.getManyAndCount();
+		// Get credentials with pagination
+		const credentials = await query.getMany();
+
+		// Build count query without pagination and relations
+		const countQuery = this.getManyQueryWithSharingSubquery(user, sharingOptions, {
+			...options,
+			take: undefined,
+			skip: undefined,
+			select: undefined,
+		});
+
+		// Remove relations and select for count
+		const count = await countQuery.select('credential.id').getCount();
 
 		return { credentials, count };
 	}
@@ -290,12 +302,9 @@ export class CredentialsRepository extends Repository<CredentialsEntity> {
 		qb.setParameters(sharedCredentialSubquery.getParameters());
 
 		// Apply other filters
-		// For personal project and shared-with-me cases, projectId is already handled in the subquery
-		// so we need to skip it to avoid double-filtering
-		const shouldSkipProjectIdFilter =
-			sharingOptions.isPersonalProject || sharingOptions.onlySharedWithMe;
+		// projectId is always handled in the subquery, so skip it to avoid issues
 		const filtersToApply =
-			shouldSkipProjectIdFilter && options.filter
+			options.filter && typeof options.filter.projectId !== 'undefined'
 				? { ...options.filter, projectId: undefined }
 				: options.filter;
 

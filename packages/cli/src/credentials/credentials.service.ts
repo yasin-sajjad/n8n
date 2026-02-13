@@ -148,7 +148,13 @@ export class CredentialsService {
 		let credentials: CredentialsEntity[];
 
 		if (returnAll) {
-			credentials = await this.getManyForAdminUser(listQueryOptions, includeGlobal, includeData);
+			credentials = await this.getManyForAdminUser(
+				user,
+				listQueryOptions,
+				includeGlobal,
+				includeData,
+				onlySharedWithMe,
+			);
 		} else {
 			credentials = await this.getManyForMemberUser(
 				user,
@@ -204,10 +210,30 @@ export class CredentialsService {
 	}
 
 	private async getManyForAdminUser(
+		user: User,
 		listQueryOptions: ListQuery.Options & { includeData?: boolean },
 		includeGlobal: boolean,
 		includeData: boolean,
+		onlySharedWithMe: boolean,
 	): Promise<CredentialsEntity[]> {
+		// If onlySharedWithMe is requested, use the subquery approach even for admin users
+		if (onlySharedWithMe) {
+			const sharingOptions = {
+				onlySharedWithMe: true,
+			};
+			const { credentials } = await this.credentialsRepository.getManyAndCountWithSharingSubquery(
+				user,
+				sharingOptions,
+				listQueryOptions,
+			);
+
+			if (includeGlobal) {
+				return await this.addGlobalCredentials(credentials, includeData);
+			}
+
+			return credentials;
+		}
+
 		await this.applyPersonalProjectFilter(listQueryOptions);
 
 		let credentials = await this.credentialsRepository.findMany(listQueryOptions);
