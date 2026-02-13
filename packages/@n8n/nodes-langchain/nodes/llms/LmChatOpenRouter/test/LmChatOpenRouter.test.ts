@@ -1,3 +1,4 @@
+/* eslint-disable n8n-nodes-base/node-filename-against-convention */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 
@@ -7,7 +8,7 @@ import { makeN8nLlmFailedAttemptHandler, N8nLlmTracing, getProxyAgent } from '@n
 import { createMockExecuteFunction } from 'n8n-nodes-base/test/nodes/Helpers';
 import type { INode, ISupplyDataFunctions } from 'n8n-workflow';
 
-import { LmChatOpenRouter } from './LmChatOpenRouter.node';
+import { LmChatOpenRouter } from '../LmChatOpenRouter.node';
 
 jest.mock('@langchain/openai');
 jest.mock('@n8n/ai-utilities');
