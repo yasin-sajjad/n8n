@@ -11,6 +11,10 @@ on:
         description: 'Your GitHub PAT (required for PR authorship - you cannot approve PRs you author)'
         required: true
         type: string
+      resumeUrl:
+        description: 'Optional URL to resume a Claude Code session'
+        required: false
+        type: string
 
 jobs:
   run-claude-task:
@@ -149,3 +153,12 @@ jobs:
             echo "**Task:** $INPUT_TASK"
             echo "**Branch:** $BRANCH_NAME"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Call resume url
+        if: inputs.resumeUrl != ''
+        env:
+          CLAUDE_OUTPUT: ${{ steps.claude.outputs.structured_output }}
+        run: |
+          curl -X POST "${{ inputs.resumeUrl }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"success\": true, \"branch\": \"$BRANCH_NAME\", \"claudeOutput\": $CLAUDE_OUTPUT}"
