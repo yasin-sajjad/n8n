@@ -163,7 +163,6 @@ describe('ExpandProviderIdColumnLength Migration', () => {
 		const createdAtColumn = context.escape.columnName('createdAt');
 		const updatedAtColumn = context.escape.columnName('updatedAt');
 
-		const uuidColumnType = context.isPostgres ? 'UUID' : 'VARCHAR(36)';
 		const placeholders = getParamPlaceholders(context, 7);
 
 		await context.queryRunner.query(
