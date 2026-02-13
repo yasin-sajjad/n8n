@@ -156,9 +156,13 @@ jobs:
 
       - name: Call resume url
         if: inputs.resumeUrl != ''
-        env:
-          CLAUDE_OUTPUT: ${{ steps.claude.outputs.structured_output }}
         run: |
+          PAYLOAD=$(jq -n \
+            --arg success "true" \
+            --arg branch "$BRANCH_NAME" \
+            --argjson claudeOutput '${{ steps.claude.outputs.structured_output || 'null' }}' \
+            '{success: ($success == "true"), branch: $branch, claudeOutput: $claudeOutput}')
+
           curl -X POST "${{ inputs.resumeUrl }}" \
             -H "Content-Type: application/json" \
-            -d "{\"success\": true, \"branch\": \"$BRANCH_NAME\", \"claudeOutput\": $CLAUDE_OUTPUT}"
+            -d "$PAYLOAD"
