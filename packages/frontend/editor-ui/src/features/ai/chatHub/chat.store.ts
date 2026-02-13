@@ -381,7 +381,11 @@ export const useChatStore = defineStore(STORES.CHAT_HUB, () => {
 
 			for (const session of response.data) {
 				sessions.value.ids.push(session.id);
-				sessions.value.byId[session.id] = session;
+				const existing = sessions.value.byId[session.id];
+				sessions.value.byId[session.id] = {
+					...session,
+					toolIds: existing?.toolIds ?? session.toolIds,
+				};
 			}
 		} finally {
 			sessionsLoadingMore.value = false;
@@ -538,7 +542,10 @@ export const useChatStore = defineStore(STORES.CHAT_HUB, () => {
 		try {
 			// Create session entry if new
 			if (!sessions.value.byId[sessionId]) {
-				sessions.value.byId[sessionId] = createSessionFromStreamingState(streaming.value);
+				sessions.value.byId[sessionId] = createSessionFromStreamingState(
+					streaming.value,
+					configuredTools.value.filter((t) => t.enabled).map((t) => t.definition.id),
+				);
 				sessions.value.ids ??= [];
 				sessions.value.ids.unshift(sessionId);
 			}
