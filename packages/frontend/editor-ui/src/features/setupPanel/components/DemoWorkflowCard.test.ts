@@ -20,7 +20,7 @@ describe('ReadyToDemoCard', () => {
 		runEntireWorkflow = vi.fn();
 		vi.mocked(useRunWorkflow).mockReturnValue({
 			runEntireWorkflow,
-		} as any);
+		} as never);
 
 		const pinia = createTestingPinia({
 			initialState: {
