@@ -9,11 +9,13 @@ import type { ChatHubTool } from '../chat-hub-tool.entity';
 import type { ChatHubToolRepository } from '../chat-hub-tool.repository';
 import { ChatHubToolService } from '../chat-hub-tool.service';
 
+import { BadRequestError } from '@/errors/response-errors/bad-request.error';
 import { NotFoundError } from '@/errors/response-errors/not-found.error';
 
 const mockDefinition: INode = {
 	parameters: {
 		url: 'https://example.com',
+		active: true,
 		options: {},
 	},
 	type: 'n8n-nodes-base.httpRequestTool',
@@ -144,6 +146,55 @@ describe('ChatHubToolService', () => {
 				expect.objectContaining({ typeVersion: 1 }),
 			);
 		});
+
+		it('should allow $fromAI-only expressions', async () => {
+			const defWithFromAI: INode = {
+				...mockDefinition,
+				parameters: {
+					...mockDefinition.parameters,
+					url: '={{ $fromAI("url", "The URL to call") }}',
+				},
+			};
+			const created = makeTool();
+			chatToolRepository.createTool.mockResolvedValue(created);
+
+			await expect(
+				service.createTool(mockUser, { definition: defWithFromAI }),
+			).resolves.toBeDefined();
+			expect(chatToolRepository.createTool).toHaveBeenCalled();
+		});
+
+		it('should allow $fromAI-only expressions with marker comment', async () => {
+			const defWithFromAI: INode = {
+				...mockDefinition,
+				parameters: {
+					...mockDefinition.parameters,
+					active: "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Active', ``, 'boolean') }}",
+				},
+			};
+			const created = makeTool();
+			chatToolRepository.createTool.mockResolvedValue(created);
+
+			await expect(
+				service.createTool(mockUser, { definition: defWithFromAI }),
+			).resolves.toBeDefined();
+			expect(chatToolRepository.createTool).toHaveBeenCalled();
+		});
+
+		it('should reject disallowed expressions', async () => {
+			const defWithExpression: INode = {
+				...mockDefinition,
+				parameters: {
+					url: '={{ $env.API_URL }}',
+					options: {},
+				},
+			};
+
+			await expect(service.createTool(mockUser, { definition: defWithExpression })).rejects.toThrow(
+				BadRequestError,
+			);
+			expect(chatToolRepository.createTool).not.toHaveBeenCalled();
+		});
 	});
 
 	describe('updateTool', () => {
@@ -203,6 +254,37 @@ describe('ChatHubToolService', () => {
 			);
 
 			expect(chatToolRepository.updateTool).not.toHaveBeenCalled();
+		});
+
+		it('should reject disallowed expressions in definition update', async () => {
+			const existingTool = makeTool();
+			chatToolRepository.getOneById.mockResolvedValue(existingTool);
+
+			const defWithExpression: INode = {
+				...mockDefinition,
+				parameters: {
+					...mockDefinition.parameters,
+					url: '={{ $json.url }}',
+				},
+			};
+
+			await expect(
+				service.updateTool(existingTool.id, mockUser, { definition: defWithExpression }),
+			).rejects.toThrow(BadRequestError);
+
+			expect(chatToolRepository.updateTool).not.toHaveBeenCalled();
+		});
+
+		it('should allow updates without definition (e.g. enabled-only)', async () => {
+			const existingTool = makeTool();
+			const updatedTool = makeTool({ enabled: false });
+
+			chatToolRepository.getOneById.mockResolvedValue(existingTool);
+			chatToolRepository.updateTool.mockResolvedValue(updatedTool);
+
+			await expect(
+				service.updateTool(existingTool.id, mockUser, { enabled: false }),
+			).resolves.toBeDefined();
 		});
 	});
 

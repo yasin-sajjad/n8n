@@ -7,7 +7,9 @@ import { Logger } from '@n8n/backend-common';
 import { EntityManager, withTransaction, type User } from '@n8n/db';
 import { Service } from '@n8n/di';
 import type { INode } from 'n8n-workflow';
+import { findDisallowedChatToolExpressions } from 'n8n-workflow';
 
+import { BadRequestError } from '@/errors/response-errors/bad-request.error';
 import { NotFoundError } from '@/errors/response-errors/not-found.error';
 
 import type { ChatHubTool } from './chat-hub-tool.entity';
@@ -56,8 +58,19 @@ export class ChatHubToolService {
 		await this.chatToolRepository.setAgentTools(agentId, toolIds, trx);
 	}
 
+	private validateToolExpressions(definition: INode) {
+		const violations = findDisallowedChatToolExpressions(definition.parameters);
+		if (violations.length > 0) {
+			const paths = violations.map((v) => v.path).join(', ');
+			throw new BadRequestError(
+				`Expressions are not supported in tool parameters (found at: ${paths}). Only $fromAI() expressions are supported.`,
+			);
+		}
+	}
+
 	async createTool(user: User, data: ChatHubCreateToolRequest): Promise<ChatHubTool> {
 		const definition = data.definition;
+		this.validateToolExpressions(definition);
 
 		const tool = await this.chatToolRepository.createTool({
 			id: definition.id,
@@ -88,6 +101,7 @@ export class ChatHubToolService {
 			const updateData: Partial<ChatHubTool> = {};
 
 			if (updates.definition !== undefined) {
+				this.validateToolExpressions(updates.definition);
 				updateData.definition = updates.definition;
 				updateData.name = updates.definition.name;
 				updateData.type = updates.definition.type;
