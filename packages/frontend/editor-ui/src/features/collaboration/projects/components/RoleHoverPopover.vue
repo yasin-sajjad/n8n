@@ -79,7 +79,12 @@ const onButtonClick = () => {
 				<N8nText v-if="role.description" tag="div" size="small" :class="$style.description">
 					{{ role.description }}
 				</N8nText>
-				<N8nButton type="tertiary" size="small" :class="$style.actionButton" @click="onButtonClick">
+				<N8nButton
+					variant="outline"
+					size="small"
+					:class="$style.actionButton"
+					@click="onButtonClick"
+				>
 					{{ buttonText }}
 					<N8nIcon icon="arrow-up-right" size="large" :class="$style.externalIcon" />
 				</N8nButton>
