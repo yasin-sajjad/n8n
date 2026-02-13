@@ -83,7 +83,11 @@ export class AssistantHandler {
 
 		if (context.workflowJSON) {
 			initPayload.workflowContext = {
-				currentWorkflow: context.workflowJSON,
+				currentWorkflow: {
+					name: context.workflowJSON.name,
+					nodes: context.workflowJSON.nodes.map((n) => ({ name: n.name, type: n.type })),
+					connections: context.workflowJSON.connections,
+				},
 			};
 		}
 
@@ -191,6 +195,18 @@ export class AssistantHandler {
 			}
 		} finally {
 			reader.releaseLock();
+		}
+
+		const remaining = buffer.trim();
+		if (remaining) {
+			try {
+				const chunk = JSON.parse(remaining) as SdkStreamChunk;
+				this.processChunkMessages(chunk, state, writer);
+			} catch {
+				// If the remaining buffer is not JSON, it's likely a plain-text error from the SDK.
+				// Throw so callers can handle it as a proper error instead of an empty response.
+				throw new Error(`Assistant SDK error: ${remaining.substring(0, 500)}`);
+			}
 		}
 
 		const responseText = state.collectedTexts.join('\n');
@@ -311,7 +327,6 @@ export class AssistantHandler {
 
 		return null;
 	}
-
 	// -- Type guards ----------------------------------------------------------
 
 	private isSdkText(msg: SdkMessageResponse): msg is SdkTextMessage {

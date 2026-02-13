@@ -290,6 +290,7 @@ export class TriageAgent {
 						type: 'tool',
 						toolName: 'assistant',
 						toolCallId: assistantToolCallId,
+						customDisplayTitle: 'Asking assistant...',
 						status: 'running',
 					}),
 				);
@@ -337,7 +338,7 @@ export class TriageAgent {
 
 				state.sdkSessionId = result.sdkSessionId;
 				state.assistantSummary = result.summary;
-				return { content: result.summary };
+				return { content: result.summary, endLoop: true };
 			}
 
 			case 'build_workflow': {
