@@ -389,7 +389,7 @@ async function onDelete() {
 
 			<N8nDialogFooter>
 				<N8nDialogClose as-child>
-					<N8nButton variant="subtle" @click="modalBus.emit('close')">
+					<N8nButton variant="subtle">
 						{{ i18n.baseText('chatHub.tools.editor.cancel') }}
 					</N8nButton>
 				</N8nDialogClose>
