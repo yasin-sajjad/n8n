@@ -35,13 +35,6 @@ function closeDialog() {
 	uiStore.closeModal(props.modalName);
 }
 
-function handleInteractOutside(e: Event) {
-	const target = e.target as HTMLElement | null;
-	if (target?.closest('.el-overlay')) {
-		e.preventDefault();
-	}
-}
-
 function handleConfirm() {
 	const currentNode = contentRef.value?.node;
 	if (!currentNode) {
@@ -70,13 +63,7 @@ function handleNodeNameUpdate(name: string) {
 </script>
 
 <template>
-	<N8nDialog
-		v-if="data.node"
-		:open="true"
-		size="2xlarge"
-		@update:open="closeDialog"
-		@interact-outside="handleInteractOutside"
-	>
+	<N8nDialog v-if="data.node" :open="true" size="2xlarge" @update:open="closeDialog">
 		<N8nDialogHeader>
 			<div :class="$style.header">
 				<NodeIcon
@@ -143,7 +130,7 @@ function handleNodeNameUpdate(name: string) {
 .contentWrapper {
 	display: flex;
 	flex-direction: column;
-	max-height: 450px;
+	max-height: 80vh;
 	overflow: hidden;
 	margin-right: calc(-1 * var(--spacing--lg));
 	padding: var(--spacing--md) 0;
