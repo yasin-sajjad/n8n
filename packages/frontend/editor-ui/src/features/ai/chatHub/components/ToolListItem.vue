@@ -156,11 +156,6 @@ const displayName = computed(() => {
 	flex-shrink: 0;
 }
 
-.actionButton {
-	box-shadow: none !important;
-	outline: none !important;
-}
-
 .toggle {
 	margin-left: var(--spacing--2xs);
 }
