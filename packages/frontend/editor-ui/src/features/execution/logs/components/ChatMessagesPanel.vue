@@ -216,9 +216,9 @@ onUnmounted(() => {
 						{{ locale.baseText('chat.window.session.id.copy') }}
 					</template>
 					<N8nButton
+						variant="outline"
 						data-test-id="chat-session-id"
-						type="secondary"
-						size="mini"
+						size="xsmall"
 						:class="$style.newHeaderButton"
 						@click.stop="copySessionId"
 						>{{ sessionIdText }}</N8nButton
@@ -229,10 +229,9 @@ onUnmounted(() => {
 					:content="locale.baseText('chat.window.session.resetSession')"
 				>
 					<N8nIconButton
+						variant="subtle"
 						:class="$style.newHeaderButton"
 						data-test-id="refresh-session-button"
-						outline
-						type="secondary"
 						size="small"
 						icon-size="medium"
 						icon="undo-2"

@@ -14,7 +14,7 @@ import { getResourcePermissions } from '@n8n/permissions';
 import { useCredentialsStore } from '@/features/credentials/credentials.store';
 import { useProjectsStore } from '../projects.store';
 import { useUIStore } from '@/app/stores/ui.store';
-import { useWorkflowsStore } from '@/app/stores/workflows.store';
+import { useWorkflowsListStore } from '@/app/stores/workflowsList.store';
 import { ProjectTypes } from '../projects.types';
 import {
 	getTruncatedProjectName,
@@ -55,7 +55,7 @@ const uiStore = useUIStore();
 const toast = useToast();
 const router = useRouter();
 const projectsStore = useProjectsStore();
-const workflowsStore = useWorkflowsStore();
+const workflowsListStore = useWorkflowsListStore();
 const credentialsStore = useCredentialsStore();
 const telemetry = useTelemetry();
 
@@ -212,7 +212,7 @@ onMounted(async () => {
 
 	if (isResourceWorkflow.value) {
 		const [workflow, credentials] = await Promise.all([
-			workflowsStore.fetchWorkflow(props.data.resource.id),
+			workflowsListStore.fetchWorkflow(props.data.resource.id),
 			credentialsStore.fetchAllCredentials(),
 		]);
 
@@ -358,13 +358,13 @@ onMounted(async () => {
 		</template>
 		<template #footer>
 			<div :class="$style.buttons">
-				<N8nButton type="secondary" text class="mr-2xs" :disabled="loading" @click="closeModal">
+				<N8nButton variant="ghost" class="mr-2xs" :disabled="loading" @click="closeModal">
 					{{ i18n.baseText('generic.cancel') }}
 				</N8nButton>
 				<N8nButton
+					variant="solid"
 					:loading="loading"
 					:disabled="!projectId || loading"
-					type="primary"
 					data-test-id="project-move-resource-modal-button"
 					@click="moveResource"
 				>

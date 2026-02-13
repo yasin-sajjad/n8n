@@ -3,7 +3,11 @@ import { ChatHubChatPage } from '../../../pages/ChatHubChatPage';
 
 test.use(chatHubTestConfig);
 
-test.describe('Tools usage @capability:proxy', () => {
+test.describe('Tools usage @capability:proxy', {
+	annotation: [
+		{ type: 'owner', description: 'Chat' },
+	],
+}, () => {
 	test('use web search tool in conversation', async ({
 		n8n,
 		anthropicCredential: _,
@@ -21,7 +25,7 @@ test.describe('Tools usage @capability:proxy', () => {
 		await page.toolsModal.getToolSwitch('Jina AI', 'Web Search').click();
 		await page.toolsModal.getConfirmButton().click();
 
-		await expect(page.toolsModal.getRoot()).not.toBeVisible();
+		await expect(page.toolsModal.getRoot()).toBeHidden();
 		await expect(page.getToolsButton()).toHaveText('1 Tool');
 		await page.getChatInput().fill('What is n8n?');
 		await page.getSendButton().click();
