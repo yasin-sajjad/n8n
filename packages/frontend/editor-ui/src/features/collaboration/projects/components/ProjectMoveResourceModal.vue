@@ -120,6 +120,9 @@ const isPersonalSpaceRestricted = computed(
 		props.data.resource.homeProject?.type === ProjectTypes.Personal &&
 		props.data.resource.homeProject?.id === projectsStore.personalProject?.id,
 );
+const isTargetPersonalProject = computed(
+	() => projectId.value === projectsStore.personalProject?.id,
+);
 
 const isHomeProjectTeam = (resource: IWorkflowDb | ICredentialsResponse) =>
 	resource.homeProject?.type === ProjectTypes.Team;
@@ -303,7 +306,7 @@ onMounted(async () => {
 						}}</span
 					>
 					<N8nCheckbox
-						v-if="shareableCredentials.length"
+						v-if="shareableCredentials.length && !isTargetPersonalProject"
 						v-model="shareUsedCredentials"
 						:class="$style.textBlock"
 						data-test-id="project-move-resource-modal-checkbox-all"
@@ -335,7 +338,7 @@ onMounted(async () => {
 						</template>
 					</N8nCheckbox>
 					<N8nCallout
-						v-if="unShareableCredentials.length"
+						v-if="unShareableCredentials.length && !isTargetPersonalProject"
 						theme="warning"
 						:class="$style.textBlock"
 					>

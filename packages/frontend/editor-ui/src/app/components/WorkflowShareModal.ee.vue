@@ -89,10 +89,6 @@ const modalTitle = computed(() => {
 
 const workflowPermissions = computed(() => getResourcePermissions(workflow.value?.scopes).workflow);
 
-const isPersonalSpace = computed(
-	() => projectsStore.currentProject?.type === ProjectTypes.Personal,
-);
-
 const isPersonalSpaceRestricted = computed(
 	() =>
 		workflow.value.homeProject?.type === ProjectTypes.Personal &&
