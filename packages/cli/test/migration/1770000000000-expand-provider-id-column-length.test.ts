@@ -18,24 +18,6 @@ interface AuthIdentity {
 	providerType: string;
 }
 
-/**
- * Generate parameter placeholders for a given context and count.
- * PostgreSQL uses $1, $2, ... while MySQL/SQLite use ?
- */
-function getParamPlaceholders(context: TestMigrationContext, count: number): string {
-	if (context.isPostgres) {
-		return Array.from({ length: count }, (_, i) => `$${i + 1}`).join(', ');
-	}
-	return Array.from({ length: count }, () => '?').join(', ');
-}
-
-/**
- * Generate a single parameter placeholder for WHERE clauses
- */
-function getParamPlaceholder(context: TestMigrationContext, index = 1): string {
-	return context.isPostgres ? `$${index}` : '?';
-}
-
 describe('ExpandProviderIdColumnLength Migration', () => {
 	let dataSource: DataSource;
 
@@ -63,18 +45,23 @@ describe('ExpandProviderIdColumnLength Migration', () => {
 		columnName: string,
 	): Promise<string> {
 		if (context.isPostgres) {
-			const result = await context.queryRunner.query(
+			const result = await context.runQuery<
+				Array<{ data_type: string; character_maximum_length: number }>
+			>(
 				`SELECT data_type, character_maximum_length
 				 FROM information_schema.columns
-				 WHERE table_name = $1 AND column_name = $2`,
-				[`${context.tablePrefix}${tableName}`, columnName],
+				 WHERE table_name = :tableName AND column_name = :columnName`,
+				{
+					tableName: `${context.tablePrefix}${tableName}`,
+					columnName,
+				},
 			);
 			return `${result[0]?.data_type}(${result[0]?.character_maximum_length})`;
 		} else if (context.isSqlite) {
-			const result = await context.queryRunner.query(
+			const result = await context.runQuery<Array<{ name: string; type: string }>>(
 				`PRAGMA table_info(${context.escape.tableName(tableName)})`,
 			);
-			const column = result.find((col: { name: string }) => col.name === columnName);
+			const column = result.find((col) => col.name === columnName);
 			return column?.type || 'unknown';
 		}
 		return 'unknown';
@@ -88,22 +75,24 @@ describe('ExpandProviderIdColumnLength Migration', () => {
 		tableName: string,
 	): Promise<string[]> {
 		if (context.isPostgres) {
-			const result = await context.queryRunner.query(
+			const result = await context.runQuery<Array<{ column_name: string }>>(
 				`SELECT a.attname as column_name
 				 FROM pg_index i
 				 JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
-				 WHERE i.indrelid = $1::regclass AND i.indisprimary`,
-				[`${context.tablePrefix}${tableName}`],
+				 WHERE i.indrelid = :tableName::regclass AND i.indisprimary`,
+				{
+					tableName: `${context.tablePrefix}${tableName}`,
+				},
 			);
-			return result.map((row: { column_name: string }) => row.column_name);
+			return result.map((row) => row.column_name);
 		} else if (context.isSqlite) {
-			const result = await context.queryRunner.query(
+			const result = await context.runQuery<Array<{ name: string; pk: number }>>(
 				`PRAGMA table_info(${context.escape.tableName(tableName)})`,
 			);
 			return result
-				.filter((col: { pk: number }) => col.pk > 0)
-				.sort((a: { pk: number }, b: { pk: number }) => a.pk - b.pk)
-				.map((col: { name: string }) => col.name);
+				.filter((col) => col.pk > 0)
+				.sort((a, b) => a.pk - b.pk)
+				.map((col) => col.name);
 		}
 		return [];
 	}
@@ -116,7 +105,7 @@ describe('ExpandProviderIdColumnLength Migration', () => {
 		tableName: string,
 	): Promise<Array<{ from: string; table: string; to: string }>> {
 		if (context.isPostgres) {
-			const result = await context.queryRunner.query(
+			const result = await context.runQuery<Array<{ from: string; table: string; to: string }>>(
 				`SELECT
 					kcu.column_name as "from",
 					ccu.table_name as "table",
@@ -129,19 +118,21 @@ describe('ExpandProviderIdColumnLength Migration', () => {
 				   ON ccu.constraint_name = tc.constraint_name
 				   AND ccu.table_schema = tc.table_schema
 				 WHERE tc.constraint_type = 'FOREIGN KEY'
-				   AND tc.table_name = $1`,
-				[`${context.tablePrefix}${tableName}`],
+				   AND tc.table_name = :tableName`,
+				{
+					tableName: `${context.tablePrefix}${tableName}`,
+				},
 			);
-			return result.map((row: { from: string; table: string; to: string }) => ({
+			return result.map((row) => ({
 				from: row.from,
 				table: row.table.replace(context.tablePrefix, ''),
 				to: row.to,
 			}));
 		} else if (context.isSqlite) {
-			const result = await context.queryRunner.query(
+			const result = await context.runQuery<Array<{ from: string; table: string; to: string }>>(
 				`PRAGMA foreign_key_list(${context.escape.tableName(tableName)})`,
 			);
-			return result.map((fk: { from: string; table: string; to: string }) => ({
+			return result.map((fk) => ({
 				from: fk.from,
 				table: fk.table,
 				to: fk.to,
@@ -163,12 +154,18 @@ describe('ExpandProviderIdColumnLength Migration', () => {
 		const createdAtColumn = context.escape.columnName('createdAt');
 		const updatedAtColumn = context.escape.columnName('updatedAt');
 
-		const placeholders = getParamPlaceholders(context, 7);
-
-		await context.queryRunner.query(
+		await context.runQuery(
 			`INSERT INTO ${tableName} (${idColumn}, ${emailColumn}, ${firstNameColumn}, ${lastNameColumn}, ${passwordColumn}, ${createdAtColumn}, ${updatedAtColumn})
-			 VALUES (${placeholders})`,
-			[userId, 'test@example.com', 'Test', 'User', 'hashed_password', new Date(), new Date()],
+			 VALUES (:userId, :email, :firstName, :lastName, :password, :createdAt, :updatedAt)`,
+			{
+				userId,
+				email: 'test@example.com',
+				firstName: 'Test',
+				lastName: 'User',
+				password: 'hashed_password',
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			},
 		);
 	}
 
@@ -186,11 +183,16 @@ describe('ExpandProviderIdColumnLength Migration', () => {
 		const createdAtColumn = context.escape.columnName('createdAt');
 		const updatedAtColumn = context.escape.columnName('updatedAt');
 
-		const placeholders = getParamPlaceholders(context, 5);
-		await context.queryRunner.query(
+		await context.runQuery(
 			`INSERT INTO ${tableName} (${userIdColumn}, ${providerIdColumn}, ${providerTypeColumn}, ${createdAtColumn}, ${updatedAtColumn})
-			 VALUES (${placeholders})`,
-			[identity.userId, identity.providerId, identity.providerType, new Date(), new Date()],
+			 VALUES (:userId, :providerId, :providerType, :createdAt, :updatedAt)`,
+			{
+				userId: identity.userId,
+				providerId: identity.providerId,
+				providerType: identity.providerType,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			},
 		);
 	}
 
@@ -207,25 +209,18 @@ describe('ExpandProviderIdColumnLength Migration', () => {
 		const providerIdColumn = context.escape.columnName('providerId');
 		const providerTypeColumn = context.escape.columnName('providerType');
 
-		const result = await context.queryRunner.query(
-			`SELECT ${userIdColumn}, ${providerIdColumn}, ${providerTypeColumn}
+		const result = await context.runQuery<AuthIdentity[]>(
+			`SELECT ${userIdColumn} as userId, ${providerIdColumn} as providerId, ${providerTypeColumn} as providerType
 			 FROM ${tableName}
-			 WHERE ${providerIdColumn} = ${getParamPlaceholder(context, 1)}
-			   AND ${providerTypeColumn} = ${getParamPlaceholder(context, 2)}`,
-			[providerId, providerType],
+			 WHERE ${providerIdColumn} = :providerId
+			   AND ${providerTypeColumn} = :providerType`,
+			{
+				providerId,
+				providerType,
+			},
 		);
 
-		if (!result || result.length === 0) {
-			return null;
-		}
-
-		const row = result[0];
-		// Handle different database result formats (SQLite uses lowercase, PostgreSQL uses the actual column names)
-		return {
-			userId: row.userId || row.userid || row[userIdColumn],
-			providerId: row.providerId || row.providerid || row[providerIdColumn],
-			providerType: row.providerType || row.providertype || row[providerTypeColumn],
-		};
+		return result[0] || null;
 	}
 
 	describe('up migration', () => {
@@ -446,10 +441,9 @@ describe('ExpandProviderIdColumnLength Migration', () => {
 			// Verify all identities exist before migration
 			const tableName = context.escape.tableName('auth_identity');
 			const userIdColumn = context.escape.columnName('userId');
-			const placeholder = getParamPlaceholder(context);
-			const beforeCount = await context.queryRunner.query(
-				`SELECT COUNT(*) as count FROM ${tableName} WHERE ${userIdColumn} = ${placeholder}`,
-				[userId],
+			const beforeCount = await context.runQuery<Array<{ count: number }>>(
+				`SELECT COUNT(*) as count FROM ${tableName} WHERE ${userIdColumn} = :userId`,
+				{ userId },
 			);
 			expect(Number(beforeCount[0].count)).toBe(3);
 
@@ -462,9 +456,9 @@ describe('ExpandProviderIdColumnLength Migration', () => {
 			const postContext = createTestMigrationContext(dataSource);
 
 			// Verify all 3 identities still exist after migration
-			const afterCount = await postContext.queryRunner.query(
-				`SELECT COUNT(*) as count FROM ${tableName} WHERE ${userIdColumn} = ${placeholder}`,
-				[userId],
+			const afterCount = await postContext.runQuery<Array<{ count: number }>>(
+				`SELECT COUNT(*) as count FROM ${tableName} WHERE ${userIdColumn} = :userId`,
+				{ userId },
 			);
 			expect(Number(afterCount[0].count)).toBe(3);
 
